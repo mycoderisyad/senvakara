@@ -1,6 +1,6 @@
 # Database Design — Senvakara
 
-**Status:** migration v1 implemented in `crates/storage/migrations/0001_init.sql` (hosts, host_endpoints, ssh_settings, devices, device_routes, sessions); workspaces/workflows tables are still proposals below. SQLite stores app metadata, **not** plaintext passwords, private keys or Android pairing secrets. OS credential manager/keyring is the designated secret boundary.
+**Status:** migration v1 implemented in `crates/storage/migrations/0001_init.sql` (hosts, host_endpoints, ssh_settings, devices, device_routes, sessions); migration v2 in `0002_workspaces.sql` adds `workspaces` and `workspace_panels` (panel targets stored as JSON references, max 4 panels); workflow tables are still proposals below. SQLite stores app metadata, **not** plaintext passwords, private keys or Android pairing secrets. OS credential manager/keyring is the designated secret boundary.
 
 ## 1. Entity model
 

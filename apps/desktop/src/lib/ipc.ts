@@ -346,3 +346,27 @@ export interface DesktopOpened {
 export const desktopInfo = (hostId: string) => invoke<DesktopInfo>("desktop_info", { hostId });
 export const desktopOpen = (hostId: string) => invoke<DesktopOpened>("desktop_open", { hostId });
 export const desktopClose = (id: number) => invoke<void>("desktop_close", { id });
+
+// ---------- workspaces ----------
+
+export type PanelSpec =
+  | { panel_type: "terminal"; target: { title: string; shell: ShellRequest } }
+  | { panel_type: "mirror"; target: { route_id: string } }
+  | { panel_type: "logcat"; target: { route_id: string } }
+  | { panel_type: "desktop"; target: { host_id: string } }
+  | { panel_type: "files"; target: { host_id: string } };
+
+export type LayoutKind = "single" | "columns" | "grid";
+
+export interface WorkspaceRecord {
+  id: string;
+  name: string;
+  layout: { layout?: LayoutKind };
+  panels: PanelSpec[];
+  updated_at: string;
+}
+
+export const workspacesList = () => invoke<WorkspaceRecord[]>("workspaces_list");
+export const workspaceSave = (input: { id: string | null; name: string; layout: { layout: LayoutKind }; panels: PanelSpec[] }) =>
+  invoke<WorkspaceRecord>("workspace_save", { input });
+export const workspaceDelete = (id: string) => invoke<void>("workspace_delete", { id });

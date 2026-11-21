@@ -71,7 +71,7 @@ export function FilesView() {
   return <RemoteBrowser key={hostId} hostId={hostId} hostName={remoteHosts.find((h) => h.id === hostId)?.display_name ?? ""} picker={picker} />;
 }
 
-function RemoteBrowser({ hostId, hostName, picker }: { hostId: string; hostName: string; picker: ReactNode }) {
+export function RemoteBrowser({ hostId, hostName, picker }: { hostId: string; hostName: string; picker: ReactNode }) {
   const [listing, setListing] = useState<Listing | null>(null);
   const [pathInput, setPathInput] = useState("");
   const [loading, setLoading] = useState(true);

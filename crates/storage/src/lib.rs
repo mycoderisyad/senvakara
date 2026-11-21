@@ -6,14 +6,19 @@
 
 mod devices;
 mod hosts;
+mod workspaces;
 
 pub use devices::DeviceRouteRecord;
 pub use hosts::{HostRecord, HostUpsert, SshEndpoint};
+pub use workspaces::{PanelRecord, WorkspaceRecord, WorkspaceSave};
 
 use rusqlite::Connection;
 use std::path::Path;
 
-const MIGRATIONS: &[&str] = &[include_str!("../migrations/0001_init.sql")];
+const MIGRATIONS: &[&str] = &[
+    include_str!("../migrations/0001_init.sql"),
+    include_str!("../migrations/0002_workspaces.sql"),
+];
 
 #[derive(Debug, thiserror::Error)]
 pub enum StorageError {
@@ -87,9 +92,9 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("svk-test-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("t.db");
-        assert_eq!(Db::open(&path).unwrap().schema_version().unwrap(), 1);
+        assert_eq!(Db::open(&path).unwrap().schema_version().unwrap(), 2);
         // Re-opening must not re-run migrations.
-        assert_eq!(Db::open(&path).unwrap().schema_version().unwrap(), 1);
+        assert_eq!(Db::open(&path).unwrap().schema_version().unwrap(), 2);
         let _ = std::fs::remove_dir_all(dir);
     }
 

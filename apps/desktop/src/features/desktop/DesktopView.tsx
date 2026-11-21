@@ -5,12 +5,20 @@ import { useUi } from "../../lib/store";
 
 type Status = "starting" | "connected" | "ended";
 
-/**
- * The host's current graphical session in a Senvakara pane (DESK-01..03).
- * The session starts when this view opens and ends when it closes.
- */
+/** Full-page remote desktop opened from Hosts. */
 export function DesktopView() {
-  const { desktopHostId, hosts, setView } = useUi();
+  const { desktopHostId, setView } = useUi();
+  if (!desktopHostId) return null;
+  return <DesktopPane hostId={desktopHostId} onClose={() => setView("hosts")} />;
+}
+
+/**
+ * The host's current graphical session (DESK-01..03). The session starts
+ * when the pane mounts and ends when it unmounts.
+ */
+export function DesktopPane({ hostId, onClose }: { hostId: string; onClose?: () => void }) {
+  const { hosts } = useUi();
+  const desktopHostId = hostId;
   const host = hosts.find((h) => h.id === desktopHostId);
   const screen = useRef<HTMLDivElement>(null);
   const rfb = useRef<RFB | null>(null);
@@ -72,9 +80,11 @@ export function DesktopView() {
   return (
     <section className="view desktop-view">
       <div className="desktop-bar">
-        <button className="link" onClick={() => setView("hosts")}>
-          ← Hosts
-        </button>
+        {onClose && (
+          <button className="link" onClick={onClose}>
+            ← Hosts
+          </button>
+        )}
         <strong>{host?.display_name ?? "Host"}</strong>
         <span className="muted small">
           {opened ? `${opened.desktop ?? "desktop"} · display ${opened.display}` : ""} · via SSH tunnel · one-time password
@@ -85,7 +95,7 @@ export function DesktopView() {
         <label className="check">
           <input type="checkbox" checked={viewOnly} onChange={(e) => setViewOnly(e.target.checked)} /> View only
         </label>
-        <button onClick={() => setView("hosts")}>Disconnect</button>
+        {onClose && <button onClick={onClose}>Disconnect</button>}
       </div>
       {error && <p className="banner bad small">{error}</p>}
       <div className="desktop-screen" ref={screen} aria-label={`Remote desktop of ${host?.display_name ?? "host"}`} />

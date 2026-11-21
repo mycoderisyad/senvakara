@@ -38,6 +38,8 @@ Changes to documentation and (later) shipped product are tracked separately. For
 - Automatic reconnect of hosts after a connection loss (bounded backoff, stops on authentication problems or when you disconnect).
 - tmux-backed SSH tabs that survive disconnects and reattach with ↻.
 
+- Workspaces: save and reopen 1/2/4-panel layouts mixing terminals (incl. tmux), phone screens, logcat, files and remote desktops; panels that cannot run explain why and offer to connect the host.
+
 ### Fixed (development builds)
 
 - Device availability shown after a restart no longer reflects the previous session.

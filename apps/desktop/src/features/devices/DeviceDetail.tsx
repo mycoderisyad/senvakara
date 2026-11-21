@@ -128,7 +128,7 @@ function ScreenSection({ device }: { device: DeviceView }) {
 
 const MAX_LINES = 5000;
 
-function LogcatSection({ device }: { device: DeviceView }) {
+export function LogcatSection({ device }: { device: DeviceView }) {
   const [lines, setLines] = useState<string[]>([]);
   const [id, setId] = useState<number | null>(null);
   const [filter, setFilter] = useState("");

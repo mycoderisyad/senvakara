@@ -11,6 +11,7 @@ mod mirror;
 mod monitor;
 mod state;
 mod terminal;
+mod workspaces;
 
 use tauri::Manager;
 
@@ -82,6 +83,9 @@ pub fn run() {
             desktop::desktop_info,
             desktop::desktop_open,
             desktop::desktop_close,
+            workspaces::workspaces_list,
+            workspaces::workspace_save,
+            workspaces::workspace_delete,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
