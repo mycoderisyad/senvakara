@@ -1,0 +1,53 @@
+# Architecture Decisions — Senvakara
+
+This is a lightweight ADR (Architecture Decision Record) log. **Accepted** describes a design direction chosen in brainstorming, *not* a tested working implementation. Pending selections must remain explicit.
+
+## Decision index
+
+| ID | Status | Decision | Rationale |
+|---|---|---|---|
+| ADR-001 | Accepted (product) | Product name: Senvakara | Chosen working name; legal/trademark review outstanding |
+| ADR-002 | Accepted (product) | Unified device-centric, host-aware model | Android can be attached to any authorized host |
+| ADR-003 | Accepted (product) | LAN-first (Wi-Fi/Ethernet), future VPN | Feasible initial deployment without mandatory cloud |
+| ADR-004 | Accepted (direction) | Local-first, lightweight, modular, secure by default | Privacy and manageable performance |
+| ADR-005 | Proposed / PoC pending | Tauri 2 + React + TypeScript + Rust desktop core | Candidate for UI + native integrations |
+| ADR-006 | Proposed / PoC pending | Linux Rust agent and secure agent control API | For inventory/metrics/ADB bridge; may start with SSH |
+| ADR-007 | Accepted (direction) | Reuse existing SSH/SFTP/RDP/VNC/ADB/scrcpy technology | Reduced maintenance/risk vs rewriting protocols |
+| ADR-008 | Proposed / PoC pending | Embed RDP/VNC and scrcpy inside Senvakara UI | Ideal UX; renderer feasibility unresolved |
+| ADR-009 | Accepted (direction) | SQLite for metadata; secrets in OS-protected store | Local-first storage with secret separation |
+| ADR-010 | Proposed / security review pending | Agent transport and pairing design | Must be authenticated/encrypted and versioned |
+| ADR-011 | Accepted (product) | Multiple devices/connection routes per host | Windows USB, Fedora USB and Wireless ADB coexist |
+| ADR-012 | Accepted (plan) | MVP SSH/SFTP/local terminal + cross-host basic ADB | Prove differentiation before video complexity |
+| ADR-013 | Accepted (product) | Remote hosts are generic Linux; Fedora is only the reference test host | No distro-specific package managers/paths; host capabilities detected at connect time (`/etc/os-release`, `uname -m`, `adb`, session type, desktop environment) |
+| ADR-014 | Proposed / PoC pending | Remote ADB via SSH local port-forward to the Linux host's `127.0.0.1:5037` (no agent required for MVP) | Reuses verified SSH transport; ADB server never leaves localhost |
+| ADR-015 | Accepted (licensing) | Do not bundle Google's prebuilt `adb.exe`; detect user install or offer official download with user acceptance of Google terms | Android SDK License §3.4 restricts redistribution |
+| ADR-016 | Proposed / PoC pending | Candidate libraries: `portable-pty` (ConPTY), `russh` + `russh-sftp`, `rusqlite`, `keyring` 4.x, `@xterm/xterm` 6.x; binary streams via Tauri `Channel` raw bodies | Mature, permissive licenses (MIT/Apache-2.0); pin exact versions; PoC evidence required |
+| ADR-017 | Proposed / PoC pending | Embedded mirroring via scrcpy-server + `@yume-chan/scrcpy` + WebCodecs; embedded RDP via IronRDP in Rust core; VNC via noVNC + loopback WS bridge | Webview cannot open raw TCP; scrcpy server/client versions must match exactly; external viewers remain labeled fallbacks |
+
+## ADR template for new choices
+
+```md
+### ADR-XXX — Short title
+- Date:
+- Status: Proposed | Accepted | Superseded | Rejected
+- Context:
+- Decision:
+- Alternatives:
+- Trade-offs / risks:
+- Validation evidence:
+- Security/compatibility/licensing implications:
+- Related files/tasks:
+```
+
+## Open decisions and evidence needed
+
+1. Which Windows PTY implementation and SSH library pass terminal and security tests?
+2. Does remote ADB through Fedora work best via SSH tunnel, agent RPC or both? Measure reliability and avoid exposing port 5037.
+3. Which protocol stack reliably embeds scrcpy and RDP/VNC in Tauri without unacceptable overhead? Benchmark RAM, CPU, latency.
+4. What Fedora Wayland desktop protocol/server stack is supported?
+5. Which encrypted, authenticated agent transport/pairing scheme is practical and secure?
+6. How can the same Android be verified across USB and wireless route changes without accidental merge?
+7. Which third-party binaries are legally distributable/bundleable, and what is final project license?
+8. Should future VPN connectivity be user-managed or have optional guided setup?
+
+When a decision changes, add superseding ADR and update impacted `ARCHITECTURE.md`, `TECH_STACK.md`, `API.md`, `SECURITY.md`, `TASKS.md` rather than silently rewriting history.
