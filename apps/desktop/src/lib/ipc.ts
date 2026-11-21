@@ -408,3 +408,40 @@ export const xferDeviceToHost = (
     overwrite,
     onEvent: new Channel<TransferEvent>(onEvent),
   });
+
+// ---------- developer workflow (build → deploy) ----------
+
+export interface FlutterInfo {
+  path: string;
+  version: string;
+}
+
+export interface FlowSpec {
+  build_host_id: string;
+  project_dir: string;
+  mode: "debug" | "release";
+  route_id: string;
+  expected_serial: string;
+  launch: boolean;
+  logcat: boolean;
+}
+
+export type FlowEvent =
+  | { kind: "step"; ordinal: number; name: string; status: string; detail: string | null }
+  | { kind: "log"; text: string }
+  | { kind: "done"; status: string; message: string };
+
+export interface RunRecord {
+  id: string;
+  status: string;
+  created_at: string;
+  finished_at: string | null;
+  summary: { target?: string; project?: string; mode?: string; result?: string; seconds?: number };
+  steps: Array<{ ordinal: number; action_kind: string; status: string; result: { detail?: string } | null }>;
+}
+
+export const flutterInfo = (hostId: string) => invoke<FlutterInfo>("flutter_info", { hostId });
+export const flowStart = (spec: FlowSpec, onEvent: (e: FlowEvent) => void) =>
+  invoke<string>("flow_start", { spec, onEvent: new Channel<FlowEvent>(onEvent) });
+export const flowCancel = (runId: string) => invoke<void>("flow_cancel", { runId });
+export const flowHistory = () => invoke<RunRecord[]>("flow_history");

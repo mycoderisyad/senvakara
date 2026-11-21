@@ -6,6 +6,7 @@ mod android_tools;
 mod crosshost;
 mod desktop;
 mod files;
+mod flow;
 mod hosts;
 mod logging;
 mod mirror;
@@ -38,6 +39,7 @@ pub fn run() {
         .manage(mirror::Mirrors::default())
         .manage(monitor::Monitor::default())
         .manage(desktop::Desktops::default())
+        .manage(flow::Flows::default())
         .invoke_handler(tauri::generate_handler![
             terminal::term_open,
             terminal::term_write,
@@ -89,6 +91,10 @@ pub fn run() {
             workspaces::workspace_delete,
             crosshost::xfer_host_to_device,
             crosshost::xfer_device_to_host,
+            flow::flutter_info,
+            flow::flow_start,
+            flow::flow_cancel,
+            flow::flow_history,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

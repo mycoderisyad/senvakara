@@ -4029,6 +4029,7 @@ dependencies = [
  "senvakara-storage",
  "serde",
  "serde_json",
+ "sha2 0.11.1",
  "sysinfo",
  "tauri",
  "tauri-build",

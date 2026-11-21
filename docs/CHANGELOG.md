@@ -42,6 +42,8 @@ Changes to documentation and (later) shipped product are tracked separately. For
 
 - Send files straight from a Linux host to any phone, or from a phone to a Linux host, with progress and a size check — nothing is stored on this PC.
 
+- Deploy: build a Flutter app on this PC and install it on any phone (including phones on another host), optionally launch it and show its log; step-by-step status, cancel, and run history.
+
 ### Fixed (development builds)
 
 - Device availability shown after a restart no longer reflects the previous session.

@@ -311,7 +311,7 @@ pub(crate) fn new_transfer(transfers: &Transfers) -> (u32, Arc<AtomicBool>) {
     (id, cancel)
 }
 
-async fn push_file(
+pub(crate) async fn push_file(
     server: AdbServer,
     t: u64,
     local: &Path,

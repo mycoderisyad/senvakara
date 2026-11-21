@@ -61,9 +61,9 @@
 
 ## Phase 6 — Developer workflow
 
-- [ ] **FLOW-IMPL-01 [P1]** Configured Flutter build host and SDK validation.
-- [ ] **FLOW-IMPL-02 [P1]** Build→secure transfer→targeted install→optional launch/logcat orchestration.
-- [ ] **FLOW-IMPL-03 [P1]** Task progress, cancellation, failure stops and audit trail.
+- [x] **FLOW-IMPL-01 [P1]** Configured Flutter build host and SDK validation. *Evidence 2026-11-21: Deploy view detects the Flutter SDK on this PC even when not on PATH (found `%USERPROFILE%lutterinlutter.bat`, reports `Flutter 3.47.9`), validates the project (pubspec.yaml + android/app, applicationId read from build.gradle(.kts)). Linux hosts as build hosts are refused with a clear message (no Flutter SDK on the reference Linux host; not yet implemented).*
+- [x] **FLOW-IMPL-02 [P1]** Build→secure transfer→targeted install→optional launch/logcat orchestration. *Evidence 2026-11-21: hello-world fixture (`flutter create`, kept in `target/flutter-fixture`; the user's own projects were not touched) built in release on Windows (92 s, 41 MB, SHA-256 recorded), installed on Redmi 5A plugged into the Fedora host through the SSH-tunnelled ADB route, launched (pid verified) and 15 s of its logcat shown — 135 s end to end (PRD scenario D). Test app uninstalled afterwards.*
+- [x] **FLOW-IMPL-03 [P1]** Task progress, cancellation, failure stops and audit trail. *Evidence 2026-11-21: per-step status with live build log; a failure stops the run (first attempt failed at build with 0xC0000142 and every later step was recorded as skipped); Cancel during build stopped the whole flutter/cmd/dart process tree within ~0.8 s (0 processes left); runs and step outcomes kept in `workflow_runs`/`workflow_steps` (schema v3) and shown as History.*
 - [ ] **FLOW-IMPL-04 [P2]** Recipe editor and reusable automation steps.
 
 ## Phase 7 — Beyond local network

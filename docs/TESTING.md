@@ -125,6 +125,8 @@ MVP ships only after `E2E-01` through `E2E-07` pass on reference setup plus secu
 | 2026-11-21 | FILE-IMPL-01 | App dev build; Fedora 45 ↔ Android A (USB on Windows) | PASS | Cross-host streaming both directions with matching SHA-256; conflict and target-mismatch refusals; test files removed from phone and host. |
 | 2026-11-21 | WORK-IMPL-01/02 | App dev build; Fedora + Android A/B | PASS | 2×2 workspace (tmux terminal, B screen via Fedora, Fedora files, A logcat) saved, closed and reopened with tmux state intact; host-disconnected case explained per panel and restored by "Connect host"; DB migrated v1→v2 in place. |
 | 2026-11-21 | M5 exit gate (E2E-12) | same | PASS | Layout restore, reconnect of eligible sessions (tmux), honest explanation of unrecoverable ones, automatic host reconnect, cross-host transfers. |
+| 2026-11-21 | E2E-11 (FLOW-IMPL-01..03) | App dev build; Flutter 3.47.9 on Windows; Redmi 5A (Android 16 / SDK 36, arm64) on Fedora USB | PASS | Build on Windows → install on the Fedora-attached phone → launch → app logcat: all six steps succeeded in 135 s. Bugs found and fixed: (1) `flutter.bat` spawned from the GUI process failed with 0xC0000142 → now started with null stdin and CREATE_NO_WINDOW; (2) cancel killed only cmd.exe → now kills the whole process tree. Gradle daemons stay alive by design (reused by later builds). Debug APK of the fixture is 150 MB, release 41 MB. |
+| 2026-11-21 | M6 exit gate | same | PASS | Build on one host, deploy to a phone attached to another, verified running. Remaining gap: Linux build hosts. |
 
 ### Reference environment (POC-01)
 

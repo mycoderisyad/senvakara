@@ -6,10 +6,12 @@
 
 mod devices;
 mod hosts;
+mod workflows;
 mod workspaces;
 
 pub use devices::DeviceRouteRecord;
 pub use hosts::{HostRecord, HostUpsert, SshEndpoint};
+pub use workflows::{RunRecord, StepRecord};
 pub use workspaces::{PanelRecord, WorkspaceRecord, WorkspaceSave};
 
 use rusqlite::Connection;
@@ -18,6 +20,7 @@ use std::path::Path;
 const MIGRATIONS: &[&str] = &[
     include_str!("../migrations/0001_init.sql"),
     include_str!("../migrations/0002_workspaces.sql"),
+    include_str!("../migrations/0003_workflows.sql"),
 ];
 
 #[derive(Debug, thiserror::Error)]
@@ -92,9 +95,9 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("svk-test-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("t.db");
-        assert_eq!(Db::open(&path).unwrap().schema_version().unwrap(), 2);
+        assert_eq!(Db::open(&path).unwrap().schema_version().unwrap(), 3);
         // Re-opening must not re-run migrations.
-        assert_eq!(Db::open(&path).unwrap().schema_version().unwrap(), 2);
+        assert_eq!(Db::open(&path).unwrap().schema_version().unwrap(), 3);
         let _ = std::fs::remove_dir_all(dir);
     }
 
