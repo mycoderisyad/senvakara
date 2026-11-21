@@ -5,10 +5,15 @@
 //! the terminal; a host with an active X11 session also offers its screen.
 //!
 //! Security (docs/SECURITY.md §3, §4): x11vnc is started on demand over the
-//! authenticated SSH connection, listens only on a Unix socket inside the
-//! user's private `$XDG_RUNTIME_DIR` (no TCP port at all), accepts one client
-//! and exits. The webview reaches it through a loopback WebSocket bridge with
-//! a random one-time token, tunnelled by SSH `direct-streamlocal`.
+//! authenticated SSH connection, listens on the host's loopback only (a
+//! random port, verified with `ss` right after start; any other listener
+//! stops the session), requires a one-time 8-character password delivered
+//! over SFTP into the user's 0700 `$XDG_RUNTIME_DIR` and deleted by x11vnc
+//! on read, serves one client and is stopped when the pane closes. The
+//! webview reaches it through a loopback WebSocket bridge with a one-time
+//! 256-bit token, tunnelled by SSH `direct-tcpip`. (x11vnc's `-unixsock`
+//! needs a patched libvncserver and `-rfbport 0` still listened on
+//! `[::]:5900` on Fedora 45, so the Unix-socket design was dropped.)
 
 use crate::logging;
 use crate::state::{to_core, AppState, CmdResult};
@@ -27,7 +32,7 @@ use tokio_tungstenite::tungstenite::handshake::server::{Request, Response};
 use tokio_tungstenite::tungstenite::Message;
 
 /// Fixed detection script: no user input is interpolated.
-const DETECT: &str = r#"me=$(id -un); for s in $(loginctl list-sessions --no-legend 2>/dev/null | awk '{print $1}'); do loginctl show-session "$s" -p Name -p Type -p Display -p Active -p Desktop 2>/dev/null; echo '---'; done; echo "@@ME=$me"; echo "@@RUNTIME=$XDG_RUNTIME_DIR"; echo "@@X11VNC=$(command -v x11vnc)""#;
+const DETECT: &str = r#"me=$(id -un); for s in $(loginctl list-sessions --no-legend 2>/dev/null | awk '{print $1}'); do loginctl show-session "$s" -p Name -p Type -p Display -p Active -p Desktop 2>/dev/null; echo '---'; done; echo "@@ME=$me"; echo "@@RUNTIME=$XDG_RUNTIME_DIR"; echo "@@X11VNC=$(command -v x11vnc)"; for p in $(pgrep -u "$(id -u)"); do x=$( { tr '\0' '\n' < /proc/$p/environ; } 2>/dev/null | grep -m1 '^XAUTHORITY='); if [ -n "$x" ]; then echo "@@XAUTH=${x#XAUTHORITY=}"; break; fi; done"#;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Default)]
 pub struct DesktopInfo {
@@ -38,6 +43,11 @@ pub struct DesktopInfo {
     pub x11vnc: Option<String>,
     #[serde(skip)]
     pub runtime_dir: Option<String>,
+    /// X authority file of the user's session. Display managers put it in
+    /// different places (lightdm: /run/lightdm/<user>/xauthority), so it is
+    /// read from the user's own processes instead of guessed.
+    #[serde(skip)]
+    pub xauthority: Option<String>,
 }
 
 pub fn parse_detect(text: &str) -> DesktopInfo {
@@ -60,6 +70,12 @@ pub fn parse_detect(text: &str) -> DesktopInfo {
     info.x11vnc = text
         .lines()
         .find_map(|l| l.strip_prefix("@@X11VNC="))
+        .map(str::trim)
+        .filter(|s| s.starts_with('/'))
+        .map(str::to_string);
+    info.xauthority = text
+        .lines()
+        .find_map(|l| l.strip_prefix("@@XAUTH="))
         .map(str::trim)
         .filter(|s| s.starts_with('/'))
         .map(str::to_string);
@@ -98,6 +114,8 @@ pub async fn detect(conn: &SshConnection) -> anyhow::Result<DesktopInfo> {
 
 struct Session {
     tasks: Vec<JoinHandle<()>>,
+    conn: Arc<SshConnection>,
+    vnc_port: u16,
 }
 
 #[derive(Default)]
@@ -110,6 +128,8 @@ pub struct Desktops {
 pub struct DesktopOpened {
     pub id: u32,
     pub ws_url: String,
+    /// One-time VNC password for this session only (x11vnc exits after it).
+    pub password: String,
     pub display: String,
     pub desktop: Option<String>,
 }
@@ -129,6 +149,38 @@ pub async fn desktop_info(state: State<'_, AppState>, host_id: String) -> CmdRes
     detect(&conn)
         .await
         .map_err(|e| to_core("detect desktop", e))
+}
+
+/// Loopback-only check of `ss -ltnH` output for one port: `Some(true)` when
+/// every listener is on 127.0.0.1/::1, `Some(false)` if anything else
+/// listens, `None` while nothing listens yet.
+pub fn listeners_loopback_only(ss_output: &str, port: u16) -> Option<bool> {
+    let suffix = format!(":{port}");
+    let locals: Vec<&str> = ss_output
+        .lines()
+        .filter_map(|l| l.split_whitespace().nth(3))
+        .filter(|a| a.ends_with(&suffix))
+        .collect();
+    if locals.is_empty() {
+        return None;
+    }
+    Some(
+        locals
+            .iter()
+            .all(|a| a.starts_with("127.") || a.starts_with("[::1]")),
+    )
+}
+
+/// 20000..=59999 derived from random hex.
+fn random_port(hex: &str) -> u16 {
+    let n = u32::from_str_radix(&hex[..8], 16).unwrap_or(0);
+    20000 + (n % 40000) as u16
+}
+
+/// Stop the x11vnc started for `port` (matched by its unique port argument).
+async fn stop_x11vnc(conn: &SshConnection, port: u16) {
+    let script = format!("pkill -u \"$(id -u)\" -f 'x11vnc .*-rfbport {port} '");
+    let _ = conn.exec(&["sh", "-c", &script]).await;
 }
 
 #[tauri::command]
@@ -165,61 +217,102 @@ pub async fn desktop_open(
     let runtime = info.runtime_dir.clone().ok_or_else(|| {
         CoreError::new(
             ErrorCode::UnsupportedCapability,
-            "the host has no XDG_RUNTIME_DIR for a private socket",
+            "the host has no private XDG_RUNTIME_DIR for the one-time password",
         )
     })?;
-    let token = random_token();
-    let socket = format!("{runtime}/senvakara-vnc-{}.sock", &token[..12]);
 
-    // One client, exit after it leaves (or after 60 s without one); no TCP port.
+    // One-time secrets: bridge token (256 bit), VNC password (VNC auth uses
+    // 8 characters), random loopback port on the host.
+    let token = random_token();
+    let password = uuid::Uuid::new_v4().simple().to_string()[..8].to_string();
+    let vnc_port = random_port(&token[32..]);
+    let pw_file = format!("{runtime}/senvakara-vnc-{}.pw", &token[..12]);
+
+    // The password goes over SFTP into the 0700 runtime dir, never onto a
+    // command line where other local users could see it via `ps`.
+    {
+        let sftp = conn.sftp().await.map_err(|e| to_core("sftp", e))?;
+        let mut f = sftp
+            .create(pw_file.clone())
+            .await
+            .map_err(|e| to_core("password file", e.into()))?;
+        f.write_all(password.as_bytes())
+            .await
+            .map_err(|e| to_core("password file", e.into()))?;
+        f.shutdown()
+            .await
+            .map_err(|e| to_core("password file", e.into()))?;
+    }
+
+    let port_arg = vnc_port.to_string();
+    let pw_arg = format!("rm:{pw_file}");
+    // Loopback only, one client then exit, gone after 60 s without a client.
     let (child_writer, mut child_reader) = conn
         .spawn(&[
             &x11vnc,
             "-display",
             &display,
             "-auth",
-            "guess",
-            "-unixsock",
-            &socket,
+            info.xauthority.as_deref().unwrap_or("guess"),
+            "-localhost",
             "-rfbport",
-            "0",
+            &port_arg,
+            "-passwdfile",
+            &pw_arg,
             "-once",
             "-timeout",
             "60",
-            "-nopw",
             "-shared",
             "-noxdamage",
+            "-nolookup",
             "-quiet",
         ])
         .await
         .map_err(|e| to_core("start x11vnc", e))?;
 
-    // Wait for the socket to appear (and surface x11vnc errors if it exits).
-    let mut ready = false;
+    // Wait until it listens, then insist that it listens on loopback only.
+    let mut verdict = None;
     for _ in 0..40 {
-        let check = conn
-            .exec(&["test", "-S", &socket])
+        let ss = conn
+            .exec(&["ss", "-ltnH"])
             .await
             .map_err(|e| to_core("x11vnc", e))?;
-        if check.success() {
-            ready = true;
+        verdict = listeners_loopback_only(&ss.stdout_str(), vnc_port);
+        if verdict.is_some() {
             break;
         }
         if let Ok(Some(senvakara_adapters_ssh::SshPtyEvent::Exit(code))) =
             tokio::time::timeout(Duration::from_millis(150), child_reader.next()).await
         {
+            let _ = conn.exec(&["rm", "-f", &pw_file]).await;
             return Err(CoreError::new(
                 ErrorCode::InternalError,
                 format!("x11vnc exited early (status {code:?})"),
             ));
         }
     }
-    if !ready {
-        let _ = child_writer.close().await;
-        return Err(CoreError::new(
-            ErrorCode::Timeout,
-            "x11vnc did not start within a few seconds",
-        ));
+    match verdict {
+        Some(true) => {}
+        Some(false) => {
+            stop_x11vnc(&conn, vnc_port).await;
+            let _ = child_writer.close().await;
+            logging::warn(&format!(
+                "desktop on host {host_id}: x11vnc listened beyond loopback; stopped"
+            ));
+            return Err(CoreError::new(
+                ErrorCode::Unauthorized,
+                "x11vnc listened on a non-loopback address; it was stopped for safety",
+            ));
+        }
+        None => {
+            stop_x11vnc(&conn, vnc_port).await;
+            let _ = child_writer.close().await;
+            let _ = conn.exec(&["rm", "-f", &pw_file]).await;
+            return Err(CoreError::new(
+                ErrorCode::Timeout,
+                "x11vnc did not start within a few seconds",
+            ));
+        }
     }
 
     let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0))
@@ -232,9 +325,8 @@ pub async fn desktop_open(
     let id = desktops.next_id.fetch_add(1, Ordering::Relaxed) + 1;
     let path = format!("/{token}");
     let bridge_conn: Arc<SshConnection> = conn.clone();
-    let bridge_socket = socket.clone();
     let bridge = tauri::async_runtime::spawn(async move {
-        // Single use: the first connection presenting the token is bridged,
+        // Single use: the first connection presenting the token is bridged;
         // anything else is rejected and the listener closes after one session.
         while let Ok((tcp, _)) = listener.accept().await {
             let expected = path.clone();
@@ -264,30 +356,34 @@ pub async fn desktop_open(
             )
             .await;
             let Ok(ws) = ws else { continue };
-            let Ok(unix) = bridge_conn.open_unix_socket(&bridge_socket).await else {
+            let Ok(tcp) = bridge_conn.open_tcp("127.0.0.1", vnc_port).await else {
                 break;
             };
-            pump(ws, unix).await;
+            pump(ws, tcp).await;
             break;
         }
         let _ = child_writer.close().await;
+        stop_x11vnc(&bridge_conn, vnc_port).await;
     });
     // Keep reading the x11vnc channel so its output never blocks it.
     let drain =
         tauri::async_runtime::spawn(async move { while child_reader.next().await.is_some() {} });
 
     logging::info(&format!(
-        "desktop {id} opened on host {host_id} display {display}"
+        "desktop {id} opened on host {host_id} display {display} (loopback-only port verified)"
     ));
     desktops.sessions.lock().unwrap().insert(
         id,
         Session {
             tasks: vec![bridge, drain],
+            conn: conn.clone(),
+            vnc_port,
         },
     );
     Ok(DesktopOpened {
         id,
         ws_url: format!("ws://127.0.0.1:{port}/{token}"),
+        password,
         display,
         desktop: info.desktop,
     })
@@ -335,13 +431,18 @@ where
 }
 
 #[tauri::command]
-pub fn desktop_close(desktops: State<'_, Desktops>, id: u32) {
-    if let Some(s) = desktops.sessions.lock().unwrap().remove(&id) {
+pub async fn desktop_close(desktops: State<'_, Desktops>, id: u32) -> CmdResult<()> {
+    let session = desktops.sessions.lock().unwrap().remove(&id);
+    if let Some(s) = session {
         for t in s.tasks {
             t.abort();
         }
+        // Aborting the bridge does not guarantee x11vnc saw its client leave:
+        // stop it explicitly so nothing keeps serving the screen.
+        stop_x11vnc(&s.conn, s.vnc_port).await;
         logging::info(&format!("desktop {id} closed"));
     }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -351,7 +452,7 @@ mod tests {
     const SAMPLE: &str = "Name=alice\nType=tty\nDisplay=\nActive=yes\nDesktop=\n---\n\
 Name=alice\nType=x11\nDisplay=:0\nActive=yes\nDesktop=xfce\n---\n\
 Name=other\nType=x11\nDisplay=:1\nActive=yes\nDesktop=kde\n---\n\
-@@ME=alice\n@@RUNTIME=/run/user/1000\n@@X11VNC=/usr/bin/x11vnc\n";
+@@ME=alice\n@@RUNTIME=/run/user/1000\n@@X11VNC=/usr/bin/x11vnc\n@@XAUTH=/run/lightdm/alice/xauthority\n";
 
     #[test]
     fn finds_own_active_x11_session() {
@@ -361,6 +462,23 @@ Name=other\nType=x11\nDisplay=:1\nActive=yes\nDesktop=kde\n---\n\
         assert_eq!(i.desktop.as_deref(), Some("xfce"));
         assert_eq!(i.x11vnc.as_deref(), Some("/usr/bin/x11vnc"));
         assert_eq!(i.runtime_dir.as_deref(), Some("/run/user/1000"));
+        assert_eq!(
+            i.xauthority.as_deref(),
+            Some("/run/lightdm/alice/xauthority")
+        );
+    }
+
+    #[test]
+    fn loopback_listener_check() {
+        let ok = "LISTEN 0 32 127.0.0.1:43210 0.0.0.0:*\nLISTEN 0 128 0.0.0.0:22 0.0.0.0:*\n";
+        assert_eq!(listeners_loopback_only(ok, 43210), Some(true));
+        let bad = "LISTEN 0 32 [::]:43210 [::]:*\n";
+        assert_eq!(listeners_loopback_only(bad, 43210), Some(false));
+        let mixed = "LISTEN 0 32 127.0.0.1:43210 0.0.0.0:*\nLISTEN 0 32 0.0.0.0:43210 0.0.0.0:*\n";
+        assert_eq!(listeners_loopback_only(mixed, 43210), Some(false));
+        let other = "LISTEN 0 32 127.0.0.1:5900 0.0.0.0:*\n";
+        assert_eq!(listeners_loopback_only(other, 43210), None);
+        assert!((20000..60000).contains(&random_port("ffffffff")));
     }
 
     #[test]

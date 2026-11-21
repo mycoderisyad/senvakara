@@ -10,7 +10,7 @@
 - [x] **POC-04 [P0]** Prove SFTP listing/upload/download to Fedora. *Evidence 2026-11-21: `cargo run -p senvakara-adapters-ssh --example poc_linux -- <host> <user> <pinned-fp>` → 14/14 PASS (see TESTING.md §9).*
 - [x] **POC-05 [P0]** Prove separate ADB operations against Android on Windows USB and Fedora USB from Windows via secure route. *Evidence 2026-11-21: `cargo run -p senvakara-adapters-ssh --example poc_linux -- <host> <user> <pinned-fp>` → 14/14 PASS (see TESTING.md §9).*
 - [x] **POC-06 [P1]** Benchmark remote scrcpy command/media/control path via Fedora; assess embedded renderer options. *Evidence 2026-11-21: own scrcpy v3.3.3 client over the ADB host protocol; via Fedora tunnel B starts in ~2.9 s (incl. first server push), local A in ~0.8 s; static-screen A ≈ 320 kbps; app + WebView working set ≈ 571 MB and ≈ 29 % of one core with two mirrors open (dev build). Glass-to-glass latency not yet measured. Renderer: WebCodecs H.264 → canvas.*
-- [ ] **POC-07 [P1]** Validate Fedora Wayland desktop sharing with selected RDP/VNC backend.
+- [x] **POC-07 [P1]** Validate Fedora Wayland desktop sharing with selected RDP/VNC backend. *Evidence 2026-11-21: reference host runs Xfce on X11 (not Wayland); validated with x11vnc 0.9.17 — see TESTING.md §9.*
 - [ ] **POC-08 [P0]** Record security/licensing/build constraints and PoC findings in decisions.
 
 ## Phase 1 — App skeleton + MVP terminal and SFTP
@@ -45,9 +45,9 @@
 
 ## Phase 4 — Remote desktop and monitoring
 
-- [ ] **DESK-IMPL-01 [P1]** RDP authentication and remote keyboard/mouse adapter PoC.
-- [ ] **DESK-IMPL-02 [P1]** VNC adapter PoC and Fedora Wayland compatibility decision. *Implemented 2026-11-21: on-demand x11vnc on a user-only Unix socket (no TCP), SSH `direct-streamlocal`, loopback WebSocket bridge with one-time 256-bit token, noVNC pane. Wayland sessions reported as unsupported for now. Pending: test after `x11vnc` is installed on the reference host.*
-- [ ] **DESK-IMPL-03 [P1]** Embedded session pane or documented temporary external-viewer fallback.
+- [ ] **DESK-IMPL-01 [P1]** RDP authentication and remote keyboard/mouse adapter PoC. *Deferred: no RDP target in the reference setup (Linux host uses X11/VNC); needed for Windows or xrdp hosts.*
+- [x] **DESK-IMPL-02 [P1]** VNC adapter PoC and Fedora Wayland compatibility decision. *Evidence 2026-11-21: Fedora 45 Xfce (X11, lightdm) shared in-app: connect ≈1.3 s, 1366×768, right-click/Escape reach the host; listeners only on 127.0.0.1/[::1]; password file removed; 0 x11vnc processes after closing. Wayland: detected and reported unsupported (decision: X11 only for now). Text-mode host: terminal only.*
+- [x] **DESK-IMPL-03 [P1]** Embedded session pane or documented temporary external-viewer fallback. *Evidence 2026-11-21: embedded noVNC pane (Hosts → Desktop), no external viewer needed for X11 hosts.*
 - [x] **MON-IMPL-01 [P1]** Unprivileged host metrics collector; adjustable sample interval. *Evidence 2026-11-21: Overview shows CPU %, memory, system disk, network rates, uptime (and load on Linux) for this PC (`sysinfo` 0.38) and Fedora (one read-only `/proc` + `df` command over SSH, no agent, no root); values matched `free`/`df`/`nproc` on the host; interval 2/5/10/30 s, sampling only while the page is open.*
 - [ ] **MON-IMPL-02 [P1]** Connection heartbeat and stale-device status. *Implemented 2026-11-21 (15 s SSH heartbeat tears down tunnels/routes and emits `host-lost`; startup resets stale route states). Pending: real network-loss test.*
 

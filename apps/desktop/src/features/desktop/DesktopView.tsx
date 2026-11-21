@@ -35,6 +35,8 @@ export function DesktopView() {
         r.scaleViewport = true;
         r.resizeSession = false;
         r.focusOnClick = true;
+        // The one-time password never leaves memory and is useless after this session.
+        r.addEventListener("credentialsrequired", () => r.sendCredentials({ password: o.password }));
         r.addEventListener("connect", () => {
           setStatus("connected");
           r.focus();
@@ -75,7 +77,7 @@ export function DesktopView() {
         </button>
         <strong>{host?.display_name ?? "Host"}</strong>
         <span className="muted small">
-          {opened ? `${opened.desktop ?? "desktop"} · display ${opened.display}` : ""} · via SSH (private socket)
+          {opened ? `${opened.desktop ?? "desktop"} · display ${opened.display}` : ""} · via SSH tunnel · one-time password
         </span>
         <span className={`badge ${status === "connected" ? "ok" : status === "starting" ? "warn" : "bad"}`}>
           {status === "connected" ? "● connected" : status === "starting" ? "◌ starting…" : "✕ ended"}

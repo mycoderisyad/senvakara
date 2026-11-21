@@ -12,5 +12,6 @@ declare module "@novnc/novnc" {
     focus(): void;
     sendCtrlAltDel(): void;
     clipboardPasteFrom(text: string): void;
+    sendCredentials(creds: { password?: string; username?: string }): void;
   }
 }

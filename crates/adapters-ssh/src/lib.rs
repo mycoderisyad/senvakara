@@ -276,6 +276,20 @@ impl SshConnection {
         Ok(ch.into_stream())
     }
 
+    /// Byte stream to `host:port` as seen from the SSH server (`direct-tcpip`),
+    /// e.g. a service bound to the host's loopback interface only.
+    pub async fn open_tcp(
+        &self,
+        host: &str,
+        port: u16,
+    ) -> Result<russh::ChannelStream<client::Msg>> {
+        let ch = self
+            .handle
+            .channel_open_direct_tcpip(host, port.into(), "127.0.0.1", 0)
+            .await?;
+        Ok(ch.into_stream())
+    }
+
     pub async fn sftp(&self) -> Result<SftpSession> {
         let ch = self.handle.channel_open_session().await?;
         ch.request_subsystem(true, "sftp").await?;

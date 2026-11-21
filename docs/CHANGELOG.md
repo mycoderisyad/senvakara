@@ -33,7 +33,7 @@ Changes to documentation and (later) shipped product are tracked separately. For
 - Add phones over Wi-Fi (Android 11+ Wireless debugging): network scan, pairing code, connect/disconnect, through this PC or a connected Linux host.
 
 - Overview dashboard: live CPU, memory, disk, network and uptime for this PC and connected Linux hosts.
-- Hosts show whether the host has a graphical session; Desktop opens an X11 session in a Senvakara pane (requires x11vnc on the host).
+- Hosts show whether the host has a graphical session; Desktop shows the host's X11 session in a Senvakara pane with mouse and keyboard (requires x11vnc on the host; loopback-only, one-time password, stopped on close).
 
 ### Fixed (development builds)
 

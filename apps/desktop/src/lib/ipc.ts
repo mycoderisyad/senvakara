@@ -334,6 +334,8 @@ export interface DesktopInfo {
 export interface DesktopOpened {
   id: number;
   ws_url: string;
+  /** One-time VNC password for this session only. */
+  password: string;
   display: string;
   desktop: string | null;
 }
