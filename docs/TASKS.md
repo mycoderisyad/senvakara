@@ -4,11 +4,11 @@
 
 ## Phase 0 — Feasibility / prerequisites
 
-- [ ] **POC-01 [P0]** Document reference Windows/Fedora versions, Wi-Fi/Ethernet reachability, firewall and SSH prerequisites.
-- [ ] **POC-02 [P0]** Prove Windows → Fedora SSH with strict host-key checking.
+- [x] **POC-01 [P0]** Document reference Windows/Fedora versions, Wi-Fi/Ethernet reachability, firewall and SSH prerequisites. *Evidence 2026-11-21: reference environment table in TESTING.md §9.*
+- [x] **POC-02 [P0]** Prove Windows → Fedora SSH with strict host-key checking. *Evidence 2026-11-21: `cargo run -p senvakara-adapters-ssh --example poc_linux -- <host> <user> <pinned-fp>` → 14/14 PASS (see TESTING.md §9).*
 - [x] **POC-03 [P0]** Prove Windows local PTY and WSL PTY. *Evidence 2026-11-21: `cargo run -p senvakara-adapters-pty --example poc03_pty -- Ubuntu-24.04` → PowerShell=PASS, WSL=PASS (interactive input, resize to 100x40 confirmed via `stty size`, kill terminates child).*
-- [ ] **POC-04 [P0]** Prove SFTP listing/upload/download to Fedora.
-- [ ] **POC-05 [P0]** Prove separate ADB operations against Android on Windows USB and Fedora USB from Windows via secure route.
+- [x] **POC-04 [P0]** Prove SFTP listing/upload/download to Fedora. *Evidence 2026-11-21: `cargo run -p senvakara-adapters-ssh --example poc_linux -- <host> <user> <pinned-fp>` → 14/14 PASS (see TESTING.md §9).*
+- [x] **POC-05 [P0]** Prove separate ADB operations against Android on Windows USB and Fedora USB from Windows via secure route. *Evidence 2026-11-21: `cargo run -p senvakara-adapters-ssh --example poc_linux -- <host> <user> <pinned-fp>` → 14/14 PASS (see TESTING.md §9).*
 - [ ] **POC-06 [P1]** Benchmark remote scrcpy command/media/control path via Fedora; assess embedded renderer options.
 - [ ] **POC-07 [P1]** Validate Fedora Wayland desktop sharing with selected RDP/VNC backend.
 - [ ] **POC-08 [P0]** Record security/licensing/build constraints and PoC findings in decisions.

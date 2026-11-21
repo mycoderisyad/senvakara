@@ -19,9 +19,9 @@ This is a lightweight ADR (Architecture Decision Record) log. **Accepted** descr
 | ADR-011 | Accepted (product) | Multiple devices/connection routes per host | Windows USB, Fedora USB and Wireless ADB coexist |
 | ADR-012 | Accepted (plan) | MVP SSH/SFTP/local terminal + cross-host basic ADB | Prove differentiation before video complexity |
 | ADR-013 | Accepted (product) | Remote hosts are generic Linux; Fedora is only the reference test host | No distro-specific package managers/paths; host capabilities detected at connect time (`/etc/os-release`, `uname -m`, `adb`, session type, desktop environment) |
-| ADR-014 | Proposed / PoC pending | Remote ADB via SSH local port-forward to the Linux host's `127.0.0.1:5037` (no agent required for MVP) | Reuses verified SSH transport; ADB server never leaves localhost |
+| ADR-014 | Accepted (PoC evidence POC-05) | Remote ADB via SSH local port-forward to the Linux host's `127.0.0.1:5037` (no agent required for MVP) | Reuses verified SSH transport; ADB server never leaves localhost |
 | ADR-015 | Accepted (licensing) | Do not bundle Google's prebuilt `adb.exe`; detect user install or offer official download with user acceptance of Google terms | Android SDK License §3.4 restricts redistribution |
-| ADR-016 | Proposed / PoC pending | Candidate libraries: `portable-pty` (ConPTY), `russh` + `russh-sftp`, `rusqlite`, `keyring` 4.x, `@xterm/xterm` 6.x; binary streams via Tauri `Channel` raw bodies | Mature, permissive licenses (MIT/Apache-2.0); pin exact versions; PoC evidence required |
+| ADR-016 | Accepted for M1 (PoC evidence POC-02/03/04) | Libraries: `portable-pty` (ConPTY), `russh` + `russh-sftp`, `rusqlite`, `keyring` 4.x, `@xterm/xterm` 6.x; binary streams via Tauri `Channel` raw bodies | Mature, permissive licenses (MIT/Apache-2.0); pin exact versions; russh uses `ring` backend (aws-lc-sys needs NASM on Windows) |
 | ADR-017 | Proposed / PoC pending | Embedded mirroring via scrcpy-server + `@yume-chan/scrcpy` + WebCodecs; embedded RDP via IronRDP in Rust core; VNC via noVNC + loopback WS bridge | Webview cannot open raw TCP; scrcpy server/client versions must match exactly; external viewers remain labeled fallbacks |
 
 ## ADR template for new choices

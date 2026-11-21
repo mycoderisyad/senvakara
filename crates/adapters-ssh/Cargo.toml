@@ -1,0 +1,15 @@
+[package]
+name = "senvakara-adapters-ssh"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "SSH PTY, SFTP and local port-forward adapter (russh)"
+
+[dependencies]
+senvakara-core = { path = "../core" }
+# ADR-016: candidate libraries, versions pinned exactly (0.x API breaks often).
+russh = { version = "=0.65.2", default-features = false, features = ["ring", "flate2", "rsa"] }
+russh-sftp = "=3.0.1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "sync", "time", "fs"] }
+anyhow.workspace = true

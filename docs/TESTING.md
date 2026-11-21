@@ -94,3 +94,17 @@ MVP ships only after `E2E-01` through `E2E-07` pass on reference setup plus secu
 | Date | Task | Environment | Result | Notes |
 |---|---|---|---|---|
 | 2026-11-21 | POC-03 | Windows 11 Pro 10.0.26300, Rust 1.94.1 (MSVC), `portable-pty` 0.9.0, Windows PowerShell 5.1.26100, WSL 2.5.9 / Ubuntu-24.04 (kernel 6.6.87.2) | PASS | ConPTY emits a cursor-position query (`ESC[6n`) at startup and blocks until answered; xterm.js answers it, headless/test harnesses must reply `ESC[row;colR`. |
+| 2026-11-21 | POC-02 | Linux reference host: Fedora Linux 45 (Xfce), kernel 7.3.4-300.fc45.x86_64, OpenSSH server on LAN port 22; client russh 0.65.2 (`ring` backend) | PASS | Wrong pinned fingerprint rejected before auth; ed25519 key auth; interactive PTY with resize (`stty size` → `40 100`). `aws-lc-sys` (russh default) needs NASM on Windows, so `ring` is used. |
+| 2026-11-21 | POC-04 | same, russh-sftp 3.0.1 | PASS | 4 MiB round-trip byte-identical (up 2.05 s, down 4.21 s over Wi-Fi LAN, unoptimised debug build, single run); listing works; abandoning a 64 MiB upload after 300 ms leaves the session usable. Throughput not yet benchmarked. |
+| 2026-11-21 | POC-05 | Android A: Xiaomi 2201117PG, Android 13 / API 33, USB on Windows (platform-tools 35.0.2). Android B: Redmi 5A, USB on Fedora (`/usr/bin/adb`) | PASS | A and B listed simultaneously; Linux ADB server reached only via SSH local forward `127.0.0.1:<random>` → Fedora `127.0.0.1:5037`; Fedora `ss -ltn` shows 5037 on `127.0.0.1` only; Windows ADB server on `127.0.0.1:5037` only; `-s` scoped `getprop` returns correct model per host; B's serial absent from Windows server; unknown serial fails with "not found" (no fallback). |
+
+### Reference environment (POC-01)
+
+| Component | Observed |
+|---|---|
+| Windows client | Windows 11 Pro 10.0.26300, WebView2 157.0.4341.60, Rust 1.94.1 MSVC, Node 24.14.0, WSL 2.5.9 (Ubuntu-24.04) |
+| Linux reference host | Fedora Linux 45, **Xfce desktop** (not GNOME → GNOME Remote Desktop does not apply; M4 must evaluate xrdp / x11vnc), x86_64, sshd on LAN :22 reachable from Windows |
+| Android A | Xiaomi 2201117PG, Android 13 (API 33), USB → Windows |
+| Android B | Redmi 5A, USB → Fedora |
+| Network | Same LAN (Wi-Fi), manual IP; no firewall changes were required for SSH |
+
