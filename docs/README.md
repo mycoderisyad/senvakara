@@ -4,7 +4,7 @@
 
 Senvakara is a proposed **local-first unified remote access and development control center**. Its Windows desktop client will manage local and remote computers, WSL environments, and Android devices attached by USB or authorized wireless debugging—even when the Android device is physically attached to another managed computer.
 
-**Status:** development builds only. Milestones M0–M7 are implemented and verified on the reference hardware (see [TASKS.md](TASKS.md) evidence and [TESTING.md](TESTING.md) §9); RDP and VPN routes (M8) are not built. There is **no released application** yet and no benchmarked performance results.
+**Status:** development builds only. Milestones M0–M8 are implemented and verified on the reference hardware (see [TASKS.md](TASKS.md) evidence and [TESTING.md](TESTING.md) §9); the RDP adapter is not built (no RDP target to test). There is **no released application** yet and no benchmarked performance results.
 
 ## Reference setup
 

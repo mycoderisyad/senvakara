@@ -2,10 +2,11 @@
 //! structured `CoreError` the UI understands (task CORE-08).
 
 use crate::logging;
-use senvakara_adapters_ssh::{ConnectParams, HostKeyPolicy, SshConnection};
+use senvakara_adapters_ssh::{connect_any, Candidate, ConnectParams, HostKeyPolicy, SshConnection};
 use senvakara_core::{CoreError, ErrorCode};
 use senvakara_secrets::{redact, SecretStore};
-use senvakara_storage::{Db, StorageError};
+use senvakara_storage::{Db, HostRecord, StorageError};
+use serde::Serialize;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -21,6 +22,40 @@ pub struct AppState {
     pub want_connected: Mutex<std::collections::HashSet<String>>,
     /// Hosts with a reconnect loop running → current attempt number.
     pub reconnecting: Mutex<HashMap<String, u32>>,
+    /// Which address each live connection went through (NET-03).
+    pub paths: Mutex<HashMap<String, ActivePath>>,
+}
+
+/// The network path a live host connection uses.
+#[derive(Debug, Clone, Serialize)]
+pub struct ActivePath {
+    /// `lan` (the host's main SSH address) or `vpn`.
+    pub transport: &'static str,
+    pub address: String,
+    pub port: u16,
+    /// Why earlier (preferred) addresses were not used, if any.
+    pub note: Option<String>,
+}
+
+/// The main SSH address first, then enabled VPN addresses. All of them must
+/// present the same pinned host key: an address is a path, not an identity.
+pub fn candidates(host: &HostRecord) -> Vec<Candidate> {
+    let mut v = Vec::new();
+    if let Some(s) = &host.ssh {
+        v.push(Candidate {
+            transport: "lan",
+            address: s.address.clone(),
+            port: s.port,
+        });
+    }
+    for e in host.vpn.iter().filter(|e| e.enabled) {
+        v.push(Candidate {
+            transport: "vpn",
+            address: e.address.clone(),
+            port: e.port,
+        });
+    }
+    v
 }
 
 pub type CmdResult<T> = Result<T, CoreError>;
@@ -72,6 +107,7 @@ impl AppState {
             conns: Default::default(),
             want_connected: Default::default(),
             reconnecting: Default::default(),
+            paths: Default::default(),
         })
     }
 
@@ -91,7 +127,7 @@ impl AppState {
             .unwrap()
             .get_host(host_id)
             .map_err(|e| db_err("connect", e))?;
-        let ssh = host.ssh.ok_or_else(|| {
+        let ssh = host.ssh.clone().ok_or_else(|| {
             CoreError::new(ErrorCode::UnsupportedCapability, "host has no SSH endpoint")
         })?;
         let fingerprint = ssh.fingerprint.clone().ok_or_else(|| {
@@ -104,25 +140,48 @@ impl AppState {
             (Some(r), Some(store)) => store.get(r).map_err(|e| to_core("passphrase", e.into()))?,
             _ => None,
         };
-        let params = ConnectParams {
-            host: ssh.address.clone(),
-            port: ssh.port,
+        // Route fallback (NET-03): LAN first, then VPN addresses; every
+        // address must present the same pinned key (checked before any
+        // credential is sent), so a different machine at an old LAN address
+        // is refused and the next path is tried.
+        let cands = candidates(&host);
+        let base = ConnectParams {
+            host: String::new(),
+            port: 0,
             user: ssh.username.clone(),
             private_key: PathBuf::from(&ssh.private_key_path),
             host_key: HostKeyPolicy::Pinned(fingerprint),
             connect_timeout: Duration::from_secs(10),
             passphrase,
         };
-        let conn = SshConnection::connect(&params)
+        let done = connect_any(&cands, &base, Duration::from_secs(3))
             .await
             .map_err(|e| to_core("connect", e))?;
+        let c = &cands[done.index];
+        let note = (!done.notes.is_empty()).then(|| done.notes.join("; "));
         let _ = self.db.lock().unwrap().mark_seen(host_id);
-        logging::info(&format!("connected to host {host_id}"));
-        conns.insert(host_id.to_string(), conn.clone());
-        Ok(conn)
+        logging::info(&format!(
+            "connected to host {host_id} via {}{}",
+            c.transport,
+            note.as_deref()
+                .map(|n| format!(" ({n})"))
+                .unwrap_or_default()
+        ));
+        self.paths.lock().unwrap().insert(
+            host_id.to_string(),
+            ActivePath {
+                transport: c.transport,
+                address: c.address.clone(),
+                port: c.port,
+                note,
+            },
+        );
+        conns.insert(host_id.to_string(), done.conn.clone());
+        Ok(done.conn)
     }
 
     pub async fn disconnect(&self, host_id: &str) {
+        self.paths.lock().unwrap().remove(host_id);
         if let Some(c) = self.conns.lock().await.remove(host_id) {
             let _ = c.close().await;
             logging::info(&format!("disconnected from host {host_id}"));

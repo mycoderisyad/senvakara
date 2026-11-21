@@ -3997,6 +3997,7 @@ name = "senvakara-adapters-ssh"
 version = "0.0.1"
 dependencies = [
  "anyhow",
+ "rand",
  "russh",
  "russh-sftp",
  "senvakara-core",

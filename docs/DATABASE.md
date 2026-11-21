@@ -130,6 +130,7 @@ The SQL is a **starting model**, not a migration to execute blindly. Validate ti
 - Changing a host's SSH address or port keeps the host id but clears the pinned fingerprint and sets `trust_state='untrusted'`.
 - Each newly observed (host, connection type, serial) route creates its own provisional `devices` row; routes are never merged across hosts or by model. The model replaces a serial placeholder name, but never a user-chosen name. Transport ids are runtime-only.
 - The local Windows machine is a singleton row with `is_local=1` and cannot be deleted.
+- VPN addresses are `host_endpoints` rows with `transport='vpn'`, `priority=200` (max 4 per host). They carry no fingerprint of their own: connections through them must present the fingerprint pinned on the host's `ssh` endpoint (ADR-022).
 - `recipes.steps_json` holds at most 20 steps of the allowlisted kinds `install_apk`, `uninstall_package`, `launch_app`, `wait`, `device_shell`, `screenshot`, `flutter_deploy`; `permissions_json` is `{install, shell}`. Parameters are validated by the app before saving and again (with permissions) before every run. Deleting a recipe keeps its runs.
 
 ## 3. Runtime vs persisted state

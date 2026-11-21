@@ -56,6 +56,8 @@ pub fn run() {
             hosts::host_set_passphrase,
             hosts::host_connect,
             hosts::host_disconnect,
+            hosts::host_add_vpn,
+            hosts::host_remove_vpn,
             files::sftp_list,
             files::sftp_download,
             files::sftp_upload,

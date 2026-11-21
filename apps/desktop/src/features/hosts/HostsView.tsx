@@ -5,6 +5,7 @@ import { useUi } from "../../lib/store";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { HostForm } from "./HostForm";
 import { TrustKeyDialog } from "./TrustKeyDialog";
+import { NetworkPaths } from "./NetworkPaths";
 
 type Busy = Record<string, string | undefined>;
 
@@ -15,7 +16,7 @@ function ConnectionBadge({ host, busy, error }: { host: HostView; busy?: string;
   if (!host.ssh?.fingerprint) return <span className="badge warn">! Host key not trusted</span>;
   if (error) return <span className="badge bad">✕ {error.split(":")[0].toLowerCase().replace(/_/g, " ")}</span>;
   if (host.reconnecting) return <span className="badge warn">◌ Reconnecting (attempt {host.reconnecting})</span>;
-  if (host.connected) return <span className="badge ok">● Connected</span>;
+  if (host.connected) return <span className="badge ok">● Connected{host.path?.transport === "vpn" ? " via VPN" : ""}</span>;
   return <span className="badge">○ Not connected</span>;
 }
 
@@ -107,6 +108,7 @@ export function HostsView() {
                       : "text mode — terminal only"}
                 </p>
               )}
+              {!h.is_local && h.ssh?.fingerprint && <NetworkPaths host={h} onChange={putHost} />}
               {err && <p className="banner bad small">{err}</p>}
 
               <div className="card-actions">

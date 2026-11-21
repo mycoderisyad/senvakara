@@ -14,3 +14,6 @@ russh-sftp = "=3.0.1"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "sync", "time", "fs"] }
 anyhow.workspace = true
 serde.workspace = true
+
+[dev-dependencies]
+rand = { version = "0.10", features = ["thread_rng"] }

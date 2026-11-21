@@ -11,7 +11,7 @@ mod workflows;
 mod workspaces;
 
 pub use devices::DeviceRouteRecord;
-pub use hosts::{HostRecord, HostUpsert, SshEndpoint};
+pub use hosts::{HostRecord, HostUpsert, SshEndpoint, VpnEndpoint, MAX_VPN_ENDPOINTS};
 pub use recipes::{RecipePermissions, RecipeRecord, RecipeSave, RecipeStep};
 pub use workflows::{RunRecord, StepRecord};
 pub use workspaces::{PanelRecord, WorkspaceRecord, WorkspaceSave};

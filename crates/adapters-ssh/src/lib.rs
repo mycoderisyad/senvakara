@@ -10,9 +10,11 @@
 //! - Public-key auth only in this adapter; no password handling.
 //! - Forwarded ports bind to 127.0.0.1 only.
 
+pub mod paths;
 pub mod pty;
 pub mod sftp;
 
+pub use paths::{connect_any, first_reachable, Candidate, Connected};
 pub use pty::{SshPtyEvent, SshPtyReader, SshPtyWriter};
 
 use anyhow::{Context, Result};

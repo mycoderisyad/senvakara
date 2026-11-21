@@ -44,6 +44,8 @@ Changes to documentation and (later) shipped product are tracked separately. For
 
 - Deploy: build a Flutter app on this PC and install it on any phone (including phones on another host), optionally launch it and show its log; step-by-step status, cancel, and run history.
 
+- Network paths: give a Linux host extra VPN addresses (WireGuard, Tailscale, … that you already run; addresses seen on the host are offered with one click). Senvakara uses the LAN address when it can and falls back to a VPN address automatically when you are away, always requiring the same trusted host key; phones behind the host keep their identity, and ADB is never exposed.
+
 - Automations: save recipes of steps (install/uninstall APK, launch app, wait, shell command, screenshot, Flutter build & install) for one phone, with explicit per-recipe permissions; every run shows all steps and the exact target for confirmation, stops at the first failure, can be cancelled and is kept in history.
 
 ### Fixed (development builds)

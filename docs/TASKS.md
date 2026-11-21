@@ -68,9 +68,9 @@
 
 ## Phase 7 — Beyond local network
 
-- [ ] **NET-IMPL-01 [P2]** Optional VPN endpoint setup guidance and route registration.
-- [ ] **NET-IMPL-02 [P2]** Test cross-network SSH/agent/ADB security over VPN.
-- [ ] **NET-IMPL-03 [P2]** Route fallback and identity reconciliation after network changes.
+- [x] **NET-IMPL-01 [P2]** Optional VPN endpoint setup guidance and route registration. *Evidence 2026-11-21: Hosts → Network paths lists the LAN address and up to 4 VPN addresses (`host_endpoints.transport='vpn'`, no schema change); VPN-looking interfaces on the host (`wg*`, `tailscale*`, `wt*`, `zt*`, `nebula*`, `tun*`, 100.64/10) are detected at connect and offered as one-click addresses — the reference host's `wg0` address was added that way; duplicates/main address/invalid input refused; guidance text states Senvakara creates no VPN and that every address must show the trusted key.*
+- [x] **NET-IMPL-02 [P2]** Test cross-network SSH/agent/ADB security over VPN. *Evidence 2026-11-21: Windows on a phone hotspot using mobile data (home LAN unreachable) with the user's WireGuard (Windows tunnel address → Fedora wg0 address): host key over VPN identical to the pinned key; Redmi 5A on Fedora answered `getprop` through the VPN path (5 calls, 715–840 ms); the app's only remote connection was SSH to Fedora's wg0 address; Fedora's ADB server stayed on `127.0.0.1:5037` only. Impostor host on another path refused before authentication — automated test with in-process SSH servers (`crates/adapters-ssh/tests/fallback.rs`). The user had to allow SSH in the firewalld zone of `wg0` (it only allowed DNS).*
+- [x] **NET-IMPL-03 [P2]** Route fallback and identity reconciliation after network changes. *Evidence 2026-11-21: Wi-Fi switched home → hotspot with no user action in Senvakara: heartbeat noticed the loss, reconnect fell back to the VPN address and phone B was available again in ≈21 s (first run) with the same `device_id`/`route_id`; switching back, reconnect returned to the LAN address in 3 s. A stale LAN path that accepts TCP but never answers SSH cost 10 s in the first run → now 5 s while other paths remain (tested). Path in use and why preferred paths were skipped are shown on the host card.*
 
 ## Always-on quality tasks
 

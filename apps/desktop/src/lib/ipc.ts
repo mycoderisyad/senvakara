@@ -66,11 +66,31 @@ export interface HostView {
     adb_path?: string | null;
     tmux?: boolean;
     desktop?: { session: "x11" | "wayland" | "none"; display: string | null; desktop: string | null; x11vnc: string | null } | null;
+    /** VPN-looking interfaces seen on the host at the last connect (hints only). */
+    vpn_interfaces?: Array<{ name: string; address: string }>;
   } | null;
   connected: boolean;
   /** Attempt number while Senvakara reconnects automatically. */
   reconnecting: number | null;
   ssh: SshView | null;
+  /** Other addresses of the same host through the user's VPN. */
+  vpn: VpnEndpoint[];
+  /** Address the live connection uses. */
+  path: ActivePath | null;
+}
+
+export interface VpnEndpoint {
+  endpoint_id: string;
+  address: string;
+  port: number;
+  enabled: boolean;
+}
+
+export interface ActivePath {
+  transport: "lan" | "vpn";
+  address: string;
+  port: number;
+  note: string | null;
 }
 
 export interface HostInput {
@@ -99,6 +119,8 @@ export const hostSetPassphrase = (id: string, passphrase: string | null) =>
   invoke<HostView>("host_set_passphrase", { id, passphrase });
 export const hostConnect = (id: string) => invoke<HostView>("host_connect", { id });
 export const hostDisconnect = (id: string) => invoke<HostView>("host_disconnect", { id });
+export const hostAddVpn = (id: string, address: string, port: number) => invoke<HostView>("host_add_vpn", { id, address, port });
+export const hostRemoveVpn = (id: string, endpointId: string) => invoke<HostView>("host_remove_vpn", { id, endpointId });
 
 // ---------- files ----------
 

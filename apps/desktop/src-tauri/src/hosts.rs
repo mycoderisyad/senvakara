@@ -1,10 +1,10 @@
 //! Host registry commands (INV-01..04, tasks CORE-03, CORE-05, CORE-07).
 
 use crate::logging;
-use crate::state::{db_err, to_core, AppState, CmdResult};
-use senvakara_adapters_ssh::SshConnection;
+use crate::state::{candidates, db_err, to_core, ActivePath, AppState, CmdResult};
+use senvakara_adapters_ssh::{first_reachable, SshConnection};
 use senvakara_core::{CoreError, ErrorCode};
-use senvakara_storage::{HostRecord, HostUpsert};
+use senvakara_storage::{HostRecord, HostUpsert, VpnEndpoint};
 use serde::Serialize;
 use std::time::Duration;
 use tauri::{AppHandle, State};
@@ -24,6 +24,10 @@ pub struct HostView {
     /// Attempt number while an automatic reconnect is in progress.
     pub reconnecting: Option<u32>,
     pub ssh: Option<SshView>,
+    /// VPN addresses of the same host (NET-03).
+    pub vpn: Vec<VpnEndpoint>,
+    /// Address the live connection went through; `None` when not connected.
+    pub path: Option<ActivePath>,
 }
 
 #[derive(Debug, Serialize)]
@@ -47,6 +51,7 @@ fn view(h: HostRecord, connected: bool) -> HostView {
             fingerprint: s.fingerprint,
             has_passphrase: s.passphrase_ref.is_some(),
         }),
+        vpn: h.vpn,
         id: h.id,
         display_name: h.display_name,
         os_family: h.os_family,
@@ -55,7 +60,16 @@ fn view(h: HostRecord, connected: bool) -> HostView {
         last_seen_at: h.last_seen_at,
         connected,
         reconnecting: None,
+        path: None,
     }
+}
+
+fn with_runtime(state: &AppState, mut v: HostView, reconnecting: Option<u32>) -> HostView {
+    v.reconnecting = reconnecting;
+    if v.connected {
+        v.path = state.paths.lock().unwrap().get(&v.id).cloned();
+    }
+    v
 }
 
 async fn host_view(state: &AppState, id: &str) -> CmdResult<HostView> {
@@ -71,9 +85,8 @@ async fn host_view(state: &AppState, id: &str) -> CmdResult<HostView> {
         .await
         .get(id)
         .is_some_and(|c| !c.is_closed());
-    let mut v = view(rec, connected);
-    v.reconnecting = state.reconnecting.lock().unwrap().get(id).copied();
-    Ok(v)
+    let attempt = state.reconnecting.lock().unwrap().get(id).copied();
+    Ok(with_runtime(state, view(rec, connected), attempt))
 }
 
 #[tauri::command]
@@ -91,11 +104,44 @@ pub async fn hosts_list(state: State<'_, AppState>) -> CmdResult<Vec<HostView>> 
         .map(|h| {
             let connected = conns.get(&h.id).is_some_and(|c| !c.is_closed());
             let attempt = reconnecting.get(&h.id).copied();
-            let mut v = view(h, connected);
-            v.reconnecting = attempt;
-            v
+            with_runtime(&state, view(h, connected), attempt)
         })
         .collect())
+}
+
+/// Register a VPN address for a host (NET-IMPL-01). Nothing is trusted by
+/// this: connections through it must still present the pinned host key.
+#[tauri::command]
+pub async fn host_add_vpn(
+    state: State<'_, AppState>,
+    id: String,
+    address: String,
+    port: u16,
+) -> CmdResult<HostView> {
+    state
+        .db
+        .lock()
+        .unwrap()
+        .add_vpn_endpoint(&id, &address, port)
+        .map_err(|e| db_err("add VPN address", e))?;
+    logging::info(&format!("VPN address added for host {id}"));
+    host_view(&state, &id).await
+}
+
+#[tauri::command]
+pub async fn host_remove_vpn(
+    state: State<'_, AppState>,
+    id: String,
+    endpoint_id: String,
+) -> CmdResult<HostView> {
+    state
+        .db
+        .lock()
+        .unwrap()
+        .remove_vpn_endpoint(&id, &endpoint_id)
+        .map_err(|e| db_err("remove VPN address", e))?;
+    logging::info(&format!("VPN address removed for host {id}"));
+    host_view(&state, &id).await
 }
 
 #[tauri::command]
@@ -165,10 +211,16 @@ async fn presented_key(state: &AppState, id: &str) -> CmdResult<(String, Option<
         .unwrap()
         .get_host(id)
         .map_err(|e| db_err("host key", e))?;
-    let ssh = rec.ssh.ok_or_else(|| {
+    let ssh = rec.ssh.clone().ok_or_else(|| {
         CoreError::new(ErrorCode::UnsupportedCapability, "host has no SSH endpoint")
     })?;
-    let presented = SshConnection::fetch_host_key(&ssh.address, ssh.port, Duration::from_secs(8))
+    // Ask through the first address that answers (LAN first, then VPN), so
+    // the key can be checked from another network too.
+    let cands = candidates(&rec);
+    let all: Vec<usize> = (0..cands.len()).collect();
+    let (best, _) = first_reachable(&cands, &all, Duration::from_secs(3)).await;
+    let c = &cands[best.unwrap_or(0)];
+    let presented = SshConnection::fetch_host_key(&c.address, c.port, Duration::from_secs(8))
         .await
         .map_err(|e| to_core("fetch host key", e))?;
     Ok((presented, ssh.fingerprint))
@@ -304,6 +356,12 @@ pub async fn connect_and_watch(app: &AppHandle, state: &AppState, id: &str) -> C
         "files": true,
         "desktop": crate::desktop::detect(&conn).await.ok(),
         "tmux": conn.exec(&["sh", "-c", "command -v tmux"]).await.map(|o| o.success()).unwrap_or(false),
+        // Hints for route registration only; nothing is trusted from them.
+        "vpn_interfaces": conn
+            .exec(&["sh", "-c", "ip -o -4 addr show 2>/dev/null"])
+            .await
+            .map(|o| vpn_interfaces(&o.stdout_str()))
+            .unwrap_or_default(),
     });
     state
         .db
@@ -329,4 +387,51 @@ pub async fn host_disconnect(
     crate::android::stop_host(&app, &id);
     state.disconnect(&id).await;
     host_view(&state, &id).await
+}
+
+/// VPN-looking interfaces from `ip -o -4 addr show`: WireGuard (`wg*`),
+/// Tailscale, NetBird (`wt*`), ZeroTier (`zt*`), Nebula, OpenVPN (`tun*`),
+/// plus any address in the 100.64.0.0/10 range Tailscale uses.
+pub fn vpn_interfaces(ip_output: &str) -> Vec<serde_json::Value> {
+    const PREFIXES: &[&str] = &["wg", "tailscale", "wt", "zt", "nebula", "tun"];
+    let mut out = Vec::new();
+    for line in ip_output.lines() {
+        let f: Vec<&str> = line.split_whitespace().collect();
+        let (Some(name), Some(pos)) = (f.get(1), f.iter().position(|x| *x == "inet")) else {
+            continue;
+        };
+        let Some(addr) = f.get(pos + 1).and_then(|a| a.split('/').next()) else {
+            continue;
+        };
+        let Ok(ip) = addr.parse::<std::net::Ipv4Addr>() else {
+            continue;
+        };
+        let o = ip.octets();
+        let cgnat = o[0] == 100 && (64..128).contains(&o[1]);
+        if PREFIXES.iter().any(|p| name.starts_with(p)) || cgnat {
+            out.push(serde_json::json!({ "name": name, "address": addr }));
+        }
+    }
+    out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::vpn_interfaces;
+
+    #[test]
+    fn finds_vpn_interfaces_only() {
+        let sample = r"1: lo    inet 127.0.0.1/8 scope host lo\       valid_lft forever preferred_lft forever
+3: wlo1    inet 192.0.2.10/24 brd 192.0.2.255 scope global dynamic noprefixroute wlo1\       valid_lft 80000sec
+5: wg0    inet 10.8.0.3/32 scope global wg0\       valid_lft forever preferred_lft forever
+6: docker0    inet 172.17.0.1/16 brd 172.17.255.255 scope global docker0\       valid_lft forever
+7: tailscale0    inet 100.101.102.103/32 scope global tailscale0\       valid_lft forever
+8: eth9    inet 100.64.1.2/10 scope global eth9\       valid_lft forever
+garbage line";
+        let v = vpn_interfaces(sample);
+        let names: Vec<&str> = v.iter().map(|x| x["name"].as_str().unwrap()).collect();
+        assert_eq!(names, ["wg0", "tailscale0", "eth9"]);
+        assert_eq!(v[0]["address"], "10.8.0.3");
+        assert!(vpn_interfaces("").is_empty());
+    }
 }
