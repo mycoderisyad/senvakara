@@ -32,6 +32,9 @@ Changes to documentation and (later) shipped product are tracked separately. For
 - Live screen mirroring with touch, scroll, keyboard and device buttons for phones on this PC and on connected Linux hosts (bundled scrcpy-server v3.3.3, hash-verified).
 - Add phones over Wi-Fi (Android 11+ Wireless debugging): network scan, pairing code, connect/disconnect, through this PC or a connected Linux host.
 
+- Overview dashboard: live CPU, memory, disk, network and uptime for this PC and connected Linux hosts.
+- Hosts show whether the host has a graphical session; Desktop opens an X11 session in a Senvakara pane (requires x11vnc on the host).
+
 ### Fixed (development builds)
 
 - Device availability shown after a restart no longer reflects the previous session.

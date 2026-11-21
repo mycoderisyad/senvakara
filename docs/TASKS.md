@@ -46,10 +46,10 @@
 ## Phase 4 — Remote desktop and monitoring
 
 - [ ] **DESK-IMPL-01 [P1]** RDP authentication and remote keyboard/mouse adapter PoC.
-- [ ] **DESK-IMPL-02 [P1]** VNC adapter PoC and Fedora Wayland compatibility decision.
+- [ ] **DESK-IMPL-02 [P1]** VNC adapter PoC and Fedora Wayland compatibility decision. *Implemented 2026-11-21: on-demand x11vnc on a user-only Unix socket (no TCP), SSH `direct-streamlocal`, loopback WebSocket bridge with one-time 256-bit token, noVNC pane. Wayland sessions reported as unsupported for now. Pending: test after `x11vnc` is installed on the reference host.*
 - [ ] **DESK-IMPL-03 [P1]** Embedded session pane or documented temporary external-viewer fallback.
-- [ ] **MON-IMPL-01 [P1]** Unprivileged host metrics collector; adjustable sample interval.
-- [ ] **MON-IMPL-02 [P1]** Connection heartbeat and stale-device status.
+- [x] **MON-IMPL-01 [P1]** Unprivileged host metrics collector; adjustable sample interval. *Evidence 2026-11-21: Overview shows CPU %, memory, system disk, network rates, uptime (and load on Linux) for this PC (`sysinfo` 0.38) and Fedora (one read-only `/proc` + `df` command over SSH, no agent, no root); values matched `free`/`df`/`nproc` on the host; interval 2/5/10/30 s, sampling only while the page is open.*
+- [ ] **MON-IMPL-02 [P1]** Connection heartbeat and stale-device status. *Implemented 2026-11-21 (15 s SSH heartbeat tears down tunnels/routes and emits `host-lost`; startup resets stale route states). Pending: real network-loss test.*
 
 ## Phase 5 — Workspace, transfer and recovery
 

@@ -226,3 +226,18 @@ progress { width: 100%; height: 6px; accent-color: var(--accent); }
 .step h3 { margin: 0; font-size: 14px; }
 .found { border: 1px dashed var(--border); border-radius: var(--radius); padding: 6px 10px; }
 .found p { margin: 2px 0; }
+
+/* Overview */
+.summary { margin: 12px 0 0; }
+.metrics { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+.bar-label { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-muted); }
+.bar-track { height: 6px; background: var(--surface-hover); border-radius: 3px; overflow: hidden; }
+.bar-fill { height: 100%; background: var(--accent); }
+.bar-fill.warm { background: var(--warning); }
+.bar-fill.hot { background: var(--error); }
+
+/* Remote desktop */
+.desktop-view { display: flex; flex-direction: column; min-height: 0; }
+.desktop-bar { display: flex; align-items: center; gap: 12px; padding: 8px 14px; background: var(--surface); border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.desktop-bar .badge { margin-left: auto; }
+.desktop-screen { flex: 1; min-height: 0; background: #000; overflow: hidden; }

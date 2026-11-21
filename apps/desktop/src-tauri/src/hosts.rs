@@ -283,6 +283,7 @@ pub async fn host_connect(
         "adb_path": adb,
         "terminal": true,
         "files": true,
+        "desktop": crate::desktop::detect(&conn).await.ok(),
     });
     state
         .db

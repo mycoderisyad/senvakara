@@ -21,3 +21,11 @@ lto = true
 opt-level = 3
 panic = "abort"
 strip = true
+
+# Keep debug builds small (the full debug info of all dependencies filled the
+# disk): line tables for our code, no debug info for third-party crates.
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false

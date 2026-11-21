@@ -114,6 +114,9 @@ MVP ships only after `E2E-01` through `E2E-07` pass on reference setup plus secu
 | 2026-11-21 | E2E-08 (Wi-Fi route) | App dev build; Android A over Wireless debugging (same Wi-Fi as the Windows PC) | PASS | Connected from the app; route listed separately (`RAFGT · Wi-Fi`, own transport id); shell, info and mirroring (≈0.8 s start) over Wi-Fi; disconnect isolates only the Wi-Fi route. No third physical phone was used: the Wi-Fi route of A stands in for "Android C". Error paths: malformed code/address → `INVALID_INPUT`, nothing listening → `UNAUTHORIZED`/`HOST_OFFLINE`; pairing code absent from the log. |
 | 2026-11-21 | E2E-09 | same | PASS | Independent streams for A and B at once; input injected on B only (verified via `dumpsys window`). |
 | 2026-11-21 | Bug fix: stale availability after restart | same | FIXED | Persisted route states were shown as live after an app restart (B "Available" while its host was not connected). Startup now resets all routes to `unavailable` until a watcher observes them; unit test added. |
+| 2026-11-21 | MON-IMPL-01 | App dev build; Windows PC + Fedora 45 | PASS | Overview metrics for both hosts; Fedora values equal `free -b` (used = total − available), `df -B1 /`, `nproc`. |
+| 2026-11-21 | POC-07 (detection) | Fedora 45 reference host | PARTIAL | Boot target was `multi-user.target` (text mode) → detected as `none`; after the user started the GUI: X11 session, Xfce, display `:0` via lightdm. `x11vnc` not yet installed, so sharing is untested. |
+| 2026-11-21 | Build hygiene | Windows dev machine | NOTE | Debug build cache reached 16 GB and filled drive D:; dev profile now keeps line tables only for workspace crates and no debug info for dependencies (target ≈ 2 GB). `sysinfo` pinned to 0.38 because 0.39+ needs rustc 1.95 (toolchain 1.94.1). |
 
 ### Reference environment (POC-01)
 

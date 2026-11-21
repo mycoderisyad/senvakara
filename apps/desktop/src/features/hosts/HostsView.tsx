@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { listen } from "@tauri-apps/api/event";
 import { errorText, HostView, hostConnect, hostDelete, hostDisconnect } from "../../lib/ipc";
 import { useUi } from "../../lib/store";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
@@ -18,7 +19,7 @@ function ConnectionBadge({ host, busy, error }: { host: HostView; busy?: string;
 }
 
 export function HostsView() {
-  const { hosts, hostsError, refreshHosts, putHost, openTab, openFiles } = useUi();
+  const { hosts, hostsError, refreshHosts, putHost, openTab, openFiles, openDesktop } = useUi();
   const [editing, setEditing] = useState<HostView | "new" | null>(null);
   const [trusting, setTrusting] = useState<HostView | null>(null);
   const [busy, setBusy] = useState<Busy>({});
@@ -27,6 +28,9 @@ export function HostsView() {
 
   useEffect(() => {
     void refreshHosts();
+    // A host that stops answering the heartbeat is shown as not connected.
+    const un = listen("host-lost", () => void refreshHosts());
+    return () => void un.then((u) => u());
   }, [refreshHosts]);
 
   const run = async (h: HostView, label: string, fn: () => Promise<HostView | void>) => {
@@ -92,6 +96,16 @@ export function HostsView() {
               {!h.is_local && caps.adb_path !== undefined && (
                 <p className="small muted">ADB: {caps.adb_path ? <code>{caps.adb_path}</code> : "not installed"}</p>
               )}
+              {!h.is_local && h.connected && caps.desktop && (
+                <p className="small muted">
+                  Screen:{" "}
+                  {caps.desktop.session === "x11"
+                    ? `${caps.desktop.desktop ?? "X11"} on ${caps.desktop.display}${caps.desktop.x11vnc ? "" : " — install x11vnc to share it"}`
+                    : caps.desktop.session === "wayland"
+                      ? "Wayland session (sharing not supported yet)"
+                      : "text mode — terminal only"}
+                </p>
+              )}
               {err && <p className="banner bad small">{err}</p>}
 
               <div className="card-actions">
@@ -105,6 +119,11 @@ export function HostsView() {
                   <>
                     <button onClick={() => openTab(`SSH · ${h.display_name}`, { kind: "ssh", host_id: h.id })}>Terminal</button>
                     <button onClick={() => openFiles(h.id)}>Files</button>
+                    {h.connected && caps.desktop?.session === "x11" && (
+                      <button onClick={() => openDesktop(h.id)} disabled={!caps.desktop.x11vnc} title={caps.desktop.x11vnc ? "Show the host's screen" : "Install x11vnc on the host first"}>
+                        Desktop
+                      </button>
+                    )}
                     {h.connected ? (
                       <button onClick={() => run(h, "Disconnecting", () => hostDisconnect(h.id))}>Disconnect</button>
                     ) : (

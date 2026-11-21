@@ -256,6 +256,26 @@ impl SshConnection {
         Ok(pty::split(self.open_pty_shell(cols, rows).await?))
     }
 
+    /// Start a long-running program (discrete, POSIX-quoted arguments) and
+    /// keep its channel. Closing the writer ends the channel.
+    pub async fn spawn(&self, argv: &[&str]) -> Result<(SshPtyWriter, SshPtyReader)> {
+        let command = argv
+            .iter()
+            .map(|a| shell_quote(a))
+            .collect::<Vec<_>>()
+            .join(" ");
+        let ch = self.handle.channel_open_session().await?;
+        ch.exec(true, command).await?;
+        Ok(pty::split(ch))
+    }
+
+    /// Byte stream to a Unix socket on the host (`direct-streamlocal`), so a
+    /// service bound to a user-only socket is reachable without a TCP port.
+    pub async fn open_unix_socket(&self, path: &str) -> Result<russh::ChannelStream<client::Msg>> {
+        let ch = self.handle.channel_open_direct_streamlocal(path).await?;
+        Ok(ch.into_stream())
+    }
+
     pub async fn sftp(&self) -> Result<SftpSession> {
         let ch = self.handle.channel_open_session().await?;
         ch.request_subsystem(true, "sftp").await?;

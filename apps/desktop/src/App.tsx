@@ -5,10 +5,12 @@ import { HostsView } from "./features/hosts/HostsView";
 import { FilesView } from "./features/files/FilesView";
 import { DevicesView } from "./features/devices/DevicesView";
 import { DeviceDetail } from "./features/devices/DeviceDetail";
+import { OverviewView } from "./features/overview/OverviewView";
+import { DesktopView } from "./features/desktop/DesktopView";
 import { useUi, ViewId } from "./lib/store";
 
 const NAV: Array<{ id: ViewId; label: string; milestone?: string }> = [
-  { id: "overview", label: "Overview", milestone: "M4" },
+  { id: "overview", label: "Overview" },
   { id: "hosts", label: "Hosts" },
   { id: "devices", label: "Devices" },
   { id: "sessions", label: "Sessions" },
@@ -30,7 +32,7 @@ function NotYet({ label, milestone }: { label: string; milestone?: string }) {
 
 export default function App() {
   const { view, setView, tabs, refreshHosts } = useUi();
-  const navId: ViewId = view === "device" ? "devices" : view;
+  const navId: ViewId = view === "device" ? "devices" : view === "desktop" ? "hosts" : view;
   const current = NAV.find((n) => n.id === navId)!;
 
   useEffect(() => {
@@ -59,10 +61,12 @@ export default function App() {
         <div className="view-slot" hidden={view !== "sessions"}>
           <SessionsView />
         </div>
+        {view === "overview" && <OverviewView />}
         {view === "hosts" && <HostsView />}
         {view === "files" && <FilesView />}
         {view === "devices" && <DevicesView />}
         {view === "device" && <DeviceDetail />}
+        {view === "desktop" && <DesktopView />}
         {view === "diagnostics" && <DiagnosticsView />}
         {current.milestone && <NotYet label={current.label} milestone={current.milestone} />}
       </main>

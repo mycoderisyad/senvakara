@@ -64,6 +64,7 @@ export interface HostView {
     os_pretty_name?: string | null;
     arch?: string;
     adb_path?: string | null;
+    desktop?: { session: "x11" | "wayland" | "none"; display: string | null; desktop: string | null; x11vnc: string | null } | null;
   } | null;
   connected: boolean;
   ssh: SshView | null;
@@ -301,3 +302,42 @@ export const wirelessPair = (hostId: string, address: string, code: string) =>
   invoke<string>("wireless_pair", { hostId, address, code });
 export const wirelessConnect = (hostId: string, address: string) => invoke<string>("wireless_connect", { hostId, address });
 export const wirelessDisconnect = (routeId: string) => invoke<string>("wireless_disconnect", { routeId });
+
+// ---------- monitoring ----------
+
+export interface Metrics {
+  cpu_percent: number | null;
+  cpu_count: number;
+  mem_used: number;
+  mem_total: number;
+  swap_used: number;
+  swap_total: number;
+  disk_used: number;
+  disk_total: number;
+  net_rx_per_sec: number | null;
+  net_tx_per_sec: number | null;
+  uptime_secs: number;
+  load1: number | null;
+}
+
+export const hostMetrics = (hostId: string) => invoke<Metrics>("host_metrics", { hostId });
+
+// ---------- remote desktop ----------
+
+export interface DesktopInfo {
+  session: "x11" | "wayland" | "none";
+  display: string | null;
+  desktop: string | null;
+  x11vnc: string | null;
+}
+
+export interface DesktopOpened {
+  id: number;
+  ws_url: string;
+  display: string;
+  desktop: string | null;
+}
+
+export const desktopInfo = (hostId: string) => invoke<DesktopInfo>("desktop_info", { hostId });
+export const desktopOpen = (hostId: string) => invoke<DesktopOpened>("desktop_open", { hostId });
+export const desktopClose = (id: number) => invoke<void>("desktop_close", { id });

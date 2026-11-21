@@ -3,10 +3,12 @@
 
 mod android;
 mod android_tools;
+mod desktop;
 mod files;
 mod hosts;
 mod logging;
 mod mirror;
+mod monitor;
 mod state;
 mod terminal;
 
@@ -24,6 +26,7 @@ pub fn run() {
             logging::info("app started");
             app.manage(state);
             android::start_local(app.handle().clone());
+            monitor::spawn_heartbeat(app.handle().clone());
             Ok(())
         })
         .manage(terminal::Terminals::default())
@@ -31,6 +34,8 @@ pub fn run() {
         .manage(android::Android::default())
         .manage(android_tools::AndroidTools::default())
         .manage(mirror::Mirrors::default())
+        .manage(monitor::Monitor::default())
+        .manage(desktop::Desktops::default())
         .invoke_handler(tauri::generate_handler![
             terminal::term_open,
             terminal::term_write,
@@ -73,6 +78,10 @@ pub fn run() {
             mirror::mirror_start,
             mirror::mirror_input,
             mirror::mirror_stop,
+            monitor::host_metrics,
+            desktop::desktop_info,
+            desktop::desktop_open,
+            desktop::desktop_close,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
