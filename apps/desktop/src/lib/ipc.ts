@@ -262,3 +262,28 @@ export const devicePull = (
   overwrite: boolean,
   onEvent: (e: TransferEvent) => void,
 ) => invoke<number>("device_pull", { routeId, remotePath, localDir, overwrite, onEvent: new Channel<TransferEvent>(onEvent) });
+
+// ---------- mirroring ----------
+
+export interface MirrorStarted {
+  id: number;
+  device_name: string;
+  width: number;
+  height: number;
+}
+
+export type MirrorInput =
+  | { kind: "touch"; action: 0 | 1 | 2; pointer_id: number; x: number; y: number; width: number; height: number; pressure: number }
+  | { kind: "scroll"; x: number; y: number; width: number; height: number; h: number; v: number }
+  | { kind: "key"; action: 0 | 1; keycode: number; meta_state: number }
+  | { kind: "text"; text: string }
+  | { kind: "back_or_screen_on"; action: 0 | 1 }
+  | { kind: "expand_notifications" }
+  | { kind: "collapse_panels" }
+  | { kind: "rotate" };
+
+export function mirrorStart(routeId: string, onFrame: (buf: ArrayBuffer) => void): Promise<MirrorStarted> {
+  return invoke<MirrorStarted>("mirror_start", { routeId, onFrame: new Channel<ArrayBuffer>(onFrame) });
+}
+export const mirrorInput = (id: number, input: MirrorInput) => invoke<void>("mirror_input", { id, input });
+export const mirrorStop = (id: number) => invoke<void>("mirror_stop", { id });

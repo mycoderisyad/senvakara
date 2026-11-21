@@ -24,6 +24,7 @@ senvakara-storage = { path = "../../../crates/storage" }
 senvakara-secrets = { path = "../../../crates/secrets" }
 senvakara-adapters-ssh = { path = "../../../crates/adapters-ssh" }
 senvakara-adapters-adb = { path = "../../../crates/adapters-adb" }
+senvakara-adapters-scrcpy = { path = "../../../crates/adapters-scrcpy" }
 tauri-plugin-dialog = "2.8"
 tokio = { version = "1", features = ["sync", "time", "fs"] }
 anyhow.workspace = true

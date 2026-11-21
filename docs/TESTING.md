@@ -110,6 +110,7 @@ MVP ships only after `E2E-01` through `E2E-07` pass on reference setup plus secu
 | 2026-11-21 | M2 exit gate | same | PASS | E2E-04, E2E-05, E2E-06, E2E-07 pass with Android A on Windows USB and Android B on Fedora USB. |
 | 2026-11-21 | ADB sync spike | Android A | PASS | `sync:` LIST/STAT/SEND/RECV/QUIT as implemented; 300 KB round trip identical; RECV of a missing file returns `FAIL open failed`; `exec:screencap -p` returns a valid PNG. |
 | 2026-11-21 | AND-IMPL-10 (M3 part 1) | App dev build; A on Windows USB, B on Fedora USB via SSH tunnel | PASS | Screenshot, logcat stream, fixture APK install/uninstall, push/pull with conflict protection on both routes. Screenshots/logs were only checked structurally and deleted afterwards (private phone content). |
+| 2026-11-21 | Mirroring (AND-IMPL-08/09, POC-06) | App dev build; scrcpy-server v3.3.3 (official SHA-256); A on Windows USB, B on Fedora USB via SSH tunnel | PASS | Both mirrored at once. Input verified on B via `dumpsys window` focus (shade opened by button and by UI swipe, closed by Back). Bug found and fixed: UI input events sent as independent invokes could arrive out of order and break gestures → now queued, with MOVE coalescing. Resource sample with two mirrors: ≈571 MB working set (app + WebView), ≈29 % of one core. Not measured yet: glass-to-glass latency, long-session stability. |
 
 ### Reference environment (POC-01)
 

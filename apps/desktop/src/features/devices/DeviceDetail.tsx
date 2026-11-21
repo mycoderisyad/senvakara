@@ -22,6 +22,7 @@ import {
 import { useUi } from "../../lib/store";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { routeText } from "./DevicesView";
+import { MirrorPanel } from "./MirrorPanel";
 
 type Section = "screen" | "logcat" | "apps" | "files";
 
@@ -75,6 +76,7 @@ function Jobs({ jobs }: { jobs: Job[] }) {
 
 function ScreenSection({ device }: { device: DeviceView }) {
   const [url, setUrl] = useState<string | null>(null);
+  const [mirroring, setMirroring] = useState(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -107,14 +109,17 @@ function ScreenSection({ device }: { device: DeviceView }) {
   return (
     <div className="section">
       <div className="row">
-        <button className="primary" onClick={capture} disabled={busy}>
+        <button className={mirroring ? "" : "primary"} onClick={() => setMirroring((m) => !m)}>
+          {mirroring ? "Stop mirroring" : "Start mirroring"}
+        </button>
+        <button onClick={capture} disabled={busy}>
           {busy ? "Capturing…" : "Take screenshot"}
         </button>
         <button onClick={saveShot} disabled={!url}>
           Save…
         </button>
-        <span className="muted small">Live mirroring with input arrives in the next M3 step (scrcpy).</span>
       </div>
+      {mirroring && <MirrorPanel device={device} />}
       {msg && <p className="muted small">{msg}</p>}
       {url && <img className="shot" src={url} alt={`Screenshot of ${device.display_name}`} />}
     </div>

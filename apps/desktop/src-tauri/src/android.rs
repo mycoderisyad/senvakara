@@ -85,6 +85,11 @@ fn reconcile(app: &AppHandle, host_id: &str, server: AdbServer, devices: &[AdbDe
     {
         let mut db = state.db.lock().unwrap();
         let mut live = android.live.lock().unwrap();
+        let before: Vec<String> = live
+            .iter()
+            .filter(|(_, r)| r.host_id == host_id)
+            .map(|(k, _)| k.clone())
+            .collect();
         live.retain(|_, r| r.host_id != host_id);
         for d in devices {
             match db.observe_route(
@@ -109,6 +114,9 @@ fn reconcile(app: &AppHandle, host_id: &str, server: AdbServer, devices: &[AdbDe
                 Err(e) => logging::warn(&format!("observe route on {host_id}: {e}")),
             }
         }
+        for gone in before.iter().filter(|r| !present.contains(r)) {
+            crate::mirror::stop_route(app, gone);
+        }
         if let Err(e) = db.mark_missing_routes(host_id, &present) {
             logging::warn(&format!("mark missing routes on {host_id}: {e}"));
         }
@@ -118,6 +126,18 @@ fn reconcile(app: &AppHandle, host_id: &str, server: AdbServer, devices: &[AdbDe
 
 /// Host went away or watching stopped: nothing on it is reachable any more.
 fn mark_host_gone(app: &AppHandle, host_id: &str) {
+    let gone: Vec<String> = app
+        .state::<Android>()
+        .live
+        .lock()
+        .unwrap()
+        .iter()
+        .filter(|(_, r)| r.host_id == host_id)
+        .map(|(k, _)| k.clone())
+        .collect();
+    for route in &gone {
+        crate::mirror::stop_route(app, route);
+    }
     app.state::<Android>()
         .live
         .lock()

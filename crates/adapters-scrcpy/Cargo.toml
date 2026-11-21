@@ -1,0 +1,15 @@
+[package]
+name = "senvakara-adapters-scrcpy"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Minimal scrcpy v3.3.3 client: video stream + control messages over the ADB host protocol"
+
+[dependencies]
+senvakara-core = { path = "../core" }
+senvakara-adapters-adb = { path = "../adapters-adb" }
+tokio = { version = "1", features = ["net", "io-util", "time", "sync", "rt-multi-thread", "macros", "fs"] }
+sha2 = "0.11"
+anyhow.workspace = true
+serde.workspace = true

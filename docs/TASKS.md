@@ -9,7 +9,7 @@
 - [x] **POC-03 [P0]** Prove Windows local PTY and WSL PTY. *Evidence 2026-11-21: `cargo run -p senvakara-adapters-pty --example poc03_pty -- Ubuntu-24.04` → PowerShell=PASS, WSL=PASS (interactive input, resize to 100x40 confirmed via `stty size`, kill terminates child).*
 - [x] **POC-04 [P0]** Prove SFTP listing/upload/download to Fedora. *Evidence 2026-11-21: `cargo run -p senvakara-adapters-ssh --example poc_linux -- <host> <user> <pinned-fp>` → 14/14 PASS (see TESTING.md §9).*
 - [x] **POC-05 [P0]** Prove separate ADB operations against Android on Windows USB and Fedora USB from Windows via secure route. *Evidence 2026-11-21: `cargo run -p senvakara-adapters-ssh --example poc_linux -- <host> <user> <pinned-fp>` → 14/14 PASS (see TESTING.md §9).*
-- [ ] **POC-06 [P1]** Benchmark remote scrcpy command/media/control path via Fedora; assess embedded renderer options.
+- [x] **POC-06 [P1]** Benchmark remote scrcpy command/media/control path via Fedora; assess embedded renderer options. *Evidence 2026-11-21: own scrcpy v3.3.3 client over the ADB host protocol; via Fedora tunnel B starts in ~2.9 s (incl. first server push), local A in ~0.8 s; static-screen A ≈ 320 kbps; app + WebView working set ≈ 571 MB and ≈ 29 % of one core with two mirrors open (dev build). Glass-to-glass latency not yet measured. Renderer: WebCodecs H.264 → canvas.*
 - [ ] **POC-07 [P1]** Validate Fedora Wayland desktop sharing with selected RDP/VNC backend.
 - [ ] **POC-08 [P0]** Record security/licensing/build constraints and PoC findings in decisions.
 
@@ -38,8 +38,8 @@
 ## Phase 3 — Post-MVP Android experience
 
 - [ ] **AND-IMPL-07 [P1]** Wireless ADB onboarding, pairing and re-connect UX.
-- [ ] **AND-IMPL-08 [P1]** scrcpy local mirroring and input control with lifecycle and cancel.
-- [ ] **AND-IMPL-09 [P1]** Fedora-attached Android mirroring/control through protected path.
+- [x] **AND-IMPL-08 [P1]** scrcpy local mirroring and input control with lifecycle and cancel. *Evidence 2026-11-21: Device → Screen → Start mirroring on Android A: live H.264 (576×1280, ~29 fps when the screen changes); session stops with the pane, on stream end, or when the route disappears.*
+- [x] **AND-IMPL-09 [P1]** Fedora-attached Android mirroring/control through protected path. *Evidence 2026-11-21: Android B mirrored through the Fedora SSH tunnel (720×1280); notification-shade button, swipe-down from the canvas, and Back verified on the device via `dumpsys window` focus changes (launcher → NotificationShade → launcher). Concurrent with A's session.*
 - [x] **AND-IMPL-10 [P1]** APK install/uninstall, ADB shell, logcat, screenshots, push/pull. *Evidence 2026-11-21: device detail view (Screen/Logcat/Apps/Files). On Android A (Windows USB) and Android B (via Fedora tunnel): `screencap` PNG via `exec:`, saved to disk; logcat streamed in UI (730 lines in 4 s, stop ends stream); code-less fixture APK (`tools/test-fixtures`) installed via sync push + `pm install -r`, listed, uninstalled, no temp file left; 1 MiB push/pull SHA-256 identical, existing file → `CONFLICT`, `..` paths → `INVALID_INPUT`. Interactive `adb shell` PTY is still the one-shot Shell dialog.*
 - [ ] **AND-IMPL-11 [P1]** Multiple simultaneous device sessions without command mix-ups.
 
@@ -77,7 +77,7 @@
 - [ ] **QA-01** Set up test fixtures/mocks for adapters and error states.
 - [ ] **QA-02** Automated security regressions (credential exposure, agent auth, ADB host targeting).
 - [ ] **QA-03** Whole-process memory/CPU + startup benchmarks; track deltas.
-- [ ] **QA-04** Audit third-party licenses before shipping binaries.
+- [ ] **QA-04** Audit third-party licenses before shipping binaries. *Includes shipping the full Apache-2.0 text for the bundled scrcpy-server (see `apps/desktop/src-tauri/resources/THIRD_PARTY_NOTICES.md`).*
 - [ ] **QA-05** Run accessibility and keyboard-navigation checks.
 
 ## Completion rule

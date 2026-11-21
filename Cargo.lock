@@ -3962,6 +3962,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "senvakara-adapters-scrcpy"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
+ "senvakara-adapters-adb",
+ "senvakara-core",
+ "serde",
+ "sha2 0.11.1",
+ "tokio",
+]
+
+[[package]]
 name = "senvakara-adapters-ssh"
 version = "0.0.1"
 dependencies = [
@@ -3989,6 +4001,7 @@ dependencies = [
  "anyhow",
  "senvakara-adapters-adb",
  "senvakara-adapters-pty",
+ "senvakara-adapters-scrcpy",
  "senvakara-adapters-ssh",
  "senvakara-core",
  "senvakara-secrets",
