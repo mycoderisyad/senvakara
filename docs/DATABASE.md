@@ -1,6 +1,6 @@
 # Database Design — Senvakara
 
-**Status:** migration v1 implemented in `crates/storage/migrations/0001_init.sql` (hosts, host_endpoints, ssh_settings, devices, device_routes, sessions); migration v2 in `0002_workspaces.sql` adds `workspaces` and `workspace_panels` (panel targets stored as JSON references, max 4 panels); migration v3 in `0003_workflows.sql` adds `workflow_runs` and `workflow_steps` (status checks, started/finished times, summary JSON only). SQLite stores app metadata, **not** plaintext passwords, private keys or Android pairing secrets. OS credential manager/keyring is the designated secret boundary.
+**Status:** migration v1 implemented in `crates/storage/migrations/0001_init.sql` (hosts, host_endpoints, ssh_settings, devices, device_routes, sessions); migration v2 in `0002_workspaces.sql` adds `workspaces` and `workspace_panels` (panel targets stored as JSON references, max 4 panels); migration v3 in `0003_workflows.sql` adds `workflow_runs` and `workflow_steps` (status checks, started/finished times, summary JSON only); migration v4 in `0004_recipes.sql` adds `recipes` (name, target route, allowlisted step list and per-recipe permissions as JSON) and runs record their `recipe_id`. SQLite stores app metadata, **not** plaintext passwords, private keys or Android pairing secrets. OS credential manager/keyring is the designated secret boundary.
 
 ## 1. Entity model
 
@@ -99,7 +99,7 @@ CREATE TABLE workspace_panels (
 CREATE TABLE workflow_runs (
     id TEXT PRIMARY KEY,
     workspace_id TEXT REFERENCES workspaces(id) ON DELETE SET NULL,
-    recipe_id TEXT, -- future migration adds recipe table / FK
+    recipe_id TEXT, -- set for runs started from a recipe (v4); no FK so history survives recipe deletion
     status TEXT NOT NULL,
     created_at TEXT NOT NULL,
     finished_at TEXT,
@@ -130,6 +130,7 @@ The SQL is a **starting model**, not a migration to execute blindly. Validate ti
 - Changing a host's SSH address or port keeps the host id but clears the pinned fingerprint and sets `trust_state='untrusted'`.
 - Each newly observed (host, connection type, serial) route creates its own provisional `devices` row; routes are never merged across hosts or by model. The model replaces a serial placeholder name, but never a user-chosen name. Transport ids are runtime-only.
 - The local Windows machine is a singleton row with `is_local=1` and cannot be deleted.
+- `recipes.steps_json` holds at most 20 steps of the allowlisted kinds `install_apk`, `uninstall_package`, `launch_app`, `wait`, `device_shell`, `screenshot`, `flutter_deploy`; `permissions_json` is `{install, shell}`. Parameters are validated by the app before saving and again (with permissions) before every run. Deleting a recipe keeps its runs.
 
 ## 3. Runtime vs persisted state
 

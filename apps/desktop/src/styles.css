@@ -282,3 +282,22 @@ progress { width: 100%; height: 6px; accent-color: var(--accent); }
 .step-running .step-icon { color: var(--warning); }
 .step-detail { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .deploy .output.log { max-height: 280px; min-height: 160px; }
+
+/* Automations */
+.auto-layout { display: grid; grid-template-columns: 220px 1fr; gap: 16px; margin-top: 12px; align-items: start; }
+.auto-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 2px; }
+.auto-list .list-item { width: 100%; text-align: left; background: transparent; border-color: transparent; }
+.auto-list .list-item.active { background: var(--surface); border-color: var(--border); font-weight: 600; }
+.auto-editor { display: flex; flex-direction: column; gap: 10px; max-width: 980px; min-width: 0; }
+.auto-editor .row { align-items: center; flex-wrap: wrap; }
+.perms { border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 12px; display: flex; gap: 20px; flex-wrap: wrap; }
+.perms legend { font-size: 12px; color: var(--text-muted); padding: 0 4px; }
+.auto-steps { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.auto-steps li { display: grid; grid-template-columns: 24px 190px 1fr auto; gap: 8px; align-items: center; }
+.auto-steps .params { display: flex; gap: 6px; align-items: center; min-width: 0; }
+.auto-steps .params input[type="number"] { width: 80px; }
+.auto-steps .params select { width: auto; }
+.step-tools { display: flex; gap: 2px; }
+.step-tools button { min-width: 28px; padding: 2px 6px; }
+.confirm-steps { margin: 8px 0; padding-left: 20px; max-height: 240px; overflow: auto; overflow-wrap: anywhere; }
+.automations .output.log { max-height: 240px; min-height: 100px; }

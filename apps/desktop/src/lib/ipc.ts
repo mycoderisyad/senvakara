@@ -433,10 +433,11 @@ export type FlowEvent =
 
 export interface RunRecord {
   id: string;
+  recipe_id: string | null;
   status: string;
   created_at: string;
   finished_at: string | null;
-  summary: { target?: string; project?: string; mode?: string; result?: string; seconds?: number };
+  summary: { target?: string; project?: string; mode?: string; recipe?: string; result?: string; seconds?: number };
   steps: Array<{ ordinal: number; action_kind: string; status: string; result: { detail?: string } | null }>;
 }
 
@@ -445,3 +446,40 @@ export const flowStart = (spec: FlowSpec, onEvent: (e: FlowEvent) => void) =>
   invoke<string>("flow_start", { spec, onEvent: new Channel<FlowEvent>(onEvent) });
 export const flowCancel = (runId: string) => invoke<void>("flow_cancel", { runId });
 export const flowHistory = () => invoke<RunRecord[]>("flow_history");
+
+// ---------- automation recipes (FLOW-04) ----------
+
+export type StepKind = "install_apk" | "uninstall_package" | "launch_app" | "wait" | "device_shell" | "screenshot" | "flutter_deploy";
+
+export interface RecipeStep {
+  kind: StepKind;
+  params: Record<string, string | number | boolean>;
+}
+
+export interface RecipePermissions {
+  install: boolean;
+  shell: boolean;
+}
+
+export interface Recipe {
+  id: string;
+  name: string;
+  target_route_id: string | null;
+  steps: RecipeStep[];
+  permissions: RecipePermissions;
+  updated_at: string;
+}
+
+export interface RecipeSave {
+  id: string | null;
+  name: string;
+  target_route_id: string | null;
+  steps: RecipeStep[];
+  permissions: RecipePermissions;
+}
+
+export const recipesList = () => invoke<Recipe[]>("recipes_list");
+export const recipeSave = (input: RecipeSave) => invoke<Recipe>("recipe_save", { input });
+export const recipeDelete = (id: string) => invoke<void>("recipe_delete", { id });
+export const recipeRun = (recipeId: string, expectedSerial: string, onEvent: (e: FlowEvent) => void) =>
+  invoke<string>("recipe_run", { recipeId, expectedSerial, onEvent: new Channel<FlowEvent>(onEvent) });

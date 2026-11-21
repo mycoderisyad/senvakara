@@ -33,6 +33,19 @@ pub struct Flows {
     cancel: Mutex<HashMap<String, Arc<AtomicBool>>>,
 }
 
+impl Flows {
+    /// Make a run cancellable through `flow_cancel`.
+    pub(crate) fn insert(&self, run_id: &str, cancel: Arc<AtomicBool>) {
+        self.cancel
+            .lock()
+            .unwrap()
+            .insert(run_id.to_string(), cancel);
+    }
+    pub(crate) fn remove(&self, run_id: &str) {
+        self.cancel.lock().unwrap().remove(run_id);
+    }
+}
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct FlowSpec {
     /// Build host. Only this PC is supported as build host for now.
@@ -180,7 +193,7 @@ pub fn flow_history(state: State<'_, AppState>) -> CmdResult<Vec<RunRecord>> {
         .db
         .lock()
         .unwrap()
-        .list_runs(20)
+        .list_runs(50)
         .map_err(|e| db_err("history", e))
 }
 
@@ -191,10 +204,13 @@ pub fn flow_cancel(flows: State<'_, Flows>, run_id: String) {
     }
 }
 
+/// Where run events go: the UI channel, or a recipe that embeds this flow.
+pub type Sink = Arc<dyn Fn(FlowEvent) + Send + Sync>;
+
 struct Run {
     app: AppHandle,
     id: String,
-    ch: Channel<FlowEvent>,
+    sink: Sink,
     cancel: Arc<AtomicBool>,
 }
 
@@ -207,7 +223,7 @@ impl Run {
             status,
             result.as_ref(),
         );
-        let _ = self.ch.send(FlowEvent::Step {
+        (self.sink)(FlowEvent::Step {
             ordinal,
             name: STEPS[ordinal].into(),
             status: status.into(),
@@ -215,7 +231,7 @@ impl Run {
         });
     }
     fn log(&self, text: impl Into<String>) {
-        let _ = self.ch.send(FlowEvent::Log { text: text.into() });
+        (self.sink)(FlowEvent::Log { text: text.into() });
     }
     fn cancelled(&self) -> bool {
         self.cancel.load(Ordering::Relaxed)
@@ -266,41 +282,101 @@ pub async fn flow_start(
         spec.route_id, record.host_id
     ));
 
+    let sink: Sink = Arc::new(move |e| {
+        let _ = on_event.send(e);
+    });
     let run = Run {
         app: app.clone(),
         id: id.clone(),
-        ch: on_event,
+        sink,
         cancel,
     };
     tauri::async_runtime::spawn(async move {
         let started = Instant::now();
         let outcome = execute(&run, &spec, server, transport, &record.display_name).await;
-        let (status, message) = match &outcome {
-            Ok(msg) => ("succeeded", msg.clone()),
-            Err(e) if e.code == ErrorCode::Cancelled => ("cancelled", e.message.clone()),
-            Err(e) => ("failed", format!("{:?}: {}", e.code, e.message)),
-        };
-        let mut final_summary = summary.clone();
-        final_summary["result"] = serde_json::json!(message);
-        final_summary["seconds"] = serde_json::json!(started.elapsed().as_secs());
-        let _ = run.app.state::<AppState>().db.lock().unwrap().finish_run(
-            &run.id,
-            status,
-            &final_summary,
-        );
-        let _ = run.ch.send(FlowEvent::Done {
-            status: status.into(),
-            message: message.clone(),
-        });
-        run.app
-            .state::<Flows>()
-            .cancel
-            .lock()
-            .unwrap()
-            .remove(&run.id);
-        logging::info(&format!("flow {} finished: {status}", run.id));
+        conclude(&run, summary, started, &outcome);
     });
     Ok(id)
+}
+
+/// Record the end of a run, tell the sink, release the cancel flag.
+fn conclude(
+    run: &Run,
+    mut summary: serde_json::Value,
+    started: Instant,
+    outcome: &Result<String, CoreError>,
+) {
+    let (status, message) = match outcome {
+        Ok(msg) => ("succeeded", msg.clone()),
+        Err(e) if e.code == ErrorCode::Cancelled => ("cancelled", e.message.clone()),
+        Err(e) => ("failed", format!("{:?}: {}", e.code, e.message)),
+    };
+    summary["result"] = serde_json::json!(message);
+    summary["seconds"] = serde_json::json!(started.elapsed().as_secs());
+    let _ = run
+        .app
+        .state::<AppState>()
+        .db
+        .lock()
+        .unwrap()
+        .finish_run(&run.id, status, &summary);
+    (run.sink)(FlowEvent::Done {
+        status: status.into(),
+        message,
+    });
+    run.app
+        .state::<Flows>()
+        .cancel
+        .lock()
+        .unwrap()
+        .remove(&run.id);
+    logging::info(&format!("flow {} finished: {status}", run.id));
+}
+
+/// Run a build → deploy flow to completion inside another workflow (a recipe
+/// step). It still gets its own audited run record; `cancel` is shared.
+pub(crate) async fn run_deploy(
+    app: &AppHandle,
+    spec: FlowSpec,
+    cancel: Arc<AtomicBool>,
+    sink: Sink,
+) -> Result<String, CoreError> {
+    let state = app.state::<AppState>();
+    let android = app.state::<Android>();
+    if !["debug", "release"].contains(&spec.mode.as_str()) {
+        return Err(fail(
+            ErrorCode::InvalidInput,
+            "mode must be debug or release",
+        ));
+    }
+    let (record, server, transport) = resolve(&state, &android, &spec.route_id).await?;
+    confirm_target(&record, &spec.expected_serial)?;
+    let summary = serde_json::json!({
+        "build_host": spec.build_host_id, "project": spec.project_dir, "mode": spec.mode,
+        "target": format!("{} ({} · {})", record.display_name, record.host_name, record.serial),
+        "embedded": true,
+    });
+    let id = state
+        .db
+        .lock()
+        .unwrap()
+        .create_run(&summary, STEPS)
+        .map_err(|e| db_err("run", e))?;
+    app.state::<Flows>()
+        .cancel
+        .lock()
+        .unwrap()
+        .insert(id.clone(), cancel.clone());
+    let run = Run {
+        app: app.clone(),
+        id,
+        sink,
+        cancel,
+    };
+    let started = Instant::now();
+    let outcome = execute(&run, &spec, server, transport, &record.display_name).await;
+    conclude(&run, summary, started, &outcome);
+    outcome
 }
 
 async fn execute(
@@ -546,11 +622,7 @@ async fn execute(
                 .shell(t, &format!("pidof {pkg}"), Duration::from_secs(5), 256)
                 .await
             {
-                let p = o
-                    .output
-                    .split_whitespace()
-                    .next()
-                    .map(str::to_string);
+                let p = o.output.split_whitespace().next().map(str::to_string);
                 if p.as_deref()
                     .is_some_and(|p| p.chars().all(|c| c.is_ascii_digit()))
                 {

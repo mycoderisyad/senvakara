@@ -3,7 +3,7 @@
 import { create } from "zustand";
 import { errorText, HostView, hostsList, ShellRequest } from "./ipc";
 
-export type ViewId = "overview" | "hosts" | "devices" | "device" | "desktop" | "deploy" | "sessions" | "files" | "workspaces" | "diagnostics";
+export type ViewId = "overview" | "hosts" | "devices" | "device" | "desktop" | "deploy" | "automations" | "sessions" | "files" | "workspaces" | "diagnostics";
 
 export interface Tab {
   key: number;

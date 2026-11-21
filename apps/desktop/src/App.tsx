@@ -9,6 +9,7 @@ import { OverviewView } from "./features/overview/OverviewView";
 import { DesktopView } from "./features/desktop/DesktopView";
 import { WorkspacesView } from "./features/workspaces/WorkspacesView";
 import { DeployView } from "./features/deploy/DeployView";
+import { AutomationsView } from "./features/automations/AutomationsView";
 import { useUi, ViewId } from "./lib/store";
 
 const NAV: Array<{ id: ViewId; label: string; milestone?: string }> = [
@@ -19,6 +20,7 @@ const NAV: Array<{ id: ViewId; label: string; milestone?: string }> = [
   { id: "files", label: "Files" },
   { id: "workspaces", label: "Workspaces" },
   { id: "deploy", label: "Deploy" },
+  { id: "automations", label: "Automations" },
   { id: "diagnostics", label: "Diagnostics" },
 ];
 
@@ -72,6 +74,7 @@ export default function App() {
         {view === "desktop" && <DesktopView />}
         {view === "workspaces" && <WorkspacesView />}
         {view === "deploy" && <DeployView />}
+        {view === "automations" && <AutomationsView />}
         {view === "diagnostics" && <DiagnosticsView />}
         {current.milestone && <NotYet label={current.label} milestone={current.milestone} />}
       </main>

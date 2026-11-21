@@ -6,11 +6,13 @@
 
 mod devices;
 mod hosts;
+mod recipes;
 mod workflows;
 mod workspaces;
 
 pub use devices::DeviceRouteRecord;
 pub use hosts::{HostRecord, HostUpsert, SshEndpoint};
+pub use recipes::{RecipePermissions, RecipeRecord, RecipeSave, RecipeStep};
 pub use workflows::{RunRecord, StepRecord};
 pub use workspaces::{PanelRecord, WorkspaceRecord, WorkspaceSave};
 
@@ -21,6 +23,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("../migrations/0001_init.sql"),
     include_str!("../migrations/0002_workspaces.sql"),
     include_str!("../migrations/0003_workflows.sql"),
+    include_str!("../migrations/0004_recipes.sql"),
 ];
 
 #[derive(Debug, thiserror::Error)]
@@ -95,9 +98,9 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("svk-test-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("t.db");
-        assert_eq!(Db::open(&path).unwrap().schema_version().unwrap(), 3);
+        assert_eq!(Db::open(&path).unwrap().schema_version().unwrap(), 4);
         // Re-opening must not re-run migrations.
-        assert_eq!(Db::open(&path).unwrap().schema_version().unwrap(), 3);
+        assert_eq!(Db::open(&path).unwrap().schema_version().unwrap(), 4);
         let _ = std::fs::remove_dir_all(dir);
     }
 

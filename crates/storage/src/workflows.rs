@@ -28,6 +28,7 @@ pub struct StepRecord {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct RunRecord {
     pub id: String,
+    pub recipe_id: Option<String>,
     pub status: String,
     pub created_at: String,
     pub finished_at: Option<String>,
@@ -111,7 +112,7 @@ impl Db {
 
     pub fn list_runs(&self, limit: usize) -> Result<Vec<RunRecord>> {
         let mut st = self.conn.prepare(
-            "SELECT id, status, created_at, finished_at, summary_json FROM workflow_runs ORDER BY created_at DESC LIMIT ?1",
+            "SELECT id, status, created_at, finished_at, summary_json, recipe_id FROM workflow_runs ORDER BY created_at DESC LIMIT ?1",
         )?;
         let runs = st
             .query_map([limit as i64], |r| {
@@ -121,11 +122,12 @@ impl Db {
                     r.get::<_, String>(2)?,
                     r.get::<_, Option<String>>(3)?,
                     r.get::<_, String>(4)?,
+                    r.get::<_, Option<String>>(5)?,
                 ))
             })?
             .collect::<rusqlite::Result<Vec<_>>>()?;
         let mut out = Vec::new();
-        for (id, status, created_at, finished_at, summary) in runs {
+        for (id, status, created_at, finished_at, summary, recipe_id) in runs {
             let mut ss = self.conn.prepare(
                 "SELECT ordinal, action_kind, status, started_at, finished_at, safe_result_json \
                  FROM workflow_steps WHERE run_id=?1 ORDER BY ordinal",
@@ -147,6 +149,7 @@ impl Db {
                 .collect::<rusqlite::Result<Vec<_>>>()?;
             out.push(RunRecord {
                 id,
+                recipe_id,
                 status,
                 created_at,
                 finished_at,

@@ -44,6 +44,8 @@ Changes to documentation and (later) shipped product are tracked separately. For
 
 - Deploy: build a Flutter app on this PC and install it on any phone (including phones on another host), optionally launch it and show its log; step-by-step status, cancel, and run history.
 
+- Automations: save recipes of steps (install/uninstall APK, launch app, wait, shell command, screenshot, Flutter build & install) for one phone, with explicit per-recipe permissions; every run shows all steps and the exact target for confirmation, stops at the first failure, can be cancelled and is kept in history.
+
 ### Fixed (development builds)
 
 - Device availability shown after a restart no longer reflects the previous session.

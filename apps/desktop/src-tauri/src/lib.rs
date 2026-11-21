@@ -11,6 +11,7 @@ mod hosts;
 mod logging;
 mod mirror;
 mod monitor;
+mod recipes;
 mod state;
 mod terminal;
 mod workspaces;
@@ -95,6 +96,10 @@ pub fn run() {
             flow::flow_start,
             flow::flow_cancel,
             flow::flow_history,
+            recipes::recipes_list,
+            recipes::recipe_save,
+            recipes::recipe_delete,
+            recipes::recipe_run,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

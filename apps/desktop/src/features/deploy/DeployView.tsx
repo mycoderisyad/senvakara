@@ -54,7 +54,7 @@ export function DeployView() {
   const [error, setError] = useState<string | null>(null);
   const logBox = useRef<HTMLPreElement>(null);
 
-  const loadHistory = useCallback(() => flowHistory().then(setHistory, () => {}), []);
+  const loadHistory = useCallback(() => flowHistory().then((h) => setHistory(h.filter((r) => !r.recipe_id)), () => {}), []);
 
   useEffect(() => {
     if (!local) return;
@@ -97,6 +97,7 @@ export function DeployView() {
           else if (ev.kind === "log") setLog((l) => (l.length >= MAX_LOG ? l.slice(-MAX_LOG + 1) : l).concat(ev.text));
           else {
             setDone({ status: ev.status, message: ev.message });
+            setSteps((s) => s.map((x) => (x.status === "pending" ? { ...x, status: "skipped" } : x)));
             void loadHistory();
           }
         },
