@@ -27,6 +27,7 @@ Changes to documentation and (later) shipped product are tracked separately. For
 - Files: browse remote folders over SFTP, upload/download with progress, cancel, and confirmation before replacing files.
 - Key passphrases stored in Windows Credential Manager; local SQLite stores only metadata.
 - Redacted application log in the user's local app-data folder.
+- Devices: Android phones from this PC and from connected Linux hosts in one list, labelled with host and route; Info and confirmed one-shot Shell bound to the exact device; rename/forget; live updates without polling.
 
 ## Versioning guidance
 

@@ -26,10 +26,10 @@
 
 ## Phase 2 — Multi-host Android registry + safe ADB
 
-- [ ] **AND-IMPL-01 [P0]** Local Windows ADB discovery with explicit transport selection.
-- [ ] **AND-IMPL-02 [P0]** Fedora authenticated bridge (agent or SSH) with least privilege, versioned contract if agent used.
+- [x] **AND-IMPL-01 [P0]** Local Windows ADB discovery with explicit transport selection. *Evidence 2026-11-21: `crates/adapters-adb` speaks the ADB host protocol directly (ADR-018); app watches the local server with `track-devices-l` (no polling), finds the user's `adb.exe` without bundling it, auto-restarts after `adb kill-server` (device went Not connected → Available again).*
+- [x] **AND-IMPL-02 [P0]** Fedora authenticated bridge (agent or SSH) with least privilege, versioned contract if agent used. *Evidence 2026-11-21: on host Connect the app runs `adb start-server` on the Linux host and forwards `127.0.0.1:<random>` → host `127.0.0.1:5037` over the existing SSH connection; Devices view shows the host as watching; Fedora `ss -ltn` still shows 5037 on loopback only. No agent needed.*
 - [ ] **AND-IMPL-03 [P0]** Report Fedora USB Android devices to global registry.
-- [ ] **AND-IMPL-04 [P0]** Route ADB commands by host/device identifier; handle stale route.
+- [x] **AND-IMPL-04 [P0]** Route ADB commands by host/device identifier; handle stale route. *Evidence 2026-11-21: every action re-reads the live device list and requires same host + serial + transport id (`ROUTE_STALE` otherwise); bogus transport id rejected by the server path; `adb reconnect` changed transport 1→2 and the card followed without creating a duplicate device; UI shell on Android A showed the full target in a confirmation and returned A's model only.*
 - [ ] **AND-IMPL-05 [P0]** Show local and Fedora Android devices simultaneously and prove command isolation.
 - [ ] **AND-IMPL-06 [P0]** Handle unplug, unauthorized debugging and lost host without wrong-device commands.
 

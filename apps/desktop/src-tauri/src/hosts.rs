@@ -7,7 +7,7 @@ use senvakara_core::{CoreError, ErrorCode};
 use senvakara_storage::{HostRecord, HostUpsert};
 use serde::Serialize;
 use std::time::Duration;
-use tauri::State;
+use tauri::{AppHandle, State};
 
 /// What the UI may see about a host. Secrets and secret references are
 /// reduced to booleans.
@@ -103,6 +103,7 @@ pub async fn host_create(state: State<'_, AppState>, input: HostUpsert) -> CmdRe
 
 #[tauri::command]
 pub async fn host_update(
+    app: AppHandle,
     state: State<'_, AppState>,
     id: String,
     input: HostUpsert,
@@ -114,12 +115,14 @@ pub async fn host_update(
         .update_host(&id, &input)
         .map_err(|e| db_err("update host", e))?;
     // Settings may have changed (address, user, key): force a fresh connection.
+    crate::android::stop_host(&app, &id);
     state.disconnect(&id).await;
     Ok(view(rec, false))
 }
 
 #[tauri::command]
-pub async fn host_delete(state: State<'_, AppState>, id: String) -> CmdResult<()> {
+pub async fn host_delete(app: AppHandle, state: State<'_, AppState>, id: String) -> CmdResult<()> {
+    crate::android::stop_host(&app, &id);
     state.disconnect(&id).await;
     let passphrase_ref = {
         let db = state.db.lock().unwrap();
@@ -247,7 +250,11 @@ pub async fn host_set_passphrase(
 
 /// Connect (or reuse the connection) and refresh detected capabilities.
 #[tauri::command]
-pub async fn host_connect(state: State<'_, AppState>, id: String) -> CmdResult<HostView> {
+pub async fn host_connect(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    id: String,
+) -> CmdResult<HostView> {
     let conn = state.connection(&id).await?;
     let os = conn
         .exec(&["cat", "/etc/os-release"])
@@ -283,11 +290,20 @@ pub async fn host_connect(state: State<'_, AppState>, id: String) -> CmdResult<H
         .unwrap()
         .set_capabilities(&id, &caps.to_string())
         .map_err(|e| db_err("capabilities", e))?;
+    // Android devices attached to this host become visible while connected.
+    if let Some(path) = adb.as_deref() {
+        crate::android::start_remote(&app, &id, conn.clone(), path).await;
+    }
     host_view(&state, &id).await
 }
 
 #[tauri::command]
-pub async fn host_disconnect(state: State<'_, AppState>, id: String) -> CmdResult<HostView> {
+pub async fn host_disconnect(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    id: String,
+) -> CmdResult<HostView> {
+    crate::android::stop_host(&app, &id);
     state.disconnect(&id).await;
     host_view(&state, &id).await
 }

@@ -4,8 +4,10 @@
 //! Migrations are versioned with `PRAGMA user_version` and applied in a
 //! transaction (docs/DATABASE.md §5).
 
+mod devices;
 mod hosts;
 
+pub use devices::DeviceRouteRecord;
 pub use hosts::{HostRecord, HostUpsert, SshEndpoint};
 
 use rusqlite::Connection;

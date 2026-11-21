@@ -1,6 +1,7 @@
 //! Senvakara desktop shell. Thin Tauri glue over the Rust core and adapters:
 //! no business logic and no secrets live in the webview (docs/ARCHITECTURE.md §2).
 
+mod android;
 mod files;
 mod hosts;
 mod logging;
@@ -20,10 +21,12 @@ pub fn run() {
             let state = state::AppState::open(data_dir.join("senvakara.db"))?;
             logging::info("app started");
             app.manage(state);
+            android::start_local(app.handle().clone());
             Ok(())
         })
         .manage(terminal::Terminals::default())
         .manage(files::Transfers::default())
+        .manage(android::Android::default())
         .invoke_handler(tauri::generate_handler![
             terminal::term_open,
             terminal::term_write,
@@ -43,6 +46,12 @@ pub fn run() {
             files::sftp_download,
             files::sftp_upload,
             files::transfer_cancel,
+            android::devices_list,
+            android::adb_status,
+            android::device_info,
+            android::device_shell,
+            android::device_rename,
+            android::device_forget,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

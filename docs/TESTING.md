@@ -102,6 +102,8 @@ MVP ships only after `E2E-01` through `E2E-07` pass on reference setup plus secu
 | 2026-11-21 | E2E-02 (in app) | App dev build → Fedora 45 reference host | PASS | Host added through UI, fingerprint confirmed against `ssh-keyscan`, interactive SSH tab. Changed-key simulation (pinned value replaced in the app DB): connect refused, warning dialog shown, wrong fingerprint cannot be pinned. |
 | 2026-11-21 | E2E-03 (in app) | same | PASS | Listing in Files view; transfers through the same IPC the UI uses: 8 MiB round trip byte-identical, conflict protection, overwrite, cancel of 256 MiB upload with remote partial removed. Native file-picker steps were not automated. |
 | 2026-11-21 | M1 exit gate | same | PASS | E2E-01, E2E-02, E2E-03 pass on the reference setup. Not yet covered: passphrase-protected keys end-to-end, reconnect after network loss (REC-01, P1). |
+| 2026-11-21 | ADB host protocol spike | Windows ADB server (platform-tools 35.0.2, protocol 41), Android A | PASS | `host:version`, `host:devices-l`, `host:track-devices-l`, `host:transport-id:<id>` + `shell:` all behave as used; unknown transport id → `FAIL no device with transport id`. Legacy `shell:` gives no exit status. |
+| 2026-11-21 | E2E-04..07 (partial) | App dev build; Android A on Windows; Android B on Fedora **not visible to Fedora's adb** at test time (`lsusb` shows `18d1:4e11`, no ADB interface) | PARTIAL | A: listed with host+route, Info and confirmed Shell OK, transport change and local server restart handled, Linux host disconnect leaves A available. B-side checks (simultaneous listing in app, command isolation A vs B, physical unplug, unauthorized) **not yet run**. |
 
 ### Reference environment (POC-01)
 

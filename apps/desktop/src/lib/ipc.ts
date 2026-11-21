@@ -155,3 +155,55 @@ export function sftpUpload(
 }
 
 export const transferCancel = (id: number) => invoke<void>("transfer_cancel", { id });
+
+// ---------- android devices ----------
+
+export interface DeviceView {
+  device_id: string;
+  display_name: string;
+  manufacturer: string | null;
+  model: string | null;
+  identity_status: string;
+  route_id: string;
+  host_id: string;
+  host_name: string;
+  connection_type: "usb_adb" | "wifi_adb";
+  serial: string;
+  state: "available" | "unauthorized" | "offline" | "unavailable";
+  last_seen_at: string | null;
+  transport_id: number | null;
+}
+
+export interface WatchStatus {
+  watching: boolean;
+  detail: string;
+}
+
+export interface AdbStatus {
+  local_adb_path: string | null;
+  hosts: Record<string, WatchStatus>;
+}
+
+export interface DeviceInfo {
+  route_id: string;
+  host_name: string;
+  serial: string;
+  transport_id: number;
+  props: Array<[string, string]>;
+}
+
+export interface ShellResult {
+  route_id: string;
+  host_name: string;
+  serial: string;
+  output: string;
+  truncated: boolean;
+}
+
+export const devicesList = () => invoke<DeviceView[]>("devices_list");
+export const adbStatus = () => invoke<AdbStatus>("adb_status");
+export const deviceInfo = (routeId: string) => invoke<DeviceInfo>("device_info", { routeId });
+export const deviceShell = (routeId: string, expectedSerial: string, command: string) =>
+  invoke<ShellResult>("device_shell", { routeId, expectedSerial, command });
+export const deviceRename = (deviceId: string, name: string) => invoke<void>("device_rename", { deviceId, name });
+export const deviceForget = (routeId: string) => invoke<void>("device_forget", { routeId });

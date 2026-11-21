@@ -128,6 +128,7 @@ The SQL is a **starting model**, not a migration to execute blindly. Validate ti
 - `host_endpoints.port` is `NOT NULL DEFAULT 0` (0 = not applicable) so the `UNIQUE(host_id,transport,address,port)` constraint is not bypassed by `NULL`.
 - `ssh_settings(endpoint_id, username, private_key_path, passphrase_ref)` holds SSH login settings; `passphrase_ref` is an opaque Windows Credential Manager entry name, never the passphrase.
 - Changing a host's SSH address or port keeps the host id but clears the pinned fingerprint and sets `trust_state='untrusted'`.
+- Each newly observed (host, connection type, serial) route creates its own provisional `devices` row; routes are never merged across hosts or by model. The model replaces a serial placeholder name, but never a user-chosen name. Transport ids are runtime-only.
 - The local Windows machine is a singleton row with `is_local=1` and cannot be deleted.
 
 ## 3. Runtime vs persisted state

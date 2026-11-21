@@ -1,0 +1,13 @@
+[package]
+name = "senvakara-adapters-adb"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Minimal ADB host-protocol client (device listing, tracking, transport-scoped shell)"
+
+[dependencies]
+senvakara-core = { path = "../core" }
+tokio = { version = "1", features = ["net", "io-util", "time", "process", "rt-multi-thread", "macros"] }
+anyhow.workspace = true
+serde.workspace = true
