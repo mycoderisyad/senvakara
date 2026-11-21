@@ -4,6 +4,7 @@ import { DiagnosticsView } from "./features/diagnostics/DiagnosticsView";
 import { HostsView } from "./features/hosts/HostsView";
 import { FilesView } from "./features/files/FilesView";
 import { DevicesView } from "./features/devices/DevicesView";
+import { DeviceDetail } from "./features/devices/DeviceDetail";
 import { useUi, ViewId } from "./lib/store";
 
 const NAV: Array<{ id: ViewId; label: string; milestone?: string }> = [
@@ -29,7 +30,8 @@ function NotYet({ label, milestone }: { label: string; milestone?: string }) {
 
 export default function App() {
   const { view, setView, tabs, refreshHosts } = useUi();
-  const current = NAV.find((n) => n.id === view)!;
+  const navId: ViewId = view === "device" ? "devices" : view;
+  const current = NAV.find((n) => n.id === navId)!;
 
   useEffect(() => {
     void refreshHosts();
@@ -42,8 +44,8 @@ export default function App() {
         {NAV.map((n) => (
           <button
             key={n.id}
-            className={`nav-item ${n.id === view ? "active" : ""}`}
-            aria-current={n.id === view ? "page" : undefined}
+            className={`nav-item ${n.id === navId ? "active" : ""}`}
+            aria-current={n.id === navId ? "page" : undefined}
             onClick={() => setView(n.id)}
           >
             {n.label}
@@ -60,6 +62,7 @@ export default function App() {
         {view === "hosts" && <HostsView />}
         {view === "files" && <FilesView />}
         {view === "devices" && <DevicesView />}
+        {view === "device" && <DeviceDetail />}
         {view === "diagnostics" && <DiagnosticsView />}
         {current.milestone && <NotYet label={current.label} milestone={current.milestone} />}
       </main>

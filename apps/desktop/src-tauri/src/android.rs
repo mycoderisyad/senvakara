@@ -326,7 +326,7 @@ pub fn adb_status(android: State<'_, Android>) -> AdbStatus {
 
 /// Resolve a route to its live server transport and verify, against the
 /// server *right now*, that the same serial is still on the same transport.
-async fn resolve(
+pub(crate) async fn resolve(
     state: &AppState,
     android: &Android,
     route_id: &str,

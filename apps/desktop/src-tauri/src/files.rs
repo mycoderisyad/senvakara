@@ -17,8 +17,8 @@ use tauri::{AppHandle, Manager, State};
 
 #[derive(Default)]
 pub struct Transfers {
-    next_id: AtomicU32,
-    cancel: Mutex<HashMap<u32, Arc<AtomicBool>>>,
+    pub(crate) next_id: AtomicU32,
+    pub(crate) cancel: Mutex<HashMap<u32, Arc<AtomicBool>>>,
 }
 
 #[derive(Debug, Clone, Serialize)]

@@ -149,7 +149,7 @@ function InfoPanel({ device, onClose }: { device: DeviceView; onClose: () => voi
 
 /** Android devices from every host in one list (INV-02, AND-03). */
 export function DevicesView() {
-  const { hosts, refreshHosts, putHost } = useUi();
+  const { hosts, refreshHosts, putHost, openDevice } = useUi();
   const [devices, setDevices] = useState<DeviceView[]>([]);
   const [status, setStatus] = useState<AdbStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -295,6 +295,9 @@ export function DevicesView() {
                 <p className="banner small warn-text">Unlock the phone and accept “Allow USB debugging” for {d.host_name}.</p>
               )}
               <div className="card-actions">
+                <button className="primary" onClick={() => openDevice(d.route_id)} disabled={d.state !== "available"}>
+                  Open
+                </button>
                 <button onClick={() => setInfoFor(d)} disabled={d.state !== "available"}>
                   Info
                 </button>

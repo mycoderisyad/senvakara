@@ -11,6 +11,7 @@
 //! fails instead of silently reaching a different device (docs/SECURITY.md §2).
 
 pub mod protocol;
+pub mod sync;
 
 pub use protocol::{parse_devices_l, AdbDevice};
 
@@ -90,6 +91,19 @@ impl AdbServer {
         if command.trim().is_empty() {
             bail!(core(ErrorCode::InvalidInput, "empty shell command"));
         }
+        let mut s = self
+            .open_service(transport_id, &format!("shell:{command}"))
+            .await?;
+        let (out, truncated) = read_bounded(&mut s, timeout, max_bytes).await?;
+        Ok(ShellOutput {
+            output: String::from_utf8_lossy(&out).into_owned(),
+            truncated,
+        })
+    }
+
+    /// Bind a fresh connection to exactly one transport and open `service`
+    /// on it. A transport that no longer exists fails as `ROUTE_STALE`.
+    pub async fn open_service(&self, transport_id: u64, service: &str) -> Result<TcpStream> {
         let mut s = self.connect().await?;
         protocol::request(&mut s, &format!("host:transport-id:{transport_id}"))
             .await
@@ -99,38 +113,35 @@ impl AdbServer {
                     format!("transport {transport_id} is gone: {e}"),
                 )
             })?;
-        protocol::request(&mut s, &format!("shell:{command}")).await?;
-        let mut out = Vec::new();
-        let mut buf = [0u8; 8192];
-        let mut truncated = false;
-        let read_all = async {
-            loop {
-                let n = s.read(&mut buf).await?;
-                if n == 0 {
-                    break;
-                }
-                let room = max_bytes.saturating_sub(out.len());
-                out.extend_from_slice(&buf[..n.min(room)]);
-                if n > room {
-                    truncated = true;
-                    break;
-                }
-            }
-            anyhow::Ok(())
-        };
-        match tokio::time::timeout(timeout, read_all).await {
-            Ok(r) => r?,
-            Err(_) => {
-                return Err(core(
-                    ErrorCode::Timeout,
-                    format!("command did not finish within {timeout:?}"),
-                ))
-            }
+        protocol::request(&mut s, service).await?;
+        Ok(s)
+    }
+
+    /// `exec:` runs a command without a PTY and returns raw, binary-safe
+    /// stdout (used for `screencap -p`).
+    pub async fn exec_bytes(
+        &self,
+        transport_id: u64,
+        command: &str,
+        timeout: Duration,
+        max_bytes: usize,
+    ) -> Result<Vec<u8>> {
+        let mut s = self
+            .open_service(transport_id, &format!("exec:{command}"))
+            .await?;
+        let (out, truncated) = read_bounded(&mut s, timeout, max_bytes).await?;
+        if truncated {
+            bail!(core(
+                ErrorCode::InternalError,
+                format!("output larger than {max_bytes} bytes")
+            ));
         }
-        Ok(ShellOutput {
-            output: String::from_utf8_lossy(&out).into_owned(),
-            truncated,
-        })
+        Ok(out)
+    }
+
+    /// Open the file-sync service on one transport (see [`sync`]).
+    pub async fn sync(&self, transport_id: u64) -> Result<TcpStream> {
+        self.open_service(transport_id, "sync:").await
     }
 
     /// `getprop <name>` on one transport.
@@ -208,4 +219,40 @@ pub async fn ensure_local_server(adb: &std::path::Path) -> Result<AdbServer> {
         bail!(core(ErrorCode::InternalError, "adb start-server failed"));
     }
     server.version().await.map(|_| server)
+}
+
+/// Read a stream to EOF with a byte cap and an overall timeout.
+async fn read_bounded(
+    s: &mut TcpStream,
+    timeout: Duration,
+    max_bytes: usize,
+) -> Result<(Vec<u8>, bool)> {
+    let mut out = Vec::new();
+    let mut buf = vec![0u8; 64 * 1024];
+    let mut truncated = false;
+    let read_all = async {
+        loop {
+            let n = s.read(&mut buf).await?;
+            if n == 0 {
+                break;
+            }
+            let room = max_bytes.saturating_sub(out.len());
+            out.extend_from_slice(&buf[..n.min(room)]);
+            if n > room {
+                truncated = true;
+                break;
+            }
+        }
+        anyhow::Ok(())
+    };
+    match tokio::time::timeout(timeout, read_all).await {
+        Ok(r) => r?,
+        Err(_) => {
+            return Err(core(
+                ErrorCode::Timeout,
+                format!("command did not finish within {timeout:?}"),
+            ))
+        }
+    }
+    Ok((out, truncated))
 }

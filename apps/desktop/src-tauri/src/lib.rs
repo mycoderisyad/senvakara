@@ -2,6 +2,7 @@
 //! no business logic and no secrets live in the webview (docs/ARCHITECTURE.md §2).
 
 mod android;
+mod android_tools;
 mod files;
 mod hosts;
 mod logging;
@@ -27,6 +28,7 @@ pub fn run() {
         .manage(terminal::Terminals::default())
         .manage(files::Transfers::default())
         .manage(android::Android::default())
+        .manage(android_tools::AndroidTools::default())
         .invoke_handler(tauri::generate_handler![
             terminal::term_open,
             terminal::term_write,
@@ -52,6 +54,16 @@ pub fn run() {
             android::device_shell,
             android::device_rename,
             android::device_forget,
+            android_tools::device_screenshot,
+            android_tools::device_screenshot_save,
+            android_tools::logcat_start,
+            android_tools::logcat_stop,
+            android_tools::device_packages,
+            android_tools::device_uninstall,
+            android_tools::device_install_apk,
+            android_tools::device_files_list,
+            android_tools::device_push,
+            android_tools::device_pull,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

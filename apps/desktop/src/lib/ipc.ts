@@ -207,3 +207,58 @@ export const deviceShell = (routeId: string, expectedSerial: string, command: st
   invoke<ShellResult>("device_shell", { routeId, expectedSerial, command });
 export const deviceRename = (deviceId: string, name: string) => invoke<void>("device_rename", { deviceId, name });
 export const deviceForget = (routeId: string) => invoke<void>("device_forget", { routeId });
+
+// ---------- android tools ----------
+
+export interface DeviceEntry {
+  name: string;
+  is_dir: boolean;
+  is_symlink: boolean;
+  size: number;
+  mtime: number;
+}
+
+export const deviceScreenshot = (routeId: string) => invoke<ArrayBuffer>("device_screenshot", { routeId });
+export const deviceScreenshotSave = (routeId: string, path: string) =>
+  invoke<void>("device_screenshot_save", { routeId, path });
+
+export function logcatStart(routeId: string, onData: (bytes: Uint8Array) => void): Promise<number> {
+  const channel = new Channel<ArrayBuffer>((buf) => onData(new Uint8Array(buf)));
+  return invoke<number>("logcat_start", { routeId, onData: channel });
+}
+export const logcatStop = (id: number) => invoke<void>("logcat_stop", { id });
+
+export const devicePackages = (routeId: string) => invoke<string[]>("device_packages", { routeId });
+export const deviceUninstall = (routeId: string, expectedSerial: string, pkg: string) =>
+  invoke<string>("device_uninstall", { routeId, expectedSerial, package: pkg });
+export const deviceInstallApk = (
+  routeId: string,
+  expectedSerial: string,
+  localPath: string,
+  onEvent: (e: TransferEvent) => void,
+) => invoke<number>("device_install_apk", { routeId, expectedSerial, localPath, onEvent: new Channel<TransferEvent>(onEvent) });
+
+export const deviceFilesList = (routeId: string, path: string) => invoke<DeviceEntry[]>("device_files_list", { routeId, path });
+export const devicePush = (
+  routeId: string,
+  expectedSerial: string,
+  localPath: string,
+  remoteDir: string,
+  overwrite: boolean,
+  onEvent: (e: TransferEvent) => void,
+) =>
+  invoke<number>("device_push", {
+    routeId,
+    expectedSerial,
+    localPath,
+    remoteDir,
+    overwrite,
+    onEvent: new Channel<TransferEvent>(onEvent),
+  });
+export const devicePull = (
+  routeId: string,
+  remotePath: string,
+  localDir: string,
+  overwrite: boolean,
+  onEvent: (e: TransferEvent) => void,
+) => invoke<number>("device_pull", { routeId, remotePath, localDir, overwrite, onEvent: new Channel<TransferEvent>(onEvent) });

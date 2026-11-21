@@ -108,6 +108,8 @@ MVP ships only after `E2E-01` through `E2E-07` pass on reference setup plus secu
 | 2026-11-21 | E2E-06 | same | PASS | USB cable of Android B physically unplugged from Fedora: B flipped to "Not connected" (route `unavailable`, label kept), action on B refused `DEVICE_OFFLINE` without touching any other device, Android A stayed available and answered `getprop`. |
 | 2026-11-21 | E2E-07 | same | PASS | After "Revoke USB debugging authorizations" and replug (USB debugging on, prompt not yet accepted): Fedora adb reports `unauthorized`; app shows "Unauthorized" with accept-prompt guidance; Shell and Info refused `ADB_UNAUTHORIZED`; user label kept. After approval B returned to Available (new transport id) without refresh and answered `getprop`. Note: in "Charging only" USB mode the phone exposes no ADB interface at all and correctly shows as Not connected. |
 | 2026-11-21 | M2 exit gate | same | PASS | E2E-04, E2E-05, E2E-06, E2E-07 pass with Android A on Windows USB and Android B on Fedora USB. |
+| 2026-11-21 | ADB sync spike | Android A | PASS | `sync:` LIST/STAT/SEND/RECV/QUIT as implemented; 300 KB round trip identical; RECV of a missing file returns `FAIL open failed`; `exec:screencap -p` returns a valid PNG. |
+| 2026-11-21 | AND-IMPL-10 (M3 part 1) | App dev build; A on Windows USB, B on Fedora USB via SSH tunnel | PASS | Screenshot, logcat stream, fixture APK install/uninstall, push/pull with conflict protection on both routes. Screenshots/logs were only checked structurally and deleted afterwards (private phone content). |
 
 ### Reference environment (POC-01)
 

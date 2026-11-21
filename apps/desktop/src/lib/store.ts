@@ -3,7 +3,7 @@
 import { create } from "zustand";
 import { errorText, HostView, hostsList, ShellRequest } from "./ipc";
 
-export type ViewId = "overview" | "hosts" | "devices" | "sessions" | "files" | "workspaces" | "diagnostics";
+export type ViewId = "overview" | "hosts" | "devices" | "device" | "sessions" | "files" | "workspaces" | "diagnostics";
 
 export interface Tab {
   key: number;
@@ -30,6 +30,9 @@ interface UiState {
 
   filesHostId: string | null;
   openFiles: (hostId: string) => void;
+
+  deviceRouteId: string | null;
+  openDevice: (routeId: string) => void;
 }
 
 let nextKey = 1;
@@ -64,4 +67,7 @@ export const useUi = create<UiState>((set, get) => ({
 
   filesHostId: null,
   openFiles: (hostId) => set({ filesHostId: hostId, view: "files" }),
+
+  deviceRouteId: null,
+  openDevice: (routeId) => set({ deviceRouteId: routeId, view: "device" }),
 }));

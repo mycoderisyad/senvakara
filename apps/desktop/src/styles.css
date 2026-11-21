@@ -200,3 +200,12 @@ progress { width: 100%; height: 6px; accent-color: var(--accent); }
   border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px;
   max-height: 360px; overflow: auto; white-space: pre-wrap; word-break: break-all; margin: 0;
 }
+
+/* Device detail */
+.tabbar.inline { background: transparent; border-bottom: 1px solid var(--border); padding: 0; margin: 16px 0 12px; }
+.tabbar.inline .tab { border: none; border-bottom: 2px solid transparent; border-radius: 0; background: transparent; padding: 6px 14px; }
+.tabbar.inline .tab.active { border-bottom-color: var(--accent); font-weight: 600; }
+.section { display: flex; flex-direction: column; gap: 10px; }
+.section > .row { align-items: center; flex-wrap: wrap; }
+.shot { max-width: min(420px, 100%); max-height: 70vh; border: 1px solid var(--border); border-radius: var(--radius); align-self: flex-start; }
+.output.log { max-height: calc(100vh - 300px); min-height: 300px; white-space: pre; word-break: normal; }

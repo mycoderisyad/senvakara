@@ -40,7 +40,7 @@
 - [ ] **AND-IMPL-07 [P1]** Wireless ADB onboarding, pairing and re-connect UX.
 - [ ] **AND-IMPL-08 [P1]** scrcpy local mirroring and input control with lifecycle and cancel.
 - [ ] **AND-IMPL-09 [P1]** Fedora-attached Android mirroring/control through protected path.
-- [ ] **AND-IMPL-10 [P1]** APK install/uninstall, ADB shell, logcat, screenshots, push/pull.
+- [x] **AND-IMPL-10 [P1]** APK install/uninstall, ADB shell, logcat, screenshots, push/pull. *Evidence 2026-11-21: device detail view (Screen/Logcat/Apps/Files). On Android A (Windows USB) and Android B (via Fedora tunnel): `screencap` PNG via `exec:`, saved to disk; logcat streamed in UI (730 lines in 4 s, stop ends stream); code-less fixture APK (`tools/test-fixtures`) installed via sync push + `pm install -r`, listed, uninstalled, no temp file left; 1 MiB push/pull SHA-256 identical, existing file → `CONFLICT`, `..` paths → `INVALID_INPUT`. Interactive `adb shell` PTY is still the one-shot Shell dialog.*
 - [ ] **AND-IMPL-11 [P1]** Multiple simultaneous device sessions without command mix-ups.
 
 ## Phase 4 — Remote desktop and monitoring

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Minimal code-less APK used only to test install/uninstall flows.
+     No activities, no permissions, nothing runs on the device. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="dev.senvakara.testfixture"
+    android:versionCode="1"
+    android:versionName="1.0">
+    <application android:label="Senvakara test fixture" android:hasCode="false" />
+</manifest>
