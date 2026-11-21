@@ -15,7 +15,7 @@ use senvakara_metrics::{derive, parse_linux, Metrics, Snapshot, LINUX_COMMAND};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use sysinfo::{Disks, Networks, System};
+use sysinfo::{DiskRefreshKind, Disks, Networks, System};
 
 struct LocalSampler {
     sys: System,
@@ -65,16 +65,19 @@ fn local_metrics(monitor: &Monitor) -> CmdResult<Metrics> {
     let sys_drive = std::env::var("SystemDrive")
         .unwrap_or_else(|_| "C:".into())
         .to_uppercase();
-    let (disk_total, disk_free) = Disks::new_with_refreshed_list()
-        .iter()
-        .find(|x| {
-            x.mount_point()
-                .to_string_lossy()
-                .to_uppercase()
-                .starts_with(&sys_drive)
-        })
-        .map(|x| (x.total_space(), x.available_space()))
-        .unwrap_or((0, 0));
+    // Free space only: the default refresh also opens every volume for its kind and
+    // I/O counters, which made this the costliest part of the 5 s sample.
+    let (disk_total, disk_free) =
+        Disks::new_with_refreshed_list_specifics(DiskRefreshKind::nothing().with_storage())
+            .iter()
+            .find(|x| {
+                x.mount_point()
+                    .to_string_lossy()
+                    .to_uppercase()
+                    .starts_with(&sys_drive)
+            })
+            .map(|x| (x.total_space(), x.available_space()))
+            .unwrap_or((0, 0));
     Ok(Metrics {
         cpu_percent: cpu,
         cpu_count: s.sys.cpus().len() as u32,

@@ -1001,6 +1001,28 @@ fn wsl_distros() -> Vec<String> {
         .collect()
 }
 
+/// Pick the Slint backend before the first window exists.
+///
+/// - Renderer: Slint's software renderer unless `SLINT_BACKEND` names another. With the
+///   FemtoVG/OpenGL renderer an idle window cost about 0.5 % of a core in a time-critical
+///   thread of the Intel OpenGL driver even with no frames drawn; the software renderer idled
+///   at 0.16 % in total (TESTING §9, 2026-11-22). `SLINT_BACKEND=winit-femtovg` brings
+///   OpenGL back.
+/// - Title bar: always dark (dark theme only, ADR-023), whatever the Windows setting says.
+fn select_backend() -> anyhow::Result<()> {
+    let mut selector =
+        slint::BackendSelector::new().with_winit_window_attributes_hook(|attributes| {
+            attributes.with_theme(Some(slint::winit_030::winit::window::Theme::Dark))
+        });
+    if std::env::var_os("SLINT_BACKEND").is_none() {
+        selector = selector
+            .backend_name("winit".into())
+            .renderer_name("software".into());
+    }
+    selector.select()?;
+    Ok(())
+}
+
 fn main() -> anyhow::Result<()> {
     let paths = senvakara_app::AppPaths::resolve()?;
     // One instance per data folder: a second one (this app or the old Tauri one) would reset
@@ -1018,6 +1040,7 @@ fn main() -> anyhow::Result<()> {
         .build()?;
     let backend = senvakara_app::App::start(paths, runtime.handle().clone())?;
 
+    select_backend()?;
     let ui = MainWindow::new()?;
     let app = Rc::new(App {
         backend,

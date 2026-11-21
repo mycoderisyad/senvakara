@@ -804,6 +804,36 @@ impl App {
         self.automations_inventory_changed();
     }
 
+    /// Redraw one host card after its health changed. A full `rebuild` here
+    /// recreated every list (and the other screens' host lists) every 5 s, which
+    /// was most of the idle CPU on Home.
+    fn refresh_host_row(&self, host_id: &str) {
+        let Some(index) = self
+            .inv
+            .host_model
+            .iter()
+            .position(|host| host.id == host_id)
+        else {
+            return;
+        };
+        let Some(item) = self
+            .inv
+            .hosts
+            .borrow()
+            .iter()
+            .find(|host| host.id == host_id)
+            .map(|host| self.inv.host_item(host))
+        else {
+            return;
+        };
+        let Some(ui) = self.ui.upgrade() else { return };
+        let inventory = ui.global::<Inventory>();
+        if inventory.get_selected_kind() == "host" && inventory.get_selected_id() == host_id {
+            inventory.set_selected_host(item.clone());
+        }
+        self.inv.host_model.set_row_data(index, item);
+    }
+
     /// Show a host or a phone in the inspector ("" for neither).
     pub fn select_item(&self, kind: &str, id: &str) {
         let Some(ui) = self.ui.upgrade() else { return };
@@ -870,8 +900,8 @@ impl App {
                 async move { backend.host_metrics(host).await },
                 move |app, result| {
                     if let Ok(metrics) = result {
-                        app.inv.metrics.borrow_mut().insert(id, metrics);
-                        app.rebuild();
+                        app.inv.metrics.borrow_mut().insert(id.clone(), metrics);
+                        app.refresh_host_row(&id);
                     }
                 },
             );

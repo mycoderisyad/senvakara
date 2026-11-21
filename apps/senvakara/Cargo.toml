@@ -12,7 +12,9 @@ senvakara-adapters-pty = { path = "../../crates/adapters-pty" }
 senvakara-app = { path = "../../crates/app" }
 tokio = { version = "1", features = ["rt-multi-thread", "sync", "time"] }
 # ADR-023: exact pins (ADR-016 policy).
-slint = { version = "=1.18.1", features = ["raw-window-handle-06"] }
+# `unstable-winit-030`: window attributes hook for the dark title bar (main.rs); the API is
+# tied to this exact Slint pin.
+slint = { version = "=1.18.1", features = ["raw-window-handle-06", "unstable-winit-030"] }
 alacritty_terminal = "=0.26.0"
 anyhow.workspace = true
 # Workspace and recipe targets are stored as JSON (the v0.1.0 format); settings.json.

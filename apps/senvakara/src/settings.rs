@@ -278,7 +278,7 @@ impl App {
         // The renderer tells which graphics API it draws with when it sets up.
         let weak = ui.as_weak();
         let noted = Cell::new(false);
-        let _ = ui.window().set_rendering_notifier(move |state, api| {
+        let notifier = ui.window().set_rendering_notifier(move |state, api| {
             if !matches!(state, slint::RenderingState::RenderingSetup) || noted.replace(true) {
                 return;
             }
@@ -298,6 +298,12 @@ impl App {
                 }
             });
         });
+        // Only GPU renderers report a graphics API; the software renderer (the default) does not.
+        if let Err(slint::SetRenderingNotifierError::Unsupported) = notifier {
+            let name = "Software (Slint, drawn on the CPU)".to_string();
+            *self.settings.renderer.borrow_mut() = name.clone();
+            view.set_renderer(name.into());
+        }
 
         self.settings_apply(ui);
     }
