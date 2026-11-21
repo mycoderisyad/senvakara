@@ -13,9 +13,11 @@ import {
   errorText,
   hostConnect,
   ShellResult,
+  wirelessDisconnect,
 } from "../../lib/ipc";
 import { useUi } from "../../lib/store";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
+import { WirelessDialog } from "./WirelessDialog";
 
 const ROUTE_LABEL = { usb_adb: "USB", wifi_adb: "Wi-Fi" } as const;
 
@@ -158,6 +160,7 @@ export function DevicesView() {
   const [forgetting, setForgetting] = useState<DeviceView | null>(null);
   const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null);
   const [connecting, setConnecting] = useState<string | null>(null);
+  const [wireless, setWireless] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -212,7 +215,10 @@ export function DevicesView() {
           <h1>Devices</h1>
           <p className="muted">Android phones on every host, each shown with the host and connection it is reached through.</p>
         </div>
-        <button onClick={() => void refresh()}>Refresh</button>
+        <div className="row">
+          <button onClick={() => setWireless(true)}>+ Add over Wi-Fi</button>
+          <button onClick={() => void refresh()}>Refresh</button>
+        </div>
       </header>
 
       <div className="sources" aria-label="ADB sources">
@@ -305,6 +311,18 @@ export function DevicesView() {
                   Shell
                 </button>
                 <button onClick={() => setRenaming({ id: d.device_id, name: d.display_name })}>Rename</button>
+                {d.connection_type === "wifi_adb" && d.state !== "unavailable" && (
+                  <button
+                    onClick={() =>
+                      wirelessDisconnect(d.route_id).then(
+                        () => void refresh(),
+                        (e) => setError(errorText(e)),
+                      )
+                    }
+                  >
+                    Disconnect
+                  </button>
+                )}
                 {d.state === "unavailable" && (
                   <button className="danger" onClick={() => setForgetting(d)}>
                     Forget
@@ -316,6 +334,7 @@ export function DevicesView() {
         </div>
       )}
 
+      {wireless && <WirelessDialog hosts={hosts} watching={(id) => !!status?.hosts[id]?.watching} onClose={() => setWireless(false)} />}
       {shellFor && <ShellPanel device={shellFor} onClose={() => setShellFor(null)} />}
       {infoFor && <InfoPanel device={infoFor} onClose={() => setInfoFor(null)} />}
       {forgetting && (

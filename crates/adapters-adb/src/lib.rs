@@ -12,6 +12,7 @@
 
 pub mod protocol;
 pub mod sync;
+pub mod wireless;
 
 pub use protocol::{parse_devices_l, AdbDevice};
 
@@ -40,6 +41,10 @@ impl AdbServer {
         Self {
             addr: SocketAddr::from(([127, 0, 0, 1], 5037)),
         }
+    }
+
+    pub(crate) async fn connect_raw(&self) -> Result<TcpStream> {
+        self.connect().await
     }
 
     async fn connect(&self) -> Result<TcpStream> {

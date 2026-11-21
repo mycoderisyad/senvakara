@@ -52,6 +52,8 @@ impl AppState {
         let db = Db::open(&db_path)?;
         let local_name = std::env::var("COMPUTERNAME").unwrap_or_else(|_| "This PC".into());
         db.ensure_local_host(&local_name)?;
+        // Device states in the DB are last observations; nothing is live yet.
+        db.reset_route_states()?;
         let secrets = match SecretStore::init() {
             Ok(s) => Some(s),
             Err(e) => {

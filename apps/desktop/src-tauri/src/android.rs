@@ -50,6 +50,8 @@ pub struct Android {
     live: Mutex<HashMap<String, LiveRoute>>,
     watchers: Mutex<HashMap<String, Watcher>>,
     status: Mutex<HashMap<String, WatchStatus>>,
+    /// ADB server currently watched for each host (local or tunnelled).
+    servers: Mutex<HashMap<String, AdbServer>>,
 }
 
 fn connection_type(d: &AdbDevice) -> &'static str {
@@ -206,6 +208,12 @@ pub fn start_local(app: AppHandle) {
         loop {
             match ensure_local_server(&adb).await {
                 Ok(server) => {
+                    task_app
+                        .state::<Android>()
+                        .servers
+                        .lock()
+                        .unwrap()
+                        .insert(host_id.clone(), server);
                     backoff = Duration::from_secs(2);
                     let why = track_until_end(&task_app, &host_id, server).await;
                     logging::warn(&format!("local adb watch stopped: {why}"));
@@ -260,6 +268,11 @@ pub async fn start_remote(
         }
     };
     let server = AdbServer { addr };
+    app.state::<Android>()
+        .servers
+        .lock()
+        .unwrap()
+        .insert(host_id.to_string(), server);
     let task_app = app.clone();
     let id = host_id.to_string();
     let watch = tauri::async_runtime::spawn(async move {
@@ -280,6 +293,11 @@ pub async fn start_remote(
 
 /// Stop watching a host (disconnect / delete) and mark its routes unavailable.
 pub fn stop_host(app: &AppHandle, host_id: &str) {
+    app.state::<Android>()
+        .servers
+        .lock()
+        .unwrap()
+        .remove(host_id);
     if let Some(w) = app
         .state::<Android>()
         .watchers
@@ -534,4 +552,87 @@ pub fn device_forget(
     drop(db);
     let _ = app.emit("devices-changed", ());
     Ok(())
+}
+
+// ------------------------------------------------------- wireless debugging
+
+fn server_for(android: &Android, host_id: &str) -> CmdResult<AdbServer> {
+    android
+        .servers
+        .lock()
+        .unwrap()
+        .get(host_id)
+        .copied()
+        .ok_or_else(|| {
+            CoreError::new(
+                ErrorCode::HostOffline,
+                "ADB is not running for that host; connect the host first",
+            )
+        })
+}
+
+/// Phones advertising Wireless debugging on the chosen host's network.
+#[tauri::command]
+pub async fn wireless_scan(
+    android: State<'_, Android>,
+    host_id: String,
+) -> CmdResult<Vec<senvakara_adapters_adb::wireless::MdnsService>> {
+    let server = server_for(&android, &host_id)?;
+    server.mdns_services().await.map_err(|e| to_core("mdns", e))
+}
+
+/// Pair using the code shown on the phone. The code is never logged or stored.
+#[tauri::command]
+pub async fn wireless_pair(
+    android: State<'_, Android>,
+    host_id: String,
+    address: String,
+    code: String,
+) -> CmdResult<String> {
+    let server = server_for(&android, &host_id)?;
+    logging::info(&format!("wireless pairing via host {host_id} to {address}"));
+    server
+        .pair(&address, &code)
+        .await
+        .map_err(|e| to_core("pair", e))
+}
+
+#[tauri::command]
+pub async fn wireless_connect(
+    android: State<'_, Android>,
+    host_id: String,
+    address: String,
+) -> CmdResult<String> {
+    let server = server_for(&android, &host_id)?;
+    logging::info(&format!("wireless connect via host {host_id} to {address}"));
+    server
+        .connect_device(&address)
+        .await
+        .map_err(|e| to_core("connect", e))
+}
+
+/// Disconnect a Wi-Fi route (USB routes cannot be disconnected this way).
+#[tauri::command]
+pub async fn wireless_disconnect(
+    state: State<'_, AppState>,
+    android: State<'_, Android>,
+    route_id: String,
+) -> CmdResult<String> {
+    let record = state
+        .db
+        .lock()
+        .unwrap()
+        .get_route(&route_id)
+        .map_err(|e| db_err("route", e))?;
+    if record.connection_type != "wifi_adb" {
+        return Err(CoreError::new(
+            ErrorCode::InvalidInput,
+            "only Wi-Fi routes can be disconnected",
+        ));
+    }
+    let server = server_for(&android, &record.host_id)?;
+    server
+        .disconnect_device(&record.serial)
+        .await
+        .map_err(|e| to_core("disconnect", e))
 }

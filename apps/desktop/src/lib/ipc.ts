@@ -287,3 +287,17 @@ export function mirrorStart(routeId: string, onFrame: (buf: ArrayBuffer) => void
 }
 export const mirrorInput = (id: number, input: MirrorInput) => invoke<void>("mirror_input", { id, input });
 export const mirrorStop = (id: number) => invoke<void>("mirror_stop", { id });
+
+// ---------- wireless debugging ----------
+
+export interface MdnsService {
+  name: string;
+  service: string;
+  address: string;
+}
+
+export const wirelessScan = (hostId: string) => invoke<MdnsService[]>("wireless_scan", { hostId });
+export const wirelessPair = (hostId: string, address: string, code: string) =>
+  invoke<string>("wireless_pair", { hostId, address, code });
+export const wirelessConnect = (hostId: string, address: string) => invoke<string>("wireless_connect", { hostId, address });
+export const wirelessDisconnect = (routeId: string) => invoke<string>("wireless_disconnect", { routeId });

@@ -37,11 +37,11 @@
 
 ## Phase 3 — Post-MVP Android experience
 
-- [ ] **AND-IMPL-07 [P1]** Wireless ADB onboarding, pairing and re-connect UX.
+- [x] **AND-IMPL-07 [P1]** Wireless ADB onboarding, pairing and re-connect UX. *Evidence 2026-11-21: "+ Add over Wi-Fi" dialog (mDNS scan via `host:mdns:services`, `host:pair:<code>:<addr>`, `host:connect`), pairing through any watched host's ADB server; user connected Android A (Android 13) over Wi-Fi from the app; shown as a separate `RAFGT · Wi-Fi` route next to its USB route (no auto-merge); Disconnect → route unavailable and actions refused `DEVICE_OFFLINE` while USB route keeps working; reconnect restores it. Pairing code validated (6 digits), never stored or logged. Redmi 5A (Android < 11) cannot use Wireless debugging pairing.*
 - [x] **AND-IMPL-08 [P1]** scrcpy local mirroring and input control with lifecycle and cancel. *Evidence 2026-11-21: Device → Screen → Start mirroring on Android A: live H.264 (576×1280, ~29 fps when the screen changes); session stops with the pane, on stream end, or when the route disappears.*
 - [x] **AND-IMPL-09 [P1]** Fedora-attached Android mirroring/control through protected path. *Evidence 2026-11-21: Android B mirrored through the Fedora SSH tunnel (720×1280); notification-shade button, swipe-down from the canvas, and Back verified on the device via `dumpsys window` focus changes (launcher → NotificationShade → launcher). Concurrent with A's session.*
 - [x] **AND-IMPL-10 [P1]** APK install/uninstall, ADB shell, logcat, screenshots, push/pull. *Evidence 2026-11-21: device detail view (Screen/Logcat/Apps/Files). On Android A (Windows USB) and Android B (via Fedora tunnel): `screencap` PNG via `exec:`, saved to disk; logcat streamed in UI (730 lines in 4 s, stop ends stream); code-less fixture APK (`tools/test-fixtures`) installed via sync push + `pm install -r`, listed, uninstalled, no temp file left; 1 MiB push/pull SHA-256 identical, existing file → `CONFLICT`, `..` paths → `INVALID_INPUT`. Interactive `adb shell` PTY is still the one-shot Shell dialog.*
-- [ ] **AND-IMPL-11 [P1]** Multiple simultaneous device sessions without command mix-ups.
+- [x] **AND-IMPL-11 [P1]** Multiple simultaneous device sessions without command mix-ups. *Evidence 2026-11-21: concurrent sessions without mix-ups — mirrors of A (Windows USB) and B (Fedora tunnel) at once with input on B only; A via USB and via Wi-Fi as two routes, each action landing on the chosen route; shells/logcat per route bound to transport ids.*
 
 ## Phase 4 — Remote desktop and monitoring
 

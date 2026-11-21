@@ -138,6 +138,15 @@ impl Db {
         Ok(n)
     }
 
+    /// Nothing is live when the app starts: persisted states are only the
+    /// last observation, never proof of availability (docs/DATABASE.md §3).
+    pub fn reset_route_states(&self) -> Result<usize> {
+        Ok(self.conn.execute(
+            "UPDATE device_routes SET state='unavailable' WHERE state<>'unavailable'",
+            [],
+        )?)
+    }
+
     pub fn list_device_routes(&self) -> Result<Vec<DeviceRouteRecord>> {
         let mut st = self.conn.prepare(&format!(
             "{SELECT} ORDER BY CASE r.state WHEN 'available' THEN 0 WHEN 'unauthorized' THEN 1 WHEN 'offline' THEN 2 ELSE 3 END,
@@ -258,6 +267,21 @@ mod tests {
             after.display_name, "Test phone A",
             "user label survives unplug and model change"
         );
+    }
+
+    #[test]
+    fn startup_reset_marks_everything_unavailable() {
+        let (mut db, win, linux) = setup();
+        db.observe_route(&win, "usb_adb", "S1", "available", None)
+            .unwrap();
+        db.observe_route(&linux, "usb_adb", "S2", "unauthorized", None)
+            .unwrap();
+        assert_eq!(db.reset_route_states().unwrap(), 2);
+        assert!(db
+            .list_device_routes()
+            .unwrap()
+            .iter()
+            .all(|r| r.state == "unavailable"));
     }
 
     #[test]
