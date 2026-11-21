@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- Senvakara placeholder icon: one hub controlling several devices. -->
+  <rect x="32" y="32" width="960" height="960" rx="216" fill="#18212b"/>
+  <g stroke="#69b8a9" stroke-width="56" stroke-linecap="round">
+    <line x1="512" y1="512" x2="512" y2="230"/>
+    <line x1="512" y1="512" x2="268" y2="653"/>
+    <line x1="512" y1="512" x2="756" y2="653"/>
+  </g>
+  <circle cx="512" cy="512" r="128" fill="#69b8a9"/>
+  <circle cx="512" cy="512" r="56" fill="#18212b"/>
+  <g fill="#e8eef3">
+    <circle cx="512" cy="218" r="86"/>
+    <circle cx="258" cy="659" r="86"/>
+    <circle cx="766" cy="659" r="86"/>
+  </g>
+</svg>

@@ -4,7 +4,7 @@
 
 Senvakara is a proposed **local-first unified remote access and development control center**. Its Windows desktop client will manage local and remote computers, WSL environments, and Android devices attached by USB or authorized wireless debugging—even when the Android device is physically attached to another managed computer.
 
-**Status:** development builds only. Milestones M0–M8 are implemented and verified on the reference hardware (see [TASKS.md](TASKS.md) evidence and [TESTING.md](TESTING.md) §9); the RDP adapter is not built (no RDP target to test). There is **no released application** yet and no benchmarked performance results.
+**Status:** development builds only. Milestones M0–M8 are implemented and verified on the reference hardware (see [TASKS.md](TASKS.md) evidence and [TESTING.md](TESTING.md) §9); the RDP adapter is not built (no RDP target to test). Version **0.1.0** is the first Windows installer (built locally, not published; see [CHANGELOG.md](CHANGELOG.md)); benchmarks are in [TESTING.md](TESTING.md) §6.
 
 ## Reference setup
 
@@ -36,6 +36,17 @@ Choose a **device and an action**, not which remote machine or ADB command to na
 | [SECURITY.md](SECURITY.md) | Threat model, trust boundaries, credential/device protections |
 | [DECISIONS.md](DECISIONS.md) | Architecture decision record log, decisions vs. proposals |
 | [CHANGELOG.md](CHANGELOG.md) | Documentation and future release history |
+
+## Building a release (Windows)
+
+From `apps/desktop`:
+
+1. Bump the version in `Cargo.toml` (workspace), `apps/desktop/package.json` and `src-tauri/tauri.conf.json`.
+2. `node ../../tools/licenses/gen-notices.mjs` — regenerate third-party notices (QA-04).
+3. `npm run tauri build` — produces `target/release/bundle/nsis/Senvakara_<version>_x64-setup.exe` (per-user install, no admin). The first release build takes ≈12 min (LTO).
+4. `node ../../tools/bench/measure.mjs <installed exe> --idle 300 --runs 3 --connect` — record results in `TESTING.md` §6 (QA-03).
+
+The installer is not code-signed; Windows SmartScreen may show "Windows protected your PC" until it is signed with a code-signing certificate.
 
 ## Scope and implementation order
 

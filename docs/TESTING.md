@@ -63,16 +63,16 @@ Record actual OS versions, Android APIs, ADB and scrcpy versions, CPU/RAM/GPU an
 
 ## 6. Performance budgets (aspirational)
 
-| Metric | Planning target | Measurement |
-|---|---|---|
-| Desktop idle RAM | <150 MB | sum app process tree after 5 min idle, no active sessions |
-| Linux host agent idle RAM | <30 MB | daemon RSS under no active work |
-| Idle CPU | Near 0% | 5 min average with polling configured |
-| Dashboard startup | <2 seconds | cold and warm startup separately |
-| Monitoring | default 5 seconds | sampling overhead and network use |
-| Terminal reconnect | <3 seconds when host reachable | from transient loss; distinguish new session from reattach |
+| Metric | Planning target | Measurement | Measured v0.1.0 (2026-11-21) |
+|---|---|---|---|
+| Desktop idle RAM | <150 MB | sum app process tree after 5 min idle, no active sessions | **204 MB private** (453 MB working set) — target **not met**; app code ≈9 MB, the rest is the WebView2 runtime |
+| Linux host agent idle RAM | <30 MB | daemon RSS under no active work | n/a — no resident agent (ADR-020) |
+| Idle CPU | Near 0% | 5 min average with polling configured | 0.08 % of one core (0.01 % of machine) ✓ |
+| Dashboard startup | <2 seconds | cold and warm startup separately | 0.82 s first / 0.53 s warm (p50 0.53 s) ✓ — true cold boot not measured |
+| Monitoring | default 5 seconds | sampling overhead and network use | 5 s default; not separately profiled |
+| Terminal reconnect | <3 seconds when host reachable | from transient loss; distinguish new session from reattach | ≈3 s LAN, ≈21 s after a network change (heartbeat detection dominates; TESTING §9) |
 
-Numbers are **targets requiring revision after measured baseline**, not an SLA. Document hardware/OS/build, multiple runs, p50/p95, total memory including sidecars, and screen session/resource scaling.
+Numbers are **targets requiring revision after measured baseline**, not an SLA. The idle-RAM target was set before measuring the WebView2 runtime, which alone needs ≈200 MB private memory on the reference PC; a realistic budget for this architecture is ≤250 MB private (proposed, owner to confirm), with Senvakara's own share tracked separately (≈9 MB in v0.1.0). Re-measure with `tools/bench/measure.mjs` for every release. Document hardware/OS/build, multiple runs, p50/p95, total memory including sidecars, and screen session/resource scaling.
 
 ## 7. Security validation
 

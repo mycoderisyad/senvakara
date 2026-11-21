@@ -17,7 +17,11 @@ Changes to documentation and (later) shipped product are tracked separately. For
 - Generalized remote host target from Fedora to generic Linux; Fedora remains the reference test host (ADR-013).
 - Added ADR-014..017: remote ADB via SSH port-forward, no bundled `adb.exe`, candidate library set, embedded streaming approach.
 
-### Application (development builds only, no release)
+## [0.1.0] - 2026-11-21
+
+First Windows installer (`Senvakara_0.1.0_x64-setup.exe`, NSIS, per-user, no admin rights; not code-signed, so Windows SmartScreen may warn). Third-party notices ship in the install folder.
+
+### Added
 
 - Desktop shell (Tauri 2 + React + TypeScript) with sidebar navigation; unbuilt sections state their planned milestone.
 - Local terminal tabs: Windows PowerShell and each installed WSL distribution (ConPTY), resize, close kills the process.
@@ -48,7 +52,12 @@ Changes to documentation and (later) shipped product are tracked separately. For
 
 - Automations: save recipes of steps (install/uninstall APK, launch app, wait, shell command, screenshot, Flutter build & install) for one phone, with explicit per-recipe permissions; every run shows all steps and the exact target for confirmation, stops at the first failure, can be cancelled and is kept in history.
 
-### Fixed (development builds)
+### Changed
+
+- Release builds unwind on panic, so a failure in one session does not close the whole app (NFR-02).
+- Placeholder Senvakara app icon instead of the framework's default.
+
+### Fixed
 
 - Device availability shown after a restart no longer reflects the previous session.
 

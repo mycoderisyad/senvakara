@@ -3963,7 +3963,7 @@ dependencies = [
 
 [[package]]
 name = "senvakara-adapters-adb"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "senvakara-core",
@@ -3973,7 +3973,7 @@ dependencies = [
 
 [[package]]
 name = "senvakara-adapters-pty"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "portable-pty",
@@ -3982,7 +3982,7 @@ dependencies = [
 
 [[package]]
 name = "senvakara-adapters-scrcpy"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "senvakara-adapters-adb",
@@ -3994,7 +3994,7 @@ dependencies = [
 
 [[package]]
 name = "senvakara-adapters-ssh"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "rand",
@@ -4007,7 +4007,7 @@ dependencies = [
 
 [[package]]
 name = "senvakara-core"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -4016,7 +4016,7 @@ dependencies = [
 
 [[package]]
 name = "senvakara-desktop"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "futures-util",
@@ -4042,14 +4042,14 @@ dependencies = [
 
 [[package]]
 name = "senvakara-metrics"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "senvakara-secrets"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "keyring-core",
  "thiserror 2.0.21",
@@ -4059,7 +4059,7 @@ dependencies = [
 
 [[package]]
 name = "senvakara-storage"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "rusqlite",
  "senvakara-core",

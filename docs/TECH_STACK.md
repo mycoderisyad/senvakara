@@ -50,7 +50,7 @@
 - [ ] scrcpy local and Fedora-remote trials with logged latency, CPU and bandwidth.
 - [ ] RDP/VNC and Fedora Wayland compatibility tests.
 - [ ] Idle/active whole-process memory and CPU measurements.
-- [ ] Third-party dependency license and redistribution audit.
+- [x] Third-party dependency license and redistribution audit (QA-04, `tools/licenses/gen-notices.mjs`).
 
 ## Packaging concerns
 

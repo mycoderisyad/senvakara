@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/*", "apps/desktop/src-tauri"]
 
 [workspace.package]
-version = "0.0.1"
+version = "0.1.0"
 edition = "2021"
 license = "UNLICENSED"
 publish = false
@@ -19,7 +19,7 @@ anyhow = "1"
 codegen-units = 1
 lto = true
 opt-level = 3
-panic = "abort"
+panic = "unwind"  # a panic in one task must not take the whole app down
 strip = true
 
 # Keep debug builds small (the full debug info of all dependencies filled the

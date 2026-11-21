@@ -76,8 +76,8 @@
 
 - [ ] **QA-01** Set up test fixtures/mocks for adapters and error states.
 - [ ] **QA-02** Automated security regressions (credential exposure, agent auth, ADB host targeting).
-- [ ] **QA-03** Whole-process memory/CPU + startup benchmarks; track deltas.
-- [ ] **QA-04** Audit third-party licenses before shipping binaries. *Includes shipping the full Apache-2.0 text for the bundled scrcpy-server (see `apps/desktop/src-tauri/resources/THIRD_PARTY_NOTICES.md`).*
+- [x] **QA-03** Whole-process memory/CPU + startup benchmarks; track deltas. *Evidence 2026-11-21 (v0.1.0 installed build, `node tools/bench/measure.mjs <exe> --idle 300 --runs 3 --connect`, Windows 11, 12 logical CPUs): startup to usable UI 819 / 534 / 534 ms; after 5 min idle 7 processes, private 204 MB (working set 453 MB, shared pages counted repeatedly), CPU 0.08 % of one core; Linux host connected + Devices open: private 211 MB, CPU 0.05 %. Without the debug port: private 208 MB. Breakdown: Senvakara's Rust process 6 MB, JS heap 3 MB (51 DOM nodes); the rest is the WebView2 runtime (renderer ≈110–128 MB, browser 40 MB, GPU ≈30 MB). The <150 MB RAM target is not met — see TESTING.md §6.*
+- [x] **QA-04** Audit third-party licenses before shipping binaries. *Evidence 2026-11-21 (v0.1.0): `node tools/licenses/gen-notices.mjs` lists what actually ships — 340 Rust crates linked into the Windows binary (normal deps only), 9 bundled npm packages, the scrcpy-server binary — and copies 222 distinct license texts into `resources/THIRD_PARTY_NOTICES.md`, which the installer ships. No GPL/LGPL/AGPL; MPL-2.0 used unmodified (cssparser, selectors, dtoa-short, option-ext, noVNC) with source locations listed; full Apache-2.0 text included for scrcpy-server (copyright lines checked against its v3.3.3 README). 10 packages publish no license file; their license and authors are listed. Google's adb.exe is not bundled (ADR-015). Senvakara's own license is still `UNLICENSED` (owner's decision).*
 - [ ] **QA-05** Run accessibility and keyboard-navigation checks.
 
 ## Completion rule
