@@ -22,6 +22,8 @@ interface UiState {
   closeTab: (key: number) => void;
   setActive: (key: number) => void;
   markExited: (key: number) => void;
+  /** Replace an ended tab with a fresh session of the same kind (same tmux session if any). */
+  reopenTab: (key: number) => void;
 
   hosts: HostView[];
   hostsError: string | null;
@@ -56,6 +58,14 @@ export const useUi = create<UiState>((set, get) => ({
   },
   setActive: (key) => set({ activeKey: key }),
   markExited: (key) => set((s) => ({ tabs: s.tabs.map((t) => (t.key === key ? { ...t, exited: true } : t)) })),
+  reopenTab: (key) =>
+    set((s) => {
+      const fresh = nextKey++;
+      return {
+        tabs: s.tabs.map((t) => (t.key === key ? { ...t, key: fresh, exited: false } : t)),
+        activeKey: s.activeKey === key ? fresh : s.activeKey,
+      };
+    }),
 
   hosts: [],
   hostsError: null,

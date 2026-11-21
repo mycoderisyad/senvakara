@@ -162,12 +162,111 @@ pub fn spawn_heartbeat(app: AppHandle) {
                     let _ = app.emit(
                         "host-lost",
                         HostLost {
-                            host_id,
+                            host_id: host_id.clone(),
                             reason: "no response to heartbeat".into(),
                         },
                     );
+                    spawn_reconnect(app.clone(), host_id);
                 }
             }
         }
     });
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct HostReconnect {
+    pub host_id: String,
+    pub attempt: u32,
+}
+
+const MAX_ATTEMPTS: u32 = 20;
+
+/// Delay before attempt `n` (1-based): 2, 4, 8, 16, 32, then 60 s.
+pub fn backoff(attempt: u32) -> Duration {
+    Duration::from_secs(2u64.saturating_pow(attempt.min(6)).min(60))
+}
+
+/// Reconnect a host the user had connected, with bounded exponential backoff
+/// (REC-01). Nothing is replayed: terminals and transfers that were running
+/// stay ended; only the connection, capabilities and device watching return.
+/// Stops at once on authentication failure (e.g. changed host key) and when
+/// the user disconnects or removes the host.
+pub fn spawn_reconnect(app: AppHandle, host_id: String) {
+    let state = app.state::<AppState>();
+    if !state.want_connected.lock().unwrap().contains(&host_id) {
+        return;
+    }
+    if state
+        .reconnecting
+        .lock()
+        .unwrap()
+        .insert(host_id.clone(), 0)
+        .is_some()
+    {
+        return; // already running
+    }
+    tauri::async_runtime::spawn(async move {
+        let state = app.state::<AppState>();
+        let mut outcome = "gave up after the maximum number of attempts".to_string();
+        for attempt in 1..=MAX_ATTEMPTS {
+            tokio::time::sleep(backoff(attempt)).await;
+            if !state.want_connected.lock().unwrap().contains(&host_id) {
+                outcome = "cancelled".into();
+                break;
+            }
+            state
+                .reconnecting
+                .lock()
+                .unwrap()
+                .insert(host_id.clone(), attempt);
+            let _ = app.emit(
+                "host-reconnecting",
+                HostReconnect {
+                    host_id: host_id.clone(),
+                    attempt,
+                },
+            );
+            match crate::hosts::connect_and_watch(&app, &state, &host_id).await {
+                Ok(()) => {
+                    logging::info(&format!("host {host_id} reconnected on attempt {attempt}"));
+                    state.reconnecting.lock().unwrap().remove(&host_id);
+                    let _ = app.emit(
+                        "host-reconnected",
+                        HostReconnect {
+                            host_id: host_id.clone(),
+                            attempt,
+                        },
+                    );
+                    return;
+                }
+                Err(e) if e.code == senvakara_core::ErrorCode::Unauthenticated => {
+                    outcome = format!("stopped: {}", e.message);
+                    break;
+                }
+                Err(_) => {}
+            }
+        }
+        logging::warn(&format!("reconnect of host {host_id}: {outcome}"));
+        state.reconnecting.lock().unwrap().remove(&host_id);
+        let _ = app.emit(
+            "host-lost",
+            HostLost {
+                host_id,
+                reason: format!("reconnect {outcome}"),
+            },
+        );
+    });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::backoff;
+    use std::time::Duration;
+
+    #[test]
+    fn backoff_is_bounded() {
+        let secs: Vec<u64> = (1..=8).map(|n| backoff(n).as_secs()).collect();
+        assert_eq!(secs, [2, 4, 8, 16, 32, 60, 60, 60]);
+        assert_eq!(backoff(100), Duration::from_secs(60));
+    }
 }

@@ -33,8 +33,15 @@ pub struct Terminals {
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum ShellRequest {
     PowerShell,
-    Wsl { distro: Option<String> },
-    Ssh { host_id: String },
+    Wsl {
+        distro: Option<String>,
+    },
+    /// `tmux`: attach to (or create) that tmux session so the shell survives
+    /// disconnects (REC-02); `None` opens a plain login shell.
+    Ssh {
+        host_id: String,
+        tmux: Option<String>,
+    },
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -64,10 +71,18 @@ pub async fn term_open(
     let (cols, rows) = (cols.max(2), rows.max(2));
     let id = terms.next_id.fetch_add(1, Ordering::Relaxed) + 1;
     match shell {
-        ShellRequest::Ssh { host_id } => {
+        ShellRequest::Ssh { host_id, tmux } => {
+            if let Some(name) = &tmux {
+                if !valid_tmux_name(name) {
+                    return Err(CoreError::new(
+                        ErrorCode::InvalidInput,
+                        "invalid tmux session name",
+                    ));
+                }
+            }
             let conn = state.connection(&host_id).await?;
             let (writer, mut reader) = conn
-                .open_pty(cols.into(), rows.into())
+                .open_pty_or_tmux(cols.into(), rows.into(), tmux.as_deref())
                 .await
                 .map_err(|e| to_core("open ssh shell", e))?;
             terms
@@ -195,6 +210,47 @@ pub async fn term_close(terms: State<'_, Terminals>, id: u32) -> CmdResult<()> {
     Ok(())
 }
 
+/// tmux session names Senvakara creates: letters, digits, `-`, `_`.
+pub fn valid_tmux_name(name: &str) -> bool {
+    !name.is_empty()
+        && name.len() <= 40
+        && name
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+}
+
+trait PtyOrTmux {
+    async fn open_pty_or_tmux(
+        &self,
+        cols: u32,
+        rows: u32,
+        tmux: Option<&str>,
+    ) -> anyhow::Result<(
+        senvakara_adapters_ssh::SshPtyWriter,
+        senvakara_adapters_ssh::SshPtyReader,
+    )>;
+}
+
+impl PtyOrTmux for senvakara_adapters_ssh::SshConnection {
+    async fn open_pty_or_tmux(
+        &self,
+        cols: u32,
+        rows: u32,
+        tmux: Option<&str>,
+    ) -> anyhow::Result<(
+        senvakara_adapters_ssh::SshPtyWriter,
+        senvakara_adapters_ssh::SshPtyReader,
+    )> {
+        match tmux {
+            Some(name) => {
+                self.open_pty_command(cols, rows, &["tmux", "new-session", "-A", "-s", name])
+                    .await
+            }
+            None => self.open_pty(cols, rows).await,
+        }
+    }
+}
+
 /// Installed WSL distributions (`wsl.exe -l -q` prints UTF-16LE).
 #[tauri::command]
 pub async fn wsl_distros() -> CmdResult<Vec<String>> {
@@ -230,6 +286,14 @@ fn parse_wsl_list(bytes: &[u8]) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::parse_wsl_list;
+
+    #[test]
+    fn tmux_names() {
+        assert!(super::valid_tmux_name("svk-fedora_1"));
+        for bad in ["", "a b", "x;rm", "$(id)", &"a".repeat(41)] {
+            assert!(!super::valid_tmux_name(bad), "{bad}");
+        }
+    }
 
     #[test]
     fn parses_utf16_wsl_output() {

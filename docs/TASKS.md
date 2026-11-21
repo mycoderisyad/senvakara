@@ -56,8 +56,8 @@
 - [ ] **WORK-IMPL-01 [P1]** Save and reopen tabs/layout/target references.
 - [ ] **WORK-IMPL-02 [P1]** Split view and explicit saved workspace switching.
 - [ ] **FILE-IMPL-01 [P1]** Cross-host transfer and Android file operations with progress.
-- [ ] **REC-IMPL-01 [P1]** Reconnect policy with bounded retry, safe state reconciliation.
-- [ ] **REC-IMPL-02 [P2]** Optional tmux persistent SSH workflow.
+- [x] **REC-IMPL-01 [P1]** Reconnect policy with bounded retry, safe state reconciliation. *Evidence 2026-11-21: hosts the user connected are reconnected after a heartbeat loss with bounded backoff (2,4,8,16,32,60 s… max 20 attempts), stopping at once on authentication failure and when the user disconnects/removes the host; nothing is replayed. Test: the app's own sshd session on Fedora was killed at 18:55:45 → ssh down 18:55:47 → reconnecting 18:55:56 → ssh up 18:55:59 → ADB watch + Android B available 18:56:02, Android A unaffected; UI shows "Reconnecting (attempt n)".*
+- [x] **REC-IMPL-02 [P2]** Optional tmux persistent SSH workflow. *Evidence 2026-11-21: "+ tmux" SSH tab runs `tmux new-session -A -s senvakara-…`; after the connection was killed, ↻ reattached and `$SVK_MARK` set before the loss was still present. Plain SSH tabs reopen a new shell (no false promise of continuity).*
 
 ## Phase 6 — Developer workflow
 

@@ -256,6 +256,25 @@ impl SshConnection {
         Ok(pty::split(self.open_pty_shell(cols, rows).await?))
     }
 
+    /// Run `argv` on a remote PTY (e.g. `tmux new-session -A -s name`).
+    pub async fn open_pty_command(
+        &self,
+        cols: u32,
+        rows: u32,
+        argv: &[&str],
+    ) -> Result<(SshPtyWriter, SshPtyReader)> {
+        let command = argv
+            .iter()
+            .map(|a| shell_quote(a))
+            .collect::<Vec<_>>()
+            .join(" ");
+        let ch = self.handle.channel_open_session().await?;
+        ch.request_pty(true, "xterm-256color", cols, rows, 0, 0, &[])
+            .await?;
+        ch.exec(true, command).await?;
+        Ok(pty::split(ch))
+    }
+
     /// Start a long-running program (discrete, POSIX-quoted arguments) and
     /// keep its channel. Closing the writer ends the channel.
     pub async fn spawn(&self, argv: &[&str]) -> Result<(SshPtyWriter, SshPtyReader)> {

@@ -16,6 +16,11 @@ pub struct AppState {
     pub secrets: Option<SecretStore>,
     /// One live SSH connection per host, shared by terminals and SFTP.
     pub conns: tokio::sync::Mutex<HashMap<String, Arc<SshConnection>>>,
+    /// Hosts the user connected on purpose; only these are reconnected
+    /// automatically after a loss (REC-01).
+    pub want_connected: Mutex<std::collections::HashSet<String>>,
+    /// Hosts with a reconnect loop running → current attempt number.
+    pub reconnecting: Mutex<HashMap<String, u32>>,
 }
 
 pub type CmdResult<T> = Result<T, CoreError>;
@@ -65,6 +70,8 @@ impl AppState {
             db: Mutex::new(db),
             secrets,
             conns: Default::default(),
+            want_connected: Default::default(),
+            reconnecting: Default::default(),
         })
     }
 

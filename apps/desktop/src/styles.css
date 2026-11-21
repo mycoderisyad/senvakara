@@ -241,3 +241,4 @@ progress { width: 100%; height: 6px; accent-color: var(--accent); }
 .desktop-bar { display: flex; align-items: center; gap: 12px; padding: 8px 14px; background: var(--surface); border-bottom: 1px solid var(--border); flex-wrap: wrap; }
 .desktop-bar .badge { margin-left: auto; }
 .desktop-screen { flex: 1; min-height: 0; background: #000; overflow: hidden; }
+.tab-group { display: inline-flex; gap: 4px; }

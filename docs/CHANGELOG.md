@@ -35,6 +35,9 @@ Changes to documentation and (later) shipped product are tracked separately. For
 - Overview dashboard: live CPU, memory, disk, network and uptime for this PC and connected Linux hosts.
 - Hosts show whether the host has a graphical session; Desktop shows the host's X11 session in a Senvakara pane with mouse and keyboard (requires x11vnc on the host; loopback-only, one-time password, stopped on close).
 
+- Automatic reconnect of hosts after a connection loss (bounded backoff, stops on authentication problems or when you disconnect).
+- tmux-backed SSH tabs that survive disconnects and reattach with ↻.
+
 ### Fixed (development builds)
 
 - Device availability shown after a restart no longer reflects the previous session.

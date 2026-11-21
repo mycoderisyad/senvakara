@@ -21,6 +21,8 @@ pub struct HostView {
     pub last_seen_at: Option<String>,
     pub capabilities: serde_json::Value,
     pub connected: bool,
+    /// Attempt number while an automatic reconnect is in progress.
+    pub reconnecting: Option<u32>,
     pub ssh: Option<SshView>,
 }
 
@@ -52,6 +54,7 @@ fn view(h: HostRecord, connected: bool) -> HostView {
         trust_state: h.trust_state,
         last_seen_at: h.last_seen_at,
         connected,
+        reconnecting: None,
     }
 }
 
@@ -68,7 +71,9 @@ async fn host_view(state: &AppState, id: &str) -> CmdResult<HostView> {
         .await
         .get(id)
         .is_some_and(|c| !c.is_closed());
-    Ok(view(rec, connected))
+    let mut v = view(rec, connected);
+    v.reconnecting = state.reconnecting.lock().unwrap().get(id).copied();
+    Ok(v)
 }
 
 #[tauri::command]
@@ -80,11 +85,15 @@ pub async fn hosts_list(state: State<'_, AppState>) -> CmdResult<Vec<HostView>> 
         .list_hosts()
         .map_err(|e| db_err("list hosts", e))?;
     let conns = state.conns.lock().await;
+    let reconnecting = state.reconnecting.lock().unwrap().clone();
     Ok(recs
         .into_iter()
         .map(|h| {
             let connected = conns.get(&h.id).is_some_and(|c| !c.is_closed());
-            view(h, connected)
+            let attempt = reconnecting.get(&h.id).copied();
+            let mut v = view(h, connected);
+            v.reconnecting = attempt;
+            v
         })
         .collect())
 }
@@ -122,6 +131,7 @@ pub async fn host_update(
 
 #[tauri::command]
 pub async fn host_delete(app: AppHandle, state: State<'_, AppState>, id: String) -> CmdResult<()> {
+    state.want_connected.lock().unwrap().remove(&id);
     crate::android::stop_host(&app, &id);
     state.disconnect(&id).await;
     let passphrase_ref = {
@@ -255,6 +265,15 @@ pub async fn host_connect(
     state: State<'_, AppState>,
     id: String,
 ) -> CmdResult<HostView> {
+    state.want_connected.lock().unwrap().insert(id.clone());
+    connect_and_watch(&app, &state, &id).await?;
+    host_view(&state, &id).await
+}
+
+/// Connect with the pinned host key, refresh capabilities and start watching
+/// the host's Android devices. Shared by Connect and automatic reconnect.
+pub async fn connect_and_watch(app: &AppHandle, state: &AppState, id: &str) -> CmdResult<()> {
+    let id = id.to_string();
     let conn = state.connection(&id).await?;
     let os = conn
         .exec(&["cat", "/etc/os-release"])
@@ -284,6 +303,7 @@ pub async fn host_connect(
         "terminal": true,
         "files": true,
         "desktop": crate::desktop::detect(&conn).await.ok(),
+        "tmux": conn.exec(&["sh", "-c", "command -v tmux"]).await.map(|o| o.success()).unwrap_or(false),
     });
     state
         .db
@@ -293,9 +313,9 @@ pub async fn host_connect(
         .map_err(|e| db_err("capabilities", e))?;
     // Android devices attached to this host become visible while connected.
     if let Some(path) = adb.as_deref() {
-        crate::android::start_remote(&app, &id, conn.clone(), path).await;
+        crate::android::start_remote(app, &id, conn.clone(), path).await;
     }
-    host_view(&state, &id).await
+    Ok(())
 }
 
 #[tauri::command]
@@ -304,6 +324,8 @@ pub async fn host_disconnect(
     state: State<'_, AppState>,
     id: String,
 ) -> CmdResult<HostView> {
+    // An explicit disconnect also cancels any automatic reconnect.
+    state.want_connected.lock().unwrap().remove(&id);
     crate::android::stop_host(&app, &id);
     state.disconnect(&id).await;
     host_view(&state, &id).await

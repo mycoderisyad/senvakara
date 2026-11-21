@@ -14,6 +14,7 @@ function ConnectionBadge({ host, busy, error }: { host: HostView; busy?: string;
   if (busy) return <span className="badge warn">◌ {busy}…</span>;
   if (!host.ssh?.fingerprint) return <span className="badge warn">! Host key not trusted</span>;
   if (error) return <span className="badge bad">✕ {error.split(":")[0].toLowerCase().replace(/_/g, " ")}</span>;
+  if (host.reconnecting) return <span className="badge warn">◌ Reconnecting (attempt {host.reconnecting})</span>;
   if (host.connected) return <span className="badge ok">● Connected</span>;
   return <span className="badge">○ Not connected</span>;
 }
@@ -29,8 +30,8 @@ export function HostsView() {
   useEffect(() => {
     void refreshHosts();
     // A host that stops answering the heartbeat is shown as not connected.
-    const un = listen("host-lost", () => void refreshHosts());
-    return () => void un.then((u) => u());
+    const uns = ["host-lost", "host-reconnecting", "host-reconnected"].map((ev) => listen(ev, () => void refreshHosts()));
+    return () => uns.forEach((u) => void u.then((f) => f()));
   }, [refreshHosts]);
 
   const run = async (h: HostView, label: string, fn: () => Promise<HostView | void>) => {
@@ -117,7 +118,7 @@ export function HostsView() {
                   </button>
                 ) : (
                   <>
-                    <button onClick={() => openTab(`SSH · ${h.display_name}`, { kind: "ssh", host_id: h.id })}>Terminal</button>
+                    <button onClick={() => openTab(`SSH · ${h.display_name}`, { kind: "ssh", host_id: h.id, tmux: null })}>Terminal</button>
                     <button onClick={() => openFiles(h.id)}>Files</button>
                     {h.connected && caps.desktop?.session === "x11" && (
                       <button onClick={() => openDesktop(h.id)} disabled={!caps.desktop.x11vnc} title={caps.desktop.x11vnc ? "Show the host's screen" : "Install x11vnc on the host first"}>

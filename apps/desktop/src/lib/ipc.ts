@@ -24,7 +24,7 @@ export function errorCode(e: unknown): string | null {
 export type ShellRequest =
   | { kind: "power_shell" }
   | { kind: "wsl"; distro: string | null }
-  | { kind: "ssh"; host_id: string };
+  | { kind: "ssh"; host_id: string; tmux: string | null };
 
 export function termOpen(
   shell: ShellRequest,
@@ -64,9 +64,12 @@ export interface HostView {
     os_pretty_name?: string | null;
     arch?: string;
     adb_path?: string | null;
+    tmux?: boolean;
     desktop?: { session: "x11" | "wayland" | "none"; display: string | null; desktop: string | null; x11vnc: string | null } | null;
   } | null;
   connected: boolean;
+  /** Attempt number while Senvakara reconnects automatically. */
+  reconnecting: number | null;
   ssh: SshView | null;
 }
 

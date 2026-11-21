@@ -5,7 +5,7 @@ import { TerminalPane } from "./TerminalPane";
 
 /** Terminal sessions: local PowerShell/WSL and remote SSH tabs (TERM-01..03). */
 export function SessionsView() {
-  const { tabs, activeKey, openTab, closeTab, setActive, markExited, hosts, setView } = useUi();
+  const { tabs, activeKey, openTab, closeTab, setActive, markExited, reopenTab, hosts, setView } = useUi();
   const [distros, setDistros] = useState<string[]>([]);
 
   useEffect(() => {
@@ -28,6 +28,18 @@ export function SessionsView() {
             <span className={`dot ${t.exited ? "off" : "on"}`} aria-hidden />
             <span>{t.title}</span>
             {t.exited && <span className="tab-state">exited</span>}
+            {t.exited && t.shell.kind === "ssh" && (
+              <button
+                className="tab-close"
+                title={t.shell.tmux ? `Reattach tmux session ${t.shell.tmux}` : "Open a new shell on the host"}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  reopenTab(t.key);
+                }}
+              >
+                ↻
+              </button>
+            )}
             <button
               className="tab-close"
               aria-label={`Close ${t.title}`}
@@ -48,9 +60,20 @@ export function SessionsView() {
             </button>
           ))}
           {sshHosts.map((h) => (
-            <button key={h.id} onClick={() => openTab(`SSH · ${h.display_name}`, { kind: "ssh", host_id: h.id })}>
-              + SSH {h.display_name}
-            </button>
+            <span key={h.id} className="tab-group">
+              <button onClick={() => openTab(`SSH · ${h.display_name}`, { kind: "ssh", host_id: h.id, tmux: null })}>+ SSH {h.display_name}</button>
+              {h.capabilities?.tmux && (
+                <button
+                  title="Runs inside tmux: the shell keeps running if the connection drops, and ↻ reattaches it"
+                  onClick={() => {
+                    const name = `senvakara-${Date.now().toString(36)}`;
+                    openTab(`tmux · ${h.display_name}`, { kind: "ssh", host_id: h.id, tmux: name });
+                  }}
+                >
+                  + tmux
+                </button>
+              )}
+            </span>
           ))}
         </div>
       </div>
