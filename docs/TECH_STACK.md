@@ -4,6 +4,11 @@
 
 | Layer | Candidate | Why | Caution / gate |
 |---|---|---|---|
+| Desktop UI (target, ADR-023) | Slint 1.18.1 (pinned; 1.19 needs rustc 1.95) | Native, one language, no WebView2 (about 200 MB less memory) | Royalty-free licence requires the `AboutSlint` attribution (Settings > About) |
+| Terminal emulation (Slint app) | `alacritty_terminal` 0.26.0 | Mature VT emulator; rows drawn as styled text runs | Worst-case full-screen redraw is near the 30 fps gate (TESTING §9) |
+| Mirror decoding (Slint app) | `openh264` 0.9.10 from source (ADR-024) | No web view codec needed | Software decode; H.264 patent review before wide distribution |
+| Remote desktop client (Slint app) | `vnc-rs` 0.6.1 | Runs directly on the SSH channel | Tight/JPEG rectangles are not drawn yet |
+| File dialogs (Slint app) | `rfd` 0.17 | Native Windows dialogs | |
 | Desktop shell | Tauri 2 | Native system bridge + web UI; packaging support | Native video embedding needs PoC |
 | Frontend | React + TypeScript | Component-based multi-pane UX, typing | Control render/DOM memory |
 | UI state | Zustand or equivalent | Simple local state store | Avoid duplicate registry source of truth |

@@ -1,0 +1,289 @@
+// A run tab: one Flutter build-and-deploy or one recipe, step by step, with its live log.
+// The run belongs to Rust and keeps going while another tab is on screen.
+
+import { ListView } from "std-widgets.slint";
+import { Theme } from "../theme.slint";
+import { Icon } from "controls.slint";
+import { Button, StatusMark, Notice, Hint } from "widgets.slint";
+
+export struct RunStep {
+    // "1"
+    number: string,
+    label: string,
+    // "pending" | "running" | "succeeded" | "failed" | "cancelled" | "skipped"
+    state: string,
+    // "Waiting" | "Running" | "Done" | "Failed" | "Cancelled" | "Skipped"
+    state-text: string,
+    detail: string,
+}
+
+// The run tab on screen.
+export global Run {
+    in property <string> title;
+    // "2201117PG, through RAFGT over USB"
+    in property <string> target;
+    in property <int> hue;
+    in property <string> tone: "busy";
+    in property <string> state-text: "Starting";
+    in property <[RunStep]> steps;
+    // "" while running, then "success" | "danger" | "warning".
+    in property <string> done-kind;
+    in property <string> done-text;
+    in property <[string]> log;
+    // Length of the longest log line, in characters.
+    in property <int> max-chars;
+    // Bumped when lines arrived: scroll to the end.
+    in property <int> revision;
+    // Why Cancel cannot be pressed ("" while the run can be cancelled).
+    in property <string> cancel-reason;
+
+    callback cancel();
+}
+
+// The state of a step as a shape; the word is next to it.
+component StepMark inherits Rectangle {
+    in property <string> state;
+    private property <color> ink: state == "succeeded" ? Theme.success : state == "failed" ? Theme.danger : state == "cancelled" ? Theme.warning : state == "running" ? Theme.info : Theme.text-faint;
+
+    width: 16px;
+    height: 16px;
+
+    if root.state == "succeeded": Icon {
+        source: @image-url("../icons/check.svg");
+        tint: root.ink;
+    }
+
+    if root.state == "failed": Icon {
+        source: @image-url("../icons/close.svg");
+        tint: root.ink;
+    }
+
+    // pending: ring. running: half-filled ring.
+    if root.state == "pending" || root.state == "running": Rectangle {
+        width: 10px;
+        height: 10px;
+        border-radius: 5px;
+        border-width: 1.5px;
+        border-color: root.ink;
+        background: root.state == "running" ? root.ink.with-alpha(0.45) : transparent;
+    }
+
+    if root.state == "cancelled": Rectangle {
+        width: 8px;
+        height: 8px;
+        border-radius: 1px;
+        background: root.ink;
+    }
+
+    if root.state == "skipped": Rectangle {
+        width: 8px;
+        height: 2px;
+        border-radius: 1px;
+        background: root.ink;
+    }
+}
+
+component StepRow inherits Rectangle {
+    in property <RunStep> step;
+    private property <color> ink: step.state == "succeeded" ? Theme.success : step.state == "failed" ? Theme.danger : step.state == "cancelled" ? Theme.warning : step.state == "running" ? Theme.info : Theme.text-faint;
+
+    height: line.height + (step.detail == "" ? 0px : detail.preferred-height + 2px) + Theme.space-2;
+    accessible-role: list-item;
+    accessible-label: step.number + ". " + step.label + ", " + step.state-text;
+
+    line := HorizontalLayout {
+        x: 0;
+        y: 0;
+        width: parent.width;
+        height: 22px;
+        spacing: Theme.space-2;
+
+        VerticalLayout {
+            alignment: center;
+            StepMark {
+                state: root.step.state;
+            }
+        }
+
+        Text {
+            horizontal-stretch: 1;
+            vertical-alignment: center;
+            text: root.step.number + ".  " + root.step.label;
+            color: root.step.state == "pending" || root.step.state == "skipped" ? Theme.text-muted : Theme.text;
+            font-size: Theme.text-body;
+            overflow: elide;
+        }
+
+        Text {
+            width: 72px;
+            vertical-alignment: center;
+            text: root.step.state-text;
+            color: root.ink;
+            font-size: Theme.text-small;
+        }
+    }
+
+    detail := Text {
+        x: 16px + Theme.space-2;
+        y: line.height + 2px;
+        width: parent.width - self.x;
+        visible: root.step.detail != "";
+        text: root.step.detail;
+        color: Theme.text-muted;
+        font-size: Theme.text-small;
+        wrap: word-wrap;
+    }
+}
+
+export component RunView inherits Rectangle {
+    private property <length> line-height: 18px;
+    private property <int> revision: Run.revision;
+
+    function scroll-to-end() {
+        list.content-y = Math.min(0px, list.visible-height - Run.log.length * root.line-height);
+    }
+
+    changed revision => {
+        root.scroll-to-end();
+    }
+
+    background: Theme.ground;
+
+    VerticalLayout {
+        // What runs, on which phone.
+        HorizontalLayout {
+            height: 44px;
+            padding-left: Theme.space-4;
+            padding-right: Theme.space-4;
+            spacing: Theme.space-3;
+
+            Text {
+                vertical-alignment: center;
+                text: Run.title;
+                color: Theme.text;
+                font-size: Theme.text-body;
+                font-weight: 600;
+                overflow: elide;
+            }
+
+            VerticalLayout {
+                alignment: center;
+                Rectangle {
+                    height: 20px;
+                    width: route.preferred-width + 16px;
+                    border-radius: 10px;
+                    background: Theme.host-hue(Run.hue).with-alpha(0.16);
+                    route := Text {
+                        text: Run.target;
+                        color: Theme.host-hue(Run.hue);
+                        font-size: Theme.text-small;
+                    }
+                }
+            }
+
+            Rectangle {
+                horizontal-stretch: 1;
+            }
+
+            if Run.cancel-reason != "": Text {
+                vertical-alignment: center;
+                text: Run.cancel-reason;
+                color: Theme.text-faint;
+                font-size: Theme.text-small;
+            }
+
+            VerticalLayout {
+                alignment: center;
+                Button {
+                    text: "Cancel run";
+                    kind: "danger";
+                    enabled: Run.cancel-reason == "";
+                    reason: Run.cancel-reason;
+                    clicked => {
+                        Run.cancel();
+                    }
+                }
+            }
+
+            StatusMark {
+                tone: Run.tone;
+                text: Run.state-text;
+            }
+        }
+
+        HorizontalLayout {
+            vertical-stretch: 1;
+
+            // Steps and the result.
+            Rectangle {
+                width: 400px;
+
+                VerticalLayout {
+                    alignment: start;
+                    padding: Theme.space-4;
+                    padding-top: Theme.space-2;
+                    spacing: Theme.space-2;
+
+                    Text {
+                        text: "Steps";
+                        color: Theme.text-muted;
+                        font-size: Theme.text-small;
+                        font-weight: 600;
+                    }
+
+                    for step in Run.steps: StepRow {
+                        step: step;
+                    }
+
+                    if Run.done-kind != "": Notice {
+                        kind: Run.done-kind;
+                        text: Run.done-text;
+                    }
+                }
+
+                Rectangle {
+                    x: parent.width - 1px;
+                    width: 1px;
+                    background: Theme.hairline;
+                }
+            }
+
+            // The log.
+            Rectangle {
+                horizontal-stretch: 1;
+                background: Theme.term-ground;
+                clip: true;
+
+                probe := Text {
+                    visible: false;
+                    text: "0";
+                    font-family: Theme.mono;
+                    font-size: Theme.text-small;
+                }
+
+                list := ListView {
+                    accessible-label: "Run log";
+                    content-width: Math.max(self.visible-width, Run.max-chars * probe.preferred-width + 2 * Theme.space-3);
+                    for line in Run.log: Rectangle {
+                        height: root.line-height;
+                        Text {
+                            x: Theme.space-3;
+                            height: parent.height;
+                            vertical-alignment: center;
+                            text: line;
+                            color: Theme.text;
+                            font-family: Theme.mono;
+                            font-size: Theme.text-small;
+                        }
+                    }
+                }
+
+                if Run.log.length == 0: Text {
+                    text: Run.done-kind == "" ? "Waiting for output." : "This run wrote no log lines.";
+                    color: Theme.text-muted;
+                    font-size: Theme.text-small;
+                }
+            }
+        }
+    }
+}

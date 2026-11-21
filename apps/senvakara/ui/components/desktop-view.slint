@@ -1,0 +1,191 @@
+// Remote desktop pane. Rust runs the VNC session and hands over the newest picture; this file
+// draws it scaled to fit and forwards the pointer and the keyboard.
+
+import { Theme } from "../theme.slint";
+import { Button, StatusMark, Notice, CheckBox } from "widgets.slint";
+
+// What one remote desktop shows; `id` names the session in every callback.
+export struct DesktopData {
+    id: int,
+    frame: image,
+    frame-width: int,
+    frame-height: int,
+    // The host's name.
+    title: string,
+    // "Xfce on display :0, through the SSH tunnel, one-time password"
+    detail: string,
+    // "busy" | "live" | "idle"
+    tone: string,
+    // "Starting" | "Connected" | "Ended"
+    state-text: string,
+    // Why the session ended, in words.
+    error: string,
+    // Connected: input can be sent.
+    live: bool,
+    view-only: bool,
+}
+
+export global Desktop {
+    // kind: 0 down, 1 up, 2 move. button: 0 left, 1 middle, 2 right. x and y are fractions
+    // of the picture, 0..1.
+    callback pointer(id: int, kind: int, button: int, x: float, y: float);
+    callback wheel(id: int, x: float, y: float, up: bool);
+    callback key(id: int, text: string, down: bool) -> bool;
+    // The picture lost the keyboard: keys held on the host are released.
+    callback blur(id: int);
+    callback set-view-only(id: int, on: bool);
+    callback ctrl-alt-del(id: int);
+}
+
+export component DesktopView inherits Rectangle {
+    in property <DesktopData> data;
+    // Inside a workspace panel: the panel header already names the host.
+    in property <bool> embedded;
+    private property <string> input-reason: !data.live ? "The desktop is not connected." : data.view-only ? "View only is on." : "";
+
+    background: Theme.ground;
+    forward-focus: keys;
+
+    VerticalLayout {
+        // Which host, which session, how it is reached.
+        HorizontalLayout {
+            height: 44px;
+            padding-left: Theme.space-4;
+            padding-right: Theme.space-4;
+            spacing: Theme.space-3;
+
+            if !root.embedded: Text {
+                vertical-alignment: center;
+                text: root.data.title;
+                color: Theme.text;
+                font-size: Theme.text-body;
+                font-weight: 600;
+            }
+
+            // In a narrow workspace panel the controls and the state come first.
+            if root.width >= 760px: Text {
+                horizontal-stretch: 1;
+                vertical-alignment: center;
+                text: root.data.detail;
+                color: Theme.text-muted;
+                font-size: Theme.text-small;
+                overflow: elide;
+            }
+
+            if root.width < 760px: Rectangle {
+                horizontal-stretch: 1;
+            }
+
+            if root.input-reason != "" && root.width >= 760px: Text {
+                vertical-alignment: center;
+                text: root.input-reason;
+                color: Theme.text-faint;
+                font-size: Theme.text-small;
+            }
+
+            VerticalLayout {
+                alignment: center;
+                Button {
+                    text: "Send Ctrl+Alt+Del";
+                    enabled: root.input-reason == "";
+                    reason: root.input-reason;
+                    clicked => {
+                        Desktop.ctrl-alt-del(root.data.id);
+                    }
+                }
+            }
+
+            VerticalLayout {
+                alignment: center;
+                CheckBox {
+                    text: "View only";
+                    checked: root.data.view-only;
+                    toggled(on) => {
+                        Desktop.set-view-only(root.data.id, on);
+                    }
+                }
+            }
+
+            StatusMark {
+                tone: root.data.tone;
+                text: root.data.state-text;
+            }
+        }
+
+        if root.data.error != "": HorizontalLayout {
+            padding-left: Theme.space-4;
+            padding-right: Theme.space-4;
+            padding-bottom: Theme.space-2;
+            Notice {
+                kind: "danger";
+                text: root.data.error;
+            }
+        }
+
+        area := Rectangle {
+            vertical-stretch: 1;
+            background: Theme.term-ground;
+            private property <float> aspect: root.data.frame-height > 0 ? root.data.frame-width / root.data.frame-height : 16 / 9;
+            private property <length> fit-height: Math.max(40px, Math.min(self.height - 2 * Theme.space-2, (self.width - 2 * Theme.space-2) / aspect));
+
+            screen := Rectangle {
+                width: area.fit-height * area.aspect;
+                height: area.fit-height;
+                border-width: keys.has-focus ? 1px : 0px;
+                border-color: Theme.accent;
+                background: Theme.term-ground;
+                clip: true;
+
+                if root.data.frame-height > 0: Image {
+                    width: 100%;
+                    height: 100%;
+                    source: root.data.frame;
+                    image-fit: fill;
+                    image-rendering: smooth;
+                    accessible-role: image;
+                    accessible-label: "Screen of " + root.data.title;
+                }
+
+                if root.data.frame-height == 0: Text {
+                    text: root.data.state-text == "Ended" ? "The session has ended" : root.data.live ? "Waiting for the first picture" : "Starting screen sharing on the host";
+                    color: Theme.text-muted;
+                    font-size: Theme.text-small;
+                }
+
+                keys := FocusScope {
+                    key-pressed(event) => {
+                        return Desktop.key(root.data.id, event.text, true) ? accept : reject;
+                    }
+                    key-released(event) => {
+                        return Desktop.key(root.data.id, event.text, false) ? accept : reject;
+                    }
+                    changed has-focus => {
+                        if (!self.has-focus) {
+                            Desktop.blur(root.data.id);
+                        }
+                    }
+                }
+
+                touch := TouchArea {
+                    enabled: root.data.live;
+                    pointer-event(event) => {
+                        if (event.kind == PointerEventKind.down) {
+                            keys.focus();
+                            Desktop.pointer(root.data.id, 0, event.button == PointerEventButton.middle ? 1 : event.button == PointerEventButton.right ? 2 : 0, self.mouse-x / self.width, self.mouse-y / self.height);
+                        } else if (event.kind == PointerEventKind.up) {
+                            Desktop.pointer(root.data.id, 1, event.button == PointerEventButton.middle ? 1 : event.button == PointerEventButton.right ? 2 : 0, self.mouse-x / self.width, self.mouse-y / self.height);
+                        } else if (event.kind == PointerEventKind.move) {
+                            Desktop.pointer(root.data.id, 2, 0, self.mouse-x / self.width, self.mouse-y / self.height);
+                        }
+                    }
+                    scroll-event(event) => {
+                        if (event.delta-y != 0) {
+                            Desktop.wheel(root.data.id, self.mouse-x / self.width, self.mouse-y / self.height, event.delta-y > 0);
+                        }
+                        return accept;
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,308 @@
+// The Settings section of Home: General, Terminal, Diagnostics and About on one page.
+// Values are kept by Rust in settings.json next to the database.
+
+import { ScrollView, AboutSlint } from "std-widgets.slint";
+import { Theme } from "../theme.slint";
+import { Button, GroupTitle, Notice, Segmented, StatusMark, Hint, PageTitle, Card, DetailRow } from "../components/widgets.slint";
+import { KeyValue } from "../data.slint";
+
+export global Settings {
+    // Seconds between health readings on Home, as text: "2" | "5" | "10" | "30".
+    in property <string> metrics-interval: "5";
+    // Terminal font size in px, as text.
+    in property <string> font-size: "13";
+    // Why the settings could not be read or saved ("" when all is well).
+    in property <string> error;
+
+    in property <string> version;
+    in property <string> data-dir;
+    in property <string> log-dir;
+    in property <string> settings-file;
+    // "live" | "attention"
+    in property <string> adb-tone: "attention";
+    in property <string> adb-text;
+    in property <string> adb-detail;
+    in property <string> renderer;
+    // "" | "busy" | "live" | "attention"
+    in property <string> decoder-tone;
+    in property <string> decoder-text;
+    // Why the test cannot be started ("" when it can).
+    in property <string> decoder-reason;
+    // Where the licence notices are, or that this build has none.
+    in property <string> notices;
+    in property <bool> has-notices;
+
+    callback set-metrics-interval(seconds: string);
+    callback set-font-size(size: string);
+    // "data" | "logs" | "notices"
+    callback open-folder(which: string);
+    callback test-decoder();
+}
+
+// A setting: its name and one sentence on the left, the control on the right.
+component SettingRow inherits HorizontalLayout {
+    in property <string> title;
+    in property <string> body;
+    spacing: Theme.space-4;
+
+    VerticalLayout {
+        horizontal-stretch: 1;
+        alignment: center;
+        spacing: 2px;
+
+        Text {
+            text: root.title;
+            color: Theme.text;
+            font-size: Theme.text-body;
+        }
+
+        Hint {
+            text: root.body;
+        }
+    }
+
+    VerticalLayout {
+        alignment: center;
+        @children
+    }
+}
+
+// A folder path with a button that opens it.
+component FolderRow inherits HorizontalLayout {
+    in property <string> label;
+    in property <string> path;
+    in property <string> button: "Open folder";
+    in property <bool> can-open: true;
+    callback open();
+    spacing: Theme.space-3;
+
+    Text {
+        width: 104px;
+        vertical-alignment: center;
+        text: root.label;
+        color: Theme.text-muted;
+        font-size: Theme.text-small;
+    }
+
+    Text {
+        horizontal-stretch: 1;
+        vertical-alignment: center;
+        text: root.path;
+        color: Theme.text;
+        font-size: Theme.text-small;
+        font-family: Theme.mono;
+        overflow: elide;
+    }
+
+    if root.can-open: Button {
+        text: root.button;
+        accessible-label: root.button + ": " + root.label;
+        clicked => {
+            root.open();
+        }
+    }
+}
+
+export component SettingsPage inherits Rectangle {
+    ScrollView {
+        VerticalLayout {
+            width: root.width;
+            alignment: start;
+            padding: Theme.space-4;
+            spacing: Theme.space-4;
+
+            PageTitle {
+                title: "Settings";
+                body: "Changes apply at once and are kept for the next start.";
+            }
+
+            if Settings.error != "": Notice {
+                kind: "danger";
+                text: Settings.error;
+            }
+
+            Card {
+                GroupTitle {
+                    text: "General";
+                }
+
+                SettingRow {
+                    title: "Health refresh interval";
+                    body: "How often CPU, memory and disk of reachable hosts are read while Home is on screen.";
+                    Segmented {
+                        width: 264px;
+                        items: [
+                            { id: "2", label: "2 s" },
+                            { id: "5", label: "5 s" },
+                            { id: "10", label: "10 s" },
+                            { id: "30", label: "30 s" },
+                        ];
+                        current: Settings.metrics-interval;
+                        picked(id) => {
+                            Settings.set-metrics-interval(id);
+                        }
+                    }
+                }
+            }
+
+            Card {
+                GroupTitle {
+                    text: "Terminal";
+                }
+
+                SettingRow {
+                    title: "Font size";
+                    body: "Applies to every terminal, including the ones that are open.";
+                    Segmented {
+                        width: 336px;
+                        items: [
+                            { id: "11", label: "11" },
+                            { id: "12", label: "12" },
+                            { id: "13", label: "13" },
+                            { id: "14", label: "14" },
+                            { id: "15", label: "15" },
+                            { id: "16", label: "16" },
+                            { id: "18", label: "18" },
+                        ];
+                        current: Settings.font-size;
+                        picked(id) => {
+                            Settings.set-font-size(id);
+                        }
+                    }
+                }
+            }
+
+            Card {
+                GroupTitle {
+                    text: "Diagnostics";
+                }
+
+                DetailRow {
+                    item: { key: "Version", value: Settings.version, mono: true };
+                }
+
+                DetailRow {
+                    item: { key: "Renderer", value: Settings.renderer, mono: false };
+                }
+
+                HorizontalLayout {
+                    spacing: Theme.space-3;
+
+                    Text {
+                        width: 104px;
+                        vertical-alignment: center;
+                        text: "ADB on this PC";
+                        color: Theme.text-muted;
+                        font-size: Theme.text-small;
+                    }
+
+                    StatusMark {
+                        width: 88px;
+                        alignment: start;
+                        tone: Settings.adb-tone;
+                        text: Settings.adb-text;
+                    }
+
+                    Text {
+                        horizontal-stretch: 1;
+                        vertical-alignment: center;
+                        text: Settings.adb-detail;
+                        color: Theme.text;
+                        font-size: Theme.text-small;
+                        font-family: Settings.adb-tone == "live" ? Theme.mono : Theme.sans;
+                        overflow: elide;
+                    }
+                }
+
+                FolderRow {
+                    label: "Data folder";
+                    path: Settings.data-dir;
+                    open => {
+                        Settings.open-folder("data");
+                    }
+                }
+
+                FolderRow {
+                    label: "Log folder";
+                    path: Settings.log-dir;
+                    open => {
+                        Settings.open-folder("logs");
+                    }
+                }
+
+                Rectangle {
+                    height: 1px;
+                    background: Theme.hairline;
+                }
+
+                SettingRow {
+                    title: "Video decoder";
+                    body: "Encodes a short synthetic H.264 clip and decodes it with the decoder the phone screen uses.";
+                    Button {
+                        text: "Test video decoder";
+                        enabled: Settings.decoder-reason == "";
+                        reason: Settings.decoder-reason;
+                        clicked => {
+                            Settings.test-decoder();
+                        }
+                    }
+                }
+
+                if Settings.decoder-tone != "": HorizontalLayout {
+                    spacing: Theme.space-3;
+
+                    StatusMark {
+                        width: 104px;
+                        alignment: start;
+                        tone: Settings.decoder-tone;
+                        text: Settings.decoder-tone == "live" ? "Passed" : Settings.decoder-tone == "busy" ? "Running" : "Failed";
+                    }
+
+                    Hint {
+                        horizontal-stretch: 1;
+                        text: Settings.decoder-text;
+                        ink: Theme.text;
+                    }
+                }
+            }
+
+            Card {
+                GroupTitle {
+                    text: "About";
+                }
+
+                DetailRow {
+                    item: { key: "Senvakara", value: "Version " + Settings.version + ". One application, every device, unified control.", mono: false };
+                }
+
+                FolderRow {
+                    label: "Licence notices";
+                    path: Settings.notices;
+                    button: "Show file";
+                    can-open: Settings.has-notices;
+                    open => {
+                        Settings.open-folder("notices");
+                    }
+                }
+
+                DetailRow {
+                    item: { key: "Settings file", value: Settings.settings-file, mono: true };
+                }
+
+                Rectangle {
+                    height: 1px;
+                    background: Theme.hairline;
+                }
+
+                // Required by the Slint royalty-free licence.
+                HorizontalLayout {
+                    alignment: start;
+                    AboutSlint {
+                        width: 220px;
+                        height: 96px;
+                    }
+                }
+            }
+        }
+    }
+}

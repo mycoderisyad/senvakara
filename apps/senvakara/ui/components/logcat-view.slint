@@ -1,0 +1,195 @@
+// Logcat pane. Rust keeps the last 5000 lines and applies the filter; this file draws the lines
+// that match in a virtualised list and forwards the toolbar.
+
+import { ListView } from "std-widgets.slint";
+import { Theme } from "../theme.slint";
+import { Button, StatusMark, Notice, BoundField, CheckBox } from "widgets.slint";
+
+export struct LogLine {
+    text: string,
+    // "" | "warn" | "error", from the line's priority letter (W, E, F).
+    level: string,
+}
+
+// What one log pane shows; `id` names the session in every callback.
+export struct LogcatData {
+    id: int,
+    lines: [LogLine],
+    title: string,
+    // "RAFGT > USB": which host and transport the log comes through.
+    route: string,
+    // Index of the host's colour.
+    hue: int,
+    tone: string,
+    // "Streaming, 120 of 5000 lines"
+    state-text: string,
+    // Length of the longest shown line, in characters: how far the list scrolls sideways.
+    max-chars: int,
+    // What the empty list says.
+    empty-text: string,
+    // The stream is running or starting.
+    active: bool,
+    error: string,
+    filter: string,
+    follow: bool,
+    // Bumped when lines arrived while following: scroll to the end.
+    revision: int,
+}
+
+export global Logcat {
+    callback toggle(id: int);
+    callback clear(id: int);
+    callback filter-edited(id: int, text: string);
+    callback follow-changed(id: int, follow: bool);
+}
+
+export component LogcatView inherits Rectangle {
+    in property <LogcatData> data;
+    // Inside a workspace panel: the panel header already names the phone.
+    in property <bool> embedded;
+    private property <color> hue: Theme.host-hue(data.hue);
+    private property <length> line-height: 18px;
+    private property <int> revision: data.revision;
+
+    function scroll-to-end() {
+        list.content-y = Math.min(0px, list.visible-height - root.data.lines.length * root.line-height);
+    }
+
+    changed revision => {
+        root.scroll-to-end();
+    }
+
+    background: Theme.ground;
+
+    VerticalLayout {
+        // Which phone, through which host.
+        HorizontalLayout {
+            height: 40px;
+            padding-left: Theme.space-4;
+            padding-right: Theme.space-4;
+            spacing: Theme.space-3;
+
+            if !root.embedded: Text {
+                vertical-alignment: center;
+                text: root.data.title;
+                color: Theme.text;
+                font-size: Theme.text-body;
+                font-weight: 600;
+            }
+
+            VerticalLayout {
+                alignment: center;
+                Rectangle {
+                    height: 20px;
+                    width: route.preferred-width + 16px;
+                    border-radius: 10px;
+                    background: root.hue.with-alpha(0.16);
+                    route := Text {
+                        text: root.data.route;
+                        color: root.hue;
+                        font-size: Theme.text-small;
+                    }
+                }
+            }
+
+            Rectangle {
+                horizontal-stretch: 1;
+            }
+
+            StatusMark {
+                tone: root.data.tone;
+                text: root.data.state-text;
+            }
+        }
+
+        HorizontalLayout {
+            padding-left: Theme.space-4;
+            padding-right: Theme.space-4;
+            padding-bottom: Theme.space-2;
+            spacing: Theme.space-2;
+
+            Button {
+                min-width: 64px;
+                text: root.data.active ? "Stop" : "Start";
+                kind: root.data.active ? "secondary" : "primary";
+                clicked => {
+                    Logcat.toggle(root.data.id);
+                }
+            }
+
+            Button {
+                text: "Clear";
+                clicked => {
+                    Logcat.clear(root.data.id);
+                }
+            }
+
+            BoundField {
+                horizontal-stretch: 1;
+                mono: true;
+                value: root.data.filter;
+                placeholder: "Filter lines by text";
+                label: "Filter log lines";
+                edited(text) => {
+                    Logcat.filter-edited(root.data.id, text);
+                }
+            }
+
+            CheckBox {
+                text: "Follow";
+                checked: root.data.follow;
+                toggled(on) => {
+                    Logcat.follow-changed(root.data.id, on);
+                }
+            }
+        }
+
+        if root.data.error != "": HorizontalLayout {
+            padding-left: Theme.space-4;
+            padding-right: Theme.space-4;
+            padding-bottom: Theme.space-2;
+            Notice {
+                kind: root.data.active ? "warning" : "danger";
+                text: root.data.error;
+            }
+        }
+
+        Rectangle {
+            vertical-stretch: 1;
+            background: Theme.term-ground;
+            clip: true;
+
+            // One character of the log face, to turn the longest line into a width.
+            probe := Text {
+                visible: false;
+                text: "0";
+                font-family: Theme.mono;
+                font-size: Theme.text-small;
+            }
+
+            list := ListView {
+                accessible-label: "Log lines";
+                // Long lines scroll sideways instead of being cut.
+                content-width: Math.max(self.visible-width, root.data.max-chars * probe.preferred-width + 2 * Theme.space-3);
+                for line in root.data.lines: Rectangle {
+                    height: root.line-height;
+                    text := Text {
+                        x: Theme.space-3;
+                        height: parent.height;
+                        vertical-alignment: center;
+                        text: line.text;
+                        color: line.level == "error" ? Theme.danger : line.level == "warn" ? Theme.warning : Theme.text;
+                        font-family: Theme.mono;
+                        font-size: Theme.text-small;
+                    }
+                }
+            }
+
+            if root.data.lines.length == 0: Text {
+                text: root.data.empty-text;
+                color: Theme.text-muted;
+                font-size: Theme.text-small;
+            }
+        }
+    }
+}

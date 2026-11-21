@@ -40,6 +40,9 @@ pub enum StorageError {
 
 pub type Result<T> = std::result::Result<T, StorageError>;
 
+/// How long a statement waits for a lock held by another connection.
+const BUSY_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
+
 pub struct Db {
     conn: Connection,
 }
@@ -54,6 +57,9 @@ impl Db {
     }
 
     fn init(conn: Connection) -> Result<Self> {
+        // Wait instead of failing with SQLITE_BUSY when another connection
+        // (a second front end, a probe on the same file) holds the write lock.
+        conn.busy_timeout(BUSY_TIMEOUT)?;
         conn.pragma_update(None, "foreign_keys", "ON")?;
         conn.pragma_update(None, "journal_mode", "WAL")?;
         let mut db = Self { conn };
@@ -102,6 +108,18 @@ mod tests {
         // Re-opening must not re-run migrations.
         assert_eq!(Db::open(&path).unwrap().schema_version().unwrap(), 4);
         let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn waits_for_locks_instead_of_failing_at_once() {
+        let db = Db::open_in_memory().unwrap();
+        let ms: i64 = db
+            .conn
+            .pragma_query_value(None, "busy_timeout", |r| r.get(0))
+            .unwrap();
+        assert_eq!(ms, BUSY_TIMEOUT.as_millis() as i64);
+        // Still the v0.1.0 schema: no migration was added.
+        assert_eq!(db.schema_version().unwrap(), 4);
     }
 
     #[test]

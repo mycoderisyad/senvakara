@@ -1,0 +1,370 @@
+// The device half of the inspector: what can be done to the selected phone. Overview holds the
+// actions and details; Shell, Apps and Screenshot are small tools that stay in the panel.
+
+import { Theme } from "../theme.slint";
+import { Icon, IconButton } from "controls.slint";
+import { Button, GroupTitle, Notice, DetailRow, TextField, Segmented, Reason, ActionList } from "widgets.slint";
+import { Inventory, DeviceItem, DeviceTools } from "../data.slint";
+
+component Hint inherits Text {
+    color: Theme.text-muted;
+    font-size: Theme.text-small;
+    wrap: word-wrap;
+}
+
+component Overview inherits VerticalLayout {
+    in property <DeviceItem> device;
+    spacing: Theme.space-4;
+
+    if DeviceTools.renaming: VerticalLayout {
+        spacing: Theme.space-2;
+        GroupTitle {
+            text: "Rename this phone";
+        }
+
+        name := TextField {
+            text <=> DeviceTools.rename-text;
+            label: "Phone name";
+            placeholder: "Name shown in Senvakara";
+            accepted => {
+                DeviceTools.rename-save();
+            }
+            init => {
+                self.focus-input();
+            }
+        }
+
+        HorizontalLayout {
+            spacing: Theme.space-2;
+            alignment: start;
+            Button {
+                text: "Save";
+                kind: "primary";
+                clicked => {
+                    DeviceTools.rename-save();
+                }
+            }
+
+            Button {
+                text: "Cancel";
+                clicked => {
+                    DeviceTools.rename-cancel();
+                }
+            }
+        }
+
+        Hint {
+            text: "The name is kept in Senvakara only. Nothing changes on the phone.";
+        }
+    }
+
+    if DeviceTools.message != "": Notice {
+        kind: "danger";
+        text: DeviceTools.message;
+    }
+
+    ActionList {
+        primary: root.device.primary;
+        actions: root.device.actions;
+        run(id) => {
+            Inventory.device-action(root.device.id, id);
+        }
+    }
+
+    VerticalLayout {
+        spacing: Theme.space-2;
+        GroupTitle {
+            text: "Details";
+        }
+
+        for item in root.device.details: DetailRow {
+            item: item;
+        }
+    }
+
+    if DeviceTools.info-busy || DeviceTools.props.length > 0: VerticalLayout {
+        spacing: Theme.space-2;
+        GroupTitle {
+            text: "Device info";
+        }
+
+        if DeviceTools.info-busy: Hint {
+            text: "Reading the phone's properties.";
+        }
+
+        for item in DeviceTools.props: DetailRow {
+            item: item;
+        }
+    }
+}
+
+component ShellTool inherits VerticalLayout {
+    private property <string> reason: DeviceTools.blocked != "" ? DeviceTools.blocked : DeviceTools.shell-busy ? "The command is still running." : DeviceTools.command == "" ? "Type a command first." : "";
+    spacing: Theme.space-2;
+
+    Hint {
+        text: "Runs one command with ADB shell permissions on this phone. You confirm the phone and the command before it runs.";
+    }
+
+    TextField {
+        mono: true;
+        enabled: DeviceTools.blocked == "";
+        text <=> DeviceTools.command;
+        placeholder: "getprop ro.product.model";
+        label: "Shell command";
+        accepted => {
+            DeviceTools.run-shell();
+        }
+    }
+
+    HorizontalLayout {
+        alignment: start;
+        Button {
+            text: DeviceTools.shell-busy ? "Running" : "Run";
+            kind: "primary";
+            enabled: root.reason == "";
+            reason: root.reason;
+            clicked => {
+                DeviceTools.run-shell();
+            }
+        }
+    }
+
+    Reason {
+        text: root.reason;
+    }
+
+    if DeviceTools.shell-error != "": Notice {
+        kind: "danger";
+        text: DeviceTools.shell-error;
+    }
+
+    if DeviceTools.shell-ran: VerticalLayout {
+        padding-top: Theme.space-2;
+        spacing: Theme.space-2;
+
+        GroupTitle {
+            text: "Output";
+        }
+
+        Hint {
+            text: DeviceTools.shell-note;
+        }
+
+        Rectangle {
+            border-radius: Theme.radius;
+            border-width: 1px;
+            border-color: Theme.hairline;
+            background: Theme.term-ground;
+            min-height: output.preferred-height + 2 * Theme.space-2;
+
+            HorizontalLayout {
+                padding: Theme.space-2;
+                output := Text {
+                    text: DeviceTools.shell-output == "" ? "The command printed nothing." : DeviceTools.shell-output;
+                    color: DeviceTools.shell-output == "" ? Theme.text-muted : Theme.text;
+                    font-family: DeviceTools.shell-output == "" ? Theme.sans : Theme.mono;
+                    font-size: Theme.text-small;
+                    wrap: char-wrap;
+                    accessible-label: "Command output";
+                }
+            }
+        }
+
+        HorizontalLayout {
+            alignment: start;
+            Button {
+                text: "Copy output";
+                enabled: DeviceTools.shell-output != "";
+                reason: DeviceTools.shell-output == "" ? "There is no output to copy." : "";
+                clicked => {
+                    DeviceTools.copy-output();
+                }
+            }
+        }
+    }
+}
+
+component AppsTool inherits VerticalLayout {
+    private property <string> reason: DeviceTools.blocked != "" ? DeviceTools.blocked : DeviceTools.apps-busy ? "Talking to the phone." : "";
+    spacing: Theme.space-2;
+
+    HorizontalLayout {
+        spacing: Theme.space-2;
+        alignment: start;
+        Button {
+            text: "Install APK";
+            kind: "primary";
+            enabled: DeviceTools.blocked == "";
+            reason: DeviceTools.blocked;
+            clicked => {
+                DeviceTools.install();
+            }
+        }
+
+        Button {
+            text: "Refresh";
+            enabled: root.reason == "";
+            reason: root.reason;
+            clicked => {
+                DeviceTools.load-apps();
+            }
+        }
+    }
+
+    Reason {
+        text: root.reason;
+    }
+
+    Hint {
+        text: "Apps installed by the user. System apps are not listed. You confirm the phone and the file before anything is installed or removed.";
+    }
+
+    if DeviceTools.apps-note != "": Notice {
+        kind: "success";
+        text: DeviceTools.apps-note;
+    }
+
+    if DeviceTools.apps-error != "": Notice {
+        kind: "danger";
+        text: DeviceTools.apps-error;
+    }
+
+    if DeviceTools.apps-loaded: VerticalLayout {
+        padding-top: Theme.space-2;
+        spacing: 2px;
+
+        GroupTitle {
+            text: DeviceTools.packages.length == 1 ? "1 app" : DeviceTools.packages.length + " apps";
+        }
+
+        if DeviceTools.packages.length == 0: Hint {
+            text: "No user-installed apps on this phone.";
+        }
+
+        for package in DeviceTools.packages: HorizontalLayout {
+            height: Theme.row;
+            spacing: Theme.space-2;
+
+            Text {
+                horizontal-stretch: 1;
+                vertical-alignment: center;
+                text: package;
+                color: Theme.text;
+                font-family: Theme.mono;
+                font-size: Theme.text-small;
+                overflow: elide;
+            }
+
+            VerticalLayout {
+                alignment: center;
+                IconButton {
+                    icon: @image-url("../icons/trash.svg");
+                    label: "Uninstall " + package;
+                    enabled: root.reason == "";
+                    clicked => {
+                        DeviceTools.uninstall(package);
+                    }
+                }
+            }
+        }
+    }
+}
+
+component ScreenTool inherits VerticalLayout {
+    private property <bool> has-shot: DeviceTools.shot-height > 0;
+    private property <string> take-reason: DeviceTools.blocked != "" ? DeviceTools.blocked : DeviceTools.shot-busy ? "A screenshot is being taken." : "";
+    private property <string> save-reason: root.has-shot ? "" : "Take a screenshot first.";
+    spacing: Theme.space-2;
+
+    HorizontalLayout {
+        spacing: Theme.space-2;
+        alignment: start;
+        Button {
+            text: DeviceTools.shot-busy ? "Taking screenshot" : "Take screenshot";
+            kind: "primary";
+            enabled: root.take-reason == "";
+            reason: root.take-reason;
+            clicked => {
+                DeviceTools.take-shot();
+            }
+        }
+
+        Button {
+            text: "Save as PNG";
+            enabled: root.save-reason == "";
+            reason: root.save-reason;
+            clicked => {
+                DeviceTools.save-shot();
+            }
+        }
+    }
+
+    Reason {
+        text: root.take-reason != "" ? root.take-reason : root.save-reason;
+    }
+
+    if DeviceTools.shot-note != "": Notice {
+        kind: "success";
+        text: DeviceTools.shot-note;
+    }
+
+    if DeviceTools.shot-path != "": Text {
+        text: DeviceTools.shot-path;
+        color: Theme.text-muted;
+        font-family: Theme.mono;
+        font-size: Theme.text-small;
+        wrap: char-wrap;
+    }
+
+    if DeviceTools.shot-error != "": Notice {
+        kind: "danger";
+        text: DeviceTools.shot-error;
+    }
+
+    if root.has-shot: Rectangle {
+        height: self.width * DeviceTools.shot-height / DeviceTools.shot-width;
+        border-radius: Theme.radius;
+        border-width: 1px;
+        border-color: Theme.hairline-strong;
+        background: #000000;
+        clip: true;
+
+        Image {
+            width: 100%;
+            height: 100%;
+            source: DeviceTools.shot;
+            image-fit: contain;
+            accessible-role: image;
+            accessible-label: "Screenshot of the phone";
+        }
+    }
+}
+
+export component DevicePanel inherits VerticalLayout {
+    in property <DeviceItem> device;
+    spacing: Theme.space-4;
+
+    Segmented {
+        items: [
+            { id: "overview", label: "Overview" },
+            { id: "shell", label: "Shell" },
+            { id: "apps", label: "Apps" },
+            { id: "screen", label: "Screenshot" },
+        ];
+        current: DeviceTools.tab;
+        picked(id) => {
+            DeviceTools.show-tab(id);
+        }
+    }
+
+    if DeviceTools.tab == "overview": Overview {
+        device: root.device;
+    }
+
+    if DeviceTools.tab == "shell": ShellTool { }
+
+    if DeviceTools.tab == "apps": AppsTool { }
+
+    if DeviceTools.tab == "screen": ScreenTool { }
+}

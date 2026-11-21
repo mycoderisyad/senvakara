@@ -1,0 +1,218 @@
+// Terminal pane. The emulator lives in Rust (alacritty_terminal); this file only draws rows of
+// styled runs on a fixed cell grid and forwards keys, wheel and size changes.
+
+import { Theme } from "../theme.slint";
+
+export struct TermRun {
+    text: string,
+    col: int,
+    cols: int,
+    fg: color,
+    bg: color,
+    has-bg: bool,
+    bold: bool,
+    italic: bool,
+    underline: bool,
+}
+
+export struct TermRow {
+    runs: [TermRun],
+}
+
+// What changes with every keystroke: kept in a one-row model of its own.
+export struct TermLive {
+    cursor-col: int,
+    cursor-row: int,
+    cursor-visible: bool,
+    exited: bool,
+    // How many lines the view is scrolled back into history (0 = live).
+    scrollback: int,
+}
+
+// What one terminal shows. Several can be on screen at once (a workspace), so the view takes
+// its data as a property and names its session in every callback.
+//
+// This struct is only set when the view starts showing a session. Everything that changes
+// afterwards arrives through the two models: setting the struct again would mark the `rows`
+// binding dirty, and a row change that arrives while it is dirty is not drawn.
+export struct TermData {
+    // The session the view draws and sends input to.
+    id: int,
+    rows: [TermRow],
+    // One row.
+    live: [TermLive],
+}
+
+export global Term {
+    // From Settings; shared by every terminal.
+    in property <length> font-size: 13px;
+
+    // Returns true when the key was consumed.
+    callback key(id: int, text: string, control: bool, alt: bool, shift: bool) -> bool;
+    callback resized(id: int, cols: int, lines: int);
+    callback scrolled(id: int, lines: int, col: int, row: int, shift: bool, control: bool, alt: bool);
+    // kind: 0 down, 1 up, 2 move, 3 double click. button: 0 left, 1 middle, 2 right.
+    callback pointer(id: int, kind: int, button: int, col: int, row: int, right-half: bool, shift: bool, control: bool, alt: bool);
+}
+
+export component TermView inherits Rectangle {
+    in property <TermData> data;
+    // Inside a workspace panel rather than a tab of its own.
+    in property <bool> embedded;
+    // The session on screen changed (another tab of the same kind): tell it the size.
+    private property <int> session: data.id;
+    private property <TermLive> live: data.live[0];
+    private property <length> pad-x: 10px;
+    private property <length> pad-y: 8px;
+    // Measured from the font so runs stay on the grid.
+    private property <length> cell-w: probe.preferred-width / 100;
+    private property <length> cell-h: Math.ceil(Term.font-size * 1.38 / 1px) * 1px;
+    private property <int> cols: Math.max(2, Math.floor((self.width - 2 * pad-x) / cell-w));
+    private property <int> lines: Math.max(1, Math.floor((self.height - 2 * pad-y) / cell-h));
+
+    background: Theme.term-ground;
+    clip: true;
+    forward-focus: keys;
+
+    changed cols => {
+        Term.resized(root.data.id, cols, lines);
+    }
+    changed lines => {
+        Term.resized(root.data.id, cols, lines);
+    }
+    changed session => {
+        Term.resized(root.data.id, cols, lines);
+    }
+    init => {
+        Term.resized(root.data.id, cols, lines);
+    }
+
+    probe := Text {
+        visible: false;
+        text: "MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM";
+        font-family: Theme.mono;
+        font-size: Term.font-size;
+    }
+
+    keys := FocusScope {
+        key-pressed(event) => {
+            return Term.key(root.data.id, event.text, event.modifiers.control, event.modifiers.alt, event.modifiers.shift) ? accept : reject;
+        }
+    }
+
+    area := TouchArea {
+        private property <float> cell-x: (self.mouse-x - root.pad-x) / root.cell-w;
+        private property <int> at-col: Math.clamp(Math.floor(cell-x), 0, root.cols - 1);
+        private property <int> at-row: Math.clamp(Math.floor((self.mouse-y - root.pad-y) / root.cell-h), 0, root.lines - 1);
+        private property <bool> right-half: cell-x - Math.floor(cell-x) >= 0.5;
+        // The last cell reported, so a move inside one half-cell is sent once.
+        private property <int> seen-col: -1;
+        private property <int> seen-row: -1;
+        private property <bool> seen-half;
+
+        pure function button-index(button: PointerEventButton) -> int {
+            return button == PointerEventButton.middle ? 1 : button == PointerEventButton.right ? 2 : 0;
+        }
+
+        mouse-cursor: text;
+        pointer-event(event) => {
+            if (event.kind == PointerEventKind.down) {
+                keys.focus();
+                Term.pointer(root.data.id, 0, button-index(event.button), at-col, at-row, right-half, event.modifiers.shift, event.modifiers.control, event.modifiers.alt);
+            } else if (event.kind == PointerEventKind.up) {
+                Term.pointer(root.data.id, 1, button-index(event.button), at-col, at-row, right-half, event.modifiers.shift, event.modifiers.control, event.modifiers.alt);
+            } else if (event.kind == PointerEventKind.move && (at-col != seen-col || at-row != seen-row || right-half != seen-half)) {
+                seen-col = at-col;
+                seen-row = at-row;
+                seen-half = right-half;
+                Term.pointer(root.data.id, 2, 0, at-col, at-row, right-half, event.modifiers.shift, event.modifiers.control, event.modifiers.alt);
+            }
+        }
+        double-clicked => {
+            Term.pointer(root.data.id, 3, 0, at-col, at-row, right-half, false, false, false);
+        }
+        scroll-event(event) => {
+            if (event.delta-y > 0) {
+                Term.scrolled(root.data.id, 3, at-col, at-row, event.modifiers.shift, event.modifiers.control, event.modifiers.alt);
+            } else if (event.delta-y < 0) {
+                Term.scrolled(root.data.id, -3, at-col, at-row, event.modifiers.shift, event.modifiers.control, event.modifiers.alt);
+            }
+            return accept;
+        }
+    }
+
+    for row[r] in root.data.rows: Rectangle {
+        x: root.pad-x;
+        y: root.pad-y + r * root.cell-h;
+        width: root.cols * root.cell-w;
+        height: root.cell-h;
+
+        for run in row.runs: Rectangle {
+            x: run.col * root.cell-w;
+            y: 0;
+            width: run.cols * root.cell-w;
+            height: root.cell-h;
+            background: run.has-bg ? run.bg : transparent;
+
+            Text {
+                x: 0;
+                y: 0;
+                height: root.cell-h;
+                vertical-alignment: center;
+                text: run.text;
+                color: run.fg;
+                font-family: Theme.mono;
+                font-size: Term.font-size;
+                font-weight: run.bold ? 700 : 400;
+                font-italic: run.italic;
+            }
+
+            if run.underline: Rectangle {
+                x: 0;
+                y: root.cell-h - 2px;
+                height: 1px;
+                background: run.fg;
+            }
+        }
+    }
+
+    if root.live.cursor-visible && root.live.scrollback == 0 && !root.live.exited: Rectangle {
+        x: root.pad-x + root.live.cursor-col * root.cell-w;
+        y: root.pad-y + root.live.cursor-row * root.cell-h;
+        width: root.cell-w;
+        height: root.cell-h;
+        background: keys.has-focus ? Theme.accent.with-alpha(0.55) : transparent;
+        border-width: 1px;
+        border-color: Theme.accent;
+    }
+
+    if root.live.scrollback > 0: Rectangle {
+        x: parent.width - self.width - 12px;
+        y: 8px;
+        width: hint.preferred-width + 16px;
+        height: 22px;
+        border-radius: 4px;
+        background: Theme.surface-selected;
+        hint := Text {
+            text: "Scrolled back \{root.live.scrollback} lines";
+            color: Theme.text-muted;
+            font-size: Theme.text-small;
+        }
+    }
+
+    if root.live.exited: Rectangle {
+        x: 0;
+        y: parent.height - self.height;
+        height: 28px;
+        background: Theme.surface;
+        HorizontalLayout {
+            padding-left: 12px;
+            Text {
+                vertical-alignment: center;
+                text: root.embedded ? "The shell has ended. Close this panel to add another." : "The shell has ended. Close this tab or start a new session.";
+                color: Theme.text-muted;
+                font-size: Theme.text-small;
+            }
+        }
+    }
+}

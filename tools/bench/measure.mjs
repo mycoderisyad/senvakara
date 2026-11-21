@@ -1,34 +1,35 @@
 // Whole-process-tree benchmark for the Windows app (task QA-03).
 //
-// Launches the given exe with the WebView2 debug port, measures time until
-// the UI is usable (sidebar rendered), then samples memory and CPU of the
-// app process plus every descendant (WebView2 browser, GPU, renderer...).
+// Launches the given exe, measures the time until its main window exists, then samples memory
+// and CPU of the app process plus every descendant (shells it started, for example).
 //
-// Usage: node tools/bench/measure.mjs <path-to-exe> [--idle 300] [--runs 3] [--connect]
-//   --idle     seconds to stay idle before measuring (spec: 300)
-//   --runs     startup runs (each launch is closed before the next)
-//   --connect  after the idle measurement, connect the first remote host,
-//              open Devices and measure again after 60 s
+// Usage: node tools/bench/measure.mjs <path-to-exe> [--idle 300] [--runs 3]
+//   --idle  seconds to stay idle on Home before the 60 s CPU measurement ends (spec: 300)
+//   --runs  startup runs (each launch is closed before the next)
+//
+// Only one Senvakara can run per data folder: close the app first, or set SENVAKARA_DATA_DIR to
+// a scratch folder to measure an empty inventory.
 import { spawn, execFileSync } from "node:child_process";
 
 const args = process.argv.slice(2);
 const exe = args[0];
+if (!exe) {
+  console.error("usage: node tools/bench/measure.mjs <path-to-exe> [--idle 300] [--runs 3]");
+  process.exit(2);
+}
 const opt = (name, def) => {
   const i = args.indexOf(name);
   return i < 0 ? def : Number(args[i + 1]);
 };
 const idle = opt("--idle", 300);
 const runs = opt("--runs", 3);
-const connect = args.includes("--connect");
-const PORT = 9334;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const ps = (script) => execFileSync("powershell", ["-NoProfile", "-Command", script], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 }).trim();
 
 function procs() {
-  const json = execFileSync("powershell", [
-    "-NoProfile", "-Command",
-    "Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId,Name,WorkingSetSize,PrivatePageCount,KernelModeTime,UserModeTime | ConvertTo-Json -Compress",
-  ], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
-  return JSON.parse(json);
+  return JSON.parse(
+    ps("Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId,Name,WorkingSetSize,PrivatePageCount,KernelModeTime,UserModeTime | ConvertTo-Json -Compress"),
+  );
 }
 
 function tree(rootPid) {
@@ -60,36 +61,26 @@ function snapshot(rootPid) {
   };
 }
 
-async function cdp(expr) {
-  const targets = await (await fetch(`http://127.0.0.1:${PORT}/json`)).json();
-  const page = targets.find((t) => t.type === "page");
-  if (!page) throw new Error("no page");
-  const ws = new WebSocket(page.webSocketDebuggerUrl);
-  await new Promise((r, j) => ((ws.onopen = r), (ws.onerror = j)));
-  const v = await new Promise((res) => {
-    ws.onmessage = (e) => {
-      const m = JSON.parse(e.data);
-      if (m.id === 1) res(m.result?.result?.value);
-    };
-    ws.send(JSON.stringify({ id: 1, method: "Runtime.evaluate", params: { expression: expr, awaitPromise: true, returnByValue: true } }));
-  });
-  ws.close();
-  return v;
-}
+// Ready = the process owns a main window. The wait runs inside one PowerShell call so the
+// 20 ms polling does not pay a process start each time; its own start-up (about 0.2 s) is
+// measured once and subtracted.
+const psStartMs = (() => {
+  const t0 = performance.now();
+  ps("1");
+  return performance.now() - t0;
+})();
 
 async function launch() {
   const t0 = performance.now();
-  const child = spawn(exe, [], {
-    env: { ...process.env, WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${PORT}` },
-    stdio: "ignore",
-  });
-  for (let i = 0; i < 300; i++) {
-    const n = await cdp("document.querySelectorAll('.nav-item').length").catch(() => 0);
-    if (n >= 9) return { child, readyMs: Math.round(performance.now() - t0) };
-    await sleep(50);
+  const child = spawn(exe, [], { stdio: "ignore" });
+  const waited = Number(
+    ps(`$p = Get-Process -Id ${child.pid}; $sw = [Diagnostics.Stopwatch]::StartNew(); while ($p.MainWindowHandle -eq 0 -and $sw.ElapsedMilliseconds -lt 15000) { Start-Sleep -Milliseconds 20; $p.Refresh() }; if ($p.MainWindowHandle -eq 0) { -1 } else { $sw.ElapsedMilliseconds }`),
+  );
+  if (waited < 0) {
+    child.kill();
+    throw new Error("the window did not appear in 15 s (is another Senvakara running?)");
   }
-  child.kill();
-  throw new Error("UI did not become ready in 15 s");
+  return { child, readyMs: Math.max(0, Math.round(performance.now() - t0 - psStartMs)) };
 }
 
 async function close(child) {
@@ -97,35 +88,21 @@ async function close(child) {
   await sleep(1500);
 }
 
-const cores = Number(execFileSync("powershell", ["-NoProfile", "-Command", "(Get-CimInstance Win32_ComputerSystem).NumberOfLogicalProcessors"], { encoding: "utf8" }).trim());
-const result = { exe, cores, startupMs: [], idle: null, connected: null };
+const cores = Number(ps("(Get-CimInstance Win32_ComputerSystem).NumberOfLogicalProcessors"));
+const result = { exe, cores, startupMs: [], idle: null };
 
 for (let r = 0; r < runs; r++) {
   const { child, readyMs } = await launch();
   result.startupMs.push(readyMs);
   if (r < runs - 1) await close(child);
   else {
-    // Idle: no sessions; the default view stays open.
+    // Idle: no sessions; Home stays open.
     await sleep(Math.max(0, idle - 60) * 1000);
     const a = snapshot(child.pid);
     await sleep(60_000);
     const b = snapshot(child.pid);
     const cpu = (b.cpu100ns - a.cpu100ns) / 1e7 / 60; // core-seconds per second
     result.idle = { ...b, cpu100ns: undefined, cpuPctOfOneCore: +(cpu * 100).toFixed(2), cpuPctOfMachine: +((cpu * 100) / cores).toFixed(2) };
-    if (connect) {
-      await cdp(`(async () => {
-        const { invoke } = await import('/node_modules/.vite/deps/@tauri-apps_api_core.js').catch(() => ({ invoke: window.__TAURI_INTERNALS__.invoke }));
-        const h = (await invoke('hosts_list')).find((x) => !x.is_local);
-        if (h) await invoke('host_connect', { id: h.id });
-        [...document.querySelectorAll('.nav-item')].find((x) => x.textContent.startsWith('Devices'))?.click();
-      })()`);
-      await sleep(30_000);
-      const c = snapshot(child.pid);
-      await sleep(30_000);
-      const d = snapshot(child.pid);
-      const cpu2 = (d.cpu100ns - c.cpu100ns) / 1e7 / 30;
-      result.connected = { ...d, cpu100ns: undefined, cpuPctOfOneCore: +(cpu2 * 100).toFixed(2), cpuPctOfMachine: +((cpu2 * 100) / cores).toFixed(2) };
-    }
     await close(child);
   }
 }

@@ -1,0 +1,188 @@
+// Android screen pane. Frames are decoded in Rust and arrive as an image; this file draws the
+// frame at its aspect ratio and forwards touches, wheel, keys and the device buttons.
+
+import { Theme } from "../theme.slint";
+import { Button, StatusMark, Notice } from "widgets.slint";
+
+// What one phone screen shows; `id` names the session in every callback.
+export struct MirrorData {
+    id: int,
+    frame: image,
+    frame-width: int,
+    frame-height: int,
+    title: string,
+    // "RAFGT > USB": which host and transport this screen comes through.
+    route: string,
+    // Index of the host's colour.
+    hue: int,
+    tone: string,
+    state-text: string,
+    error: string,
+    live: bool,
+}
+
+export global Mirror {
+    // action: 0 down, 1 up, 2 move. x and y are fractions of the frame, 0..1.
+    callback touch(id: int, action: int, x: float, y: float);
+    callback wheel(id: int, x: float, y: float, up: bool);
+    callback key(id: int, text: string, control: bool, alt: bool) -> bool;
+    // back | home | recents | power | volume-down | volume-up | notifications | rotate
+    callback tool(id: int, tool: string);
+}
+
+export component MirrorView inherits Rectangle {
+    in property <MirrorData> data;
+    // Inside a workspace panel: the panel header already names the phone.
+    in property <bool> embedded;
+    private property <color> hue: Theme.host-hue(data.hue);
+    // The full row of phone buttons needs this much room.
+    private property <bool> wide: self.width >= 660px;
+    background: Theme.ground;
+    forward-focus: keys;
+
+    VerticalLayout {
+        // Which phone, through which host.
+        HorizontalLayout {
+            height: 40px;
+            padding-left: Theme.space-4;
+            padding-right: Theme.space-4;
+            spacing: Theme.space-3;
+
+            if !root.embedded: Text {
+                vertical-alignment: center;
+                text: root.data.title;
+                color: Theme.text;
+                font-size: Theme.text-body;
+                font-weight: 600;
+            }
+
+            VerticalLayout {
+                alignment: center;
+                Rectangle {
+                    height: 20px;
+                    width: route.preferred-width + 16px;
+                    border-radius: 10px;
+                    background: root.hue.with-alpha(0.16);
+                    route := Text {
+                        text: root.data.route;
+                        color: root.hue;
+                        font-size: Theme.text-small;
+                    }
+                }
+            }
+
+            Rectangle {
+                horizontal-stretch: 1;
+            }
+
+            StatusMark {
+                tone: root.data.tone;
+                text: root.data.state-text;
+            }
+        }
+
+        if root.data.error != "": HorizontalLayout {
+            padding-left: Theme.space-4;
+            padding-right: Theme.space-4;
+            Notice {
+                kind: "danger";
+                text: root.data.error;
+            }
+        }
+
+        area := Rectangle {
+            vertical-stretch: 1;
+            private property <float> aspect: root.data.frame-height > 0 ? root.data.frame-width / root.data.frame-height : 0.5;
+            private property <length> fit-height: Math.max(40px, Math.min(self.height - 2 * Theme.space-3, (self.width - 2 * Theme.space-3) / aspect));
+
+            screen := Rectangle {
+                width: area.fit-height * area.aspect;
+                height: area.fit-height;
+                border-radius: 8px;
+                border-width: keys.has-focus ? 1px : 0px;
+                border-color: Theme.accent;
+                background: #000000;
+                clip: true;
+
+                if root.data.frame-height > 0: Image {
+                    width: 100%;
+                    height: 100%;
+                    source: root.data.frame;
+                    image-fit: fill;
+                }
+
+                if root.data.frame-height == 0: Text {
+                    text: root.data.live ? "Waiting for the first frame" : root.data.state-text;
+                    color: Theme.text-muted;
+                    font-size: Theme.text-small;
+                }
+
+                keys := FocusScope {
+                    key-pressed(event) => {
+                        return Mirror.key(root.data.id, event.text, event.modifiers.control, event.modifiers.alt) ? accept : reject;
+                    }
+                }
+
+                touch := TouchArea {
+                    private property <bool> down;
+                    enabled: root.data.live;
+                    pointer-event(event) => {
+                        if (event.kind == PointerEventKind.down && event.button == PointerEventButton.right) {
+                            Mirror.tool(root.data.id, "back");
+                        } else if (event.kind == PointerEventKind.down && event.button == PointerEventButton.left) {
+                            keys.focus();
+                            down = true;
+                            Mirror.touch(root.data.id, 0, self.mouse-x / self.width, self.mouse-y / self.height);
+                        } else if (event.kind == PointerEventKind.up && event.button == PointerEventButton.left && down) {
+                            down = false;
+                            Mirror.touch(root.data.id, 1, self.mouse-x / self.width, self.mouse-y / self.height);
+                        } else if (event.kind == PointerEventKind.move && down) {
+                            Mirror.touch(root.data.id, 2, self.mouse-x / self.width, self.mouse-y / self.height);
+                        }
+                    }
+                    scroll-event(event) => {
+                        if (event.delta-y != 0) {
+                            Mirror.wheel(root.data.id, self.mouse-x / self.width, self.mouse-y / self.height, event.delta-y > 0);
+                        }
+                        return accept;
+                    }
+                }
+            }
+        }
+
+        // The phone's own buttons. Right-click on the screen is also Back.
+        HorizontalLayout {
+            height: 48px;
+            alignment: center;
+            spacing: Theme.space-2;
+            padding-bottom: Theme.space-2;
+
+            for item in root.wide ? [
+                { id: "back", label: "Back" },
+                { id: "home", label: "Home" },
+                { id: "recents", label: "Recents" },
+                { id: "notifications", label: "Notifications" },
+                { id: "rotate", label: "Rotate" },
+                { id: "volume-down", label: "Volume down" },
+                { id: "volume-up", label: "Volume up" },
+                { id: "power", label: "Power" },
+            ] : [
+                { id: "back", label: "Back" },
+                { id: "home", label: "Home" },
+                { id: "recents", label: "Recents" },
+                { id: "power", label: "Power" },
+            ]: VerticalLayout {
+                alignment: center;
+                Button {
+                    text: item.label;
+                    kind: "ghost";
+                    enabled: root.data.live;
+                    reason: root.data.live ? "" : "The screen is not live.";
+                    clicked => {
+                        Mirror.tool(root.data.id, item.id);
+                    }
+                }
+            }
+        }
+    }
+}

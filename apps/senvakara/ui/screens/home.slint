@@ -1,0 +1,402 @@
+// Home: the inventory. Sidebar on the left, hosts and devices in the middle, inspector on the right.
+
+import { ScrollView } from "std-widgets.slint";
+import { Theme } from "../theme.slint";
+import { Icon, IconButton } from "../components/controls.slint";
+import { Button, SearchField, SidebarItem, ItemCard, GroupTitle, Notice, StatusMark, MeterRow, DetailRow, ActionList } from "../components/widgets.slint";
+import { DevicePanel } from "../components/device-panel.slint";
+import { HostFormPanel, NetworkPaths } from "../components/host-form.slint";
+import { JobList } from "../components/jobs.slint";
+import { Inventory, HostItem, DeviceItem, Action, Jobs, HostForm } from "../data.slint";
+import { WorkspacesPage } from "workspaces.slint";
+import { AutomationsPage } from "automations.slint";
+import { SettingsPage } from "settings.slint";
+
+export global Nav {
+    // "hosts" | "devices" | "workspaces" | "automations" | "settings"
+    in-out property <string> section: "hosts";
+    // The user went to a section: Rust refreshes what it shows.
+    callback opened(section: string);
+    // "" until the list has been read, then "0", "1", ...
+    in property <string> workspace-count;
+}
+
+// Cards laid out in as many equal columns as fit.
+component CardGrid inherits Rectangle {
+    in property <int> count;
+    in property <length> min-card: 300px;
+    out property <int> columns: Math.max(1, Math.floor((self.width + gap) / (min-card + gap)));
+    out property <length> card-width: (self.width - (columns - 1) * gap) / columns;
+    out property <length> gap: Theme.space-2;
+    out property <length> row-height: 56px;
+
+    pure public function card-x(index: int) -> length {
+        return Math.mod(index, columns) * (card-width + gap);
+    }
+
+    pure public function card-y(index: int) -> length {
+        return Math.floor(index / columns) * (row-height + gap);
+    }
+
+    height: count == 0 ? 0px : Math.ceil(count / columns) * (row-height + gap) - gap;
+    @children
+}
+
+component HostGrid inherits VerticalLayout {
+    spacing: Theme.space-2;
+
+    GroupTitle {
+        text: "Hosts";
+    }
+
+    grid := CardGrid {
+        count: Inventory.hosts.length;
+        for host[index] in Inventory.hosts: ItemCard {
+            x: grid.card-x(index);
+            y: grid.card-y(index);
+            width: grid.card-width;
+            icon: host.os == "windows" ? @image-url("../icons/windows.svg") : @image-url("../icons/server.svg");
+            hue: Theme.host-hue(host.hue);
+            title: host.name;
+            subtitle: host.subtitle;
+            tone: host.tone;
+            state-text: host.state-text;
+            selected: Inventory.selected-kind == "host" && Inventory.selected-id == host.id;
+            actions: host.actions;
+            select => {
+                Inventory.select("host", host.id);
+            }
+            open => {
+                Inventory.host-action(host.id, host.primary.id);
+            }
+            action(id) => {
+                Inventory.host-action(host.id, id);
+            }
+        }
+    }
+}
+
+component DeviceGrid inherits VerticalLayout {
+    spacing: Theme.space-2;
+
+    GroupTitle {
+        text: "Devices";
+    }
+
+    if Inventory.devices.length == 0 && !Inventory.loading: Text {
+        text: "No Android phones yet. Plug one in with USB debugging on, or add one over Wi-Fi from Devices.";
+        color: Theme.text-muted;
+        font-size: Theme.text-small;
+        wrap: word-wrap;
+    }
+
+    grid := CardGrid {
+        count: Inventory.devices.length;
+        for device[index] in Inventory.devices: ItemCard {
+            x: grid.card-x(index);
+            y: grid.card-y(index);
+            width: grid.card-width;
+            icon: @image-url("../icons/phone.svg");
+            hue: Theme.host-hue(device.host-hue);
+            title: device.name;
+            subtitle: device.route;
+            tone: device.tone;
+            state-text: device.state-text;
+            selected: Inventory.selected-kind == "device" && Inventory.selected-id == device.id;
+            actions: device.actions;
+            select => {
+                Inventory.select("device", device.id);
+            }
+            open => {
+                Inventory.device-action(device.id, device.primary.id);
+            }
+            action(id) => {
+                Inventory.device-action(device.id, id);
+            }
+        }
+    }
+}
+
+component Inspector inherits Rectangle {
+    private property <bool> is-host: Inventory.selected-kind == "host";
+    private property <HostItem> host: Inventory.selected-host;
+    private property <DeviceItem> device: Inventory.selected-device;
+
+    width: 340px;
+    background: Theme.shell;
+
+    Rectangle {
+        x: 0;
+        width: 1px;
+        background: Theme.hairline;
+    }
+
+    ScrollView {
+        VerticalLayout {
+            // Keep the content as wide as the panel: long values wrap instead of widening it.
+            width: root.width;
+            alignment: start;
+            padding: Theme.space-4;
+            spacing: Theme.space-4;
+
+            // Adding or editing a host takes the whole panel until it is saved or cancelled.
+            if HostForm.open: HostFormPanel { }
+
+            if !HostForm.open: HorizontalLayout {
+                spacing: Theme.space-2;
+                VerticalLayout {
+                    spacing: 2px;
+                    horizontal-stretch: 1;
+                    Text {
+                        text: root.is-host ? root.host.name : root.device.name;
+                        color: Theme.text;
+                        font-size: Theme.text-title;
+                        font-weight: 600;
+                        overflow: elide;
+                    }
+
+                    Text {
+                        text: root.is-host ? root.host.subtitle : root.device.route;
+                        color: Theme.text-muted;
+                        font-size: Theme.text-small;
+                        wrap: word-wrap;
+                    }
+                }
+
+                IconButton {
+                    icon: @image-url("../icons/close.svg");
+                    label: "Close details";
+                    clicked => {
+                        Inventory.select("", "");
+                    }
+                }
+            }
+
+            if !HostForm.open: HorizontalLayout {
+                alignment: start;
+                StatusMark {
+                    alignment: start;
+                    tone: root.is-host ? root.host.tone : root.device.tone;
+                    text: root.is-host ? root.host.state-text : root.device.state-text;
+                }
+            }
+
+            if !HostForm.open && root.is-host && root.host.error != "": Notice {
+                kind: "danger";
+                text: root.host.error;
+            }
+
+            if !HostForm.open && !root.is-host && root.device.hint != "": Notice {
+                text: root.device.hint;
+            }
+
+            if !HostForm.open && !root.is-host: DevicePanel {
+                device: root.device;
+            }
+
+            if !HostForm.open && root.is-host: ActionList {
+                primary: root.host.primary;
+                actions: root.host.actions;
+                run(id) => {
+                    Inventory.host-action(root.host.id, id);
+                }
+            }
+
+            if !HostForm.open && root.is-host && root.host.meters.length > 0: VerticalLayout {
+                spacing: Theme.space-3;
+                GroupTitle {
+                    text: "Health";
+                }
+
+                for meter in root.host.meters: MeterRow {
+                    meter: meter;
+                }
+
+                if root.host.meters-note != "": Text {
+                    text: root.host.meters-note;
+                    color: Theme.text-muted;
+                    font-size: Theme.text-small;
+                    wrap: word-wrap;
+                }
+            }
+
+            if !HostForm.open && root.is-host && root.host.details.length > 0: VerticalLayout {
+                spacing: Theme.space-2;
+                GroupTitle {
+                    text: "Details";
+                }
+
+                for item in root.host.details: DetailRow {
+                    item: item;
+                }
+            }
+
+            if !HostForm.open && root.is-host && root.host.paths.length > 0: NetworkPaths {
+                host: root.host;
+            }
+        }
+    }
+}
+
+export component HomeScreen inherits Rectangle {
+    background: Theme.ground;
+
+    HorizontalLayout {
+        // Sidebar.
+        Rectangle {
+            width: 208px;
+            background: Theme.shell;
+
+            VerticalLayout {
+                padding: Theme.space-2;
+                spacing: 2px;
+
+                SidebarItem {
+                    icon: @image-url("../icons/server.svg");
+                    text: "Hosts";
+                    badge: Inventory.hosts.length;
+                    active: Nav.section == "hosts";
+                    clicked => {
+                        Nav.section = "hosts";
+                        Nav.opened("hosts");
+                    }
+                }
+
+                SidebarItem {
+                    icon: @image-url("../icons/phone.svg");
+                    text: "Devices";
+                    badge: Inventory.devices.length;
+                    active: Nav.section == "devices";
+                    clicked => {
+                        Nav.section = "devices";
+                        Nav.opened("devices");
+                    }
+                }
+
+                SidebarItem {
+                    icon: @image-url("../icons/layout.svg");
+                    text: "Workspaces";
+                    badge: Nav.workspace-count;
+                    active: Nav.section == "workspaces";
+                    clicked => {
+                        Nav.section = "workspaces";
+                        Nav.opened("workspaces");
+                    }
+                }
+
+                SidebarItem {
+                    icon: @image-url("../icons/workflow.svg");
+                    text: "Automations";
+                    active: Nav.section == "automations";
+                    clicked => {
+                        Nav.section = "automations";
+                        Nav.opened("automations");
+                    }
+                }
+
+                Rectangle {
+                    vertical-stretch: 1;
+                }
+
+                SidebarItem {
+                    icon: @image-url("../icons/settings.svg");
+                    text: "Settings";
+                    active: Nav.section == "settings";
+                    clicked => {
+                        Nav.section = "settings";
+                        Nav.opened("settings");
+                    }
+                }
+            }
+
+            Rectangle {
+                x: parent.width - 1px;
+                width: 1px;
+                background: Theme.hairline;
+            }
+        }
+
+        // Work area.
+        VerticalLayout {
+            horizontal-stretch: 1;
+
+            if Nav.section == "hosts" || Nav.section == "devices": VerticalLayout {
+                HorizontalLayout {
+                    padding: Theme.space-4;
+                    padding-bottom: Theme.space-2;
+                    spacing: Theme.space-2;
+
+                    SearchField {
+                        horizontal-stretch: 1;
+                        text <=> Inventory.query;
+                        placeholder: "Search hosts and devices";
+                        edited(text) => {
+                            Inventory.search(text);
+                        }
+                    }
+
+                    if Nav.section == "devices": Button {
+                        text: "Add over Wi-Fi";
+                        clicked => {
+                            Inventory.add-wireless();
+                        }
+                    }
+
+                    Button {
+                        text: "New host";
+                        kind: "primary";
+                        clicked => {
+                            Inventory.add-host();
+                        }
+                    }
+                }
+
+                ScrollView {
+                    VerticalLayout {
+                        alignment: start;
+                        padding: Theme.space-4;
+                        padding-top: Theme.space-2;
+                        spacing: Theme.space-4;
+
+                        if Inventory.error != "": Notice {
+                            kind: "danger";
+                            text: Inventory.error;
+                        }
+
+                        if Inventory.summary != "": Text {
+                            text: Inventory.summary;
+                            color: Theme.text-muted;
+                            font-size: Theme.text-small;
+                        }
+
+                        if Nav.section == "hosts": HostGrid { }
+
+                        if Nav.section == "devices" && Inventory.adb-sources.length > 0: VerticalLayout {
+                            spacing: Theme.space-2;
+                            GroupTitle {
+                                text: "ADB on each host";
+                            }
+
+                            for source in Inventory.adb-sources: DetailRow {
+                                item: source;
+                            }
+                        }
+
+                        DeviceGrid { }
+                    }
+                }
+
+                // Transfers and installs stay in view whatever is selected.
+                if Jobs.items.length > 0: JobList { }
+            }
+
+            if Nav.section == "workspaces": WorkspacesPage { }
+
+            if Nav.section == "automations": AutomationsPage { }
+
+            if Nav.section == "settings": SettingsPage { }
+        }
+
+        if (Inventory.selected-kind != "" || HostForm.open) && (Nav.section == "hosts" || Nav.section == "devices"): Inspector { }
+    }
+}

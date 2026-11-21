@@ -1,0 +1,137 @@
+// Small shared controls. Each one reacts to hover, press, keyboard focus and disabled.
+
+import { Theme } from "../theme.slint";
+
+export component Icon inherits Image {
+    in property <color> tint: Theme.text-muted;
+    width: 16px;
+    height: 16px;
+    colorize: tint;
+}
+
+// A square, icon-only button. `label` is the accessible name.
+export component IconButton inherits Rectangle {
+    in property <image> icon;
+    in property <string> label;
+    in property <bool> enabled: true;
+    in property <length> size: 26px;
+    callback clicked();
+
+    width: size;
+    height: size;
+    border-radius: Theme.radius;
+    background: !enabled ? transparent : touch.pressed ? Theme.surface-selected : touch.has-hover || focus.has-focus ? Theme.surface-hover : transparent;
+    border-width: focus.has-focus ? 1px : 0px;
+    border-color: Theme.accent;
+    opacity: enabled ? 1 : 0.4;
+    accessible-role: button;
+    accessible-label: label;
+    accessible-enabled: enabled;
+    accessible-action-default => {
+        if (enabled) {
+            root.clicked();
+        }
+    }
+    animate background { duration: Theme.quick; }
+
+    focus := FocusScope {
+        enabled: root.enabled;
+        key-pressed(event) => {
+            if (event.text == Key.Return || event.text == " ") {
+                root.clicked();
+                return accept;
+            }
+            return reject;
+        }
+    }
+
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+    }
+
+    Icon {
+        source: root.icon;
+        tint: touch.has-hover ? Theme.text : Theme.text-muted;
+    }
+}
+
+// One row that starts something: icon tile, title, one line of detail.
+export component LaunchRow inherits Rectangle {
+    in property <image> icon;
+    in property <color> hue: Theme.accent;
+    in property <string> title;
+    in property <string> detail;
+    callback activated();
+
+    height: 52px;
+    border-radius: Theme.radius;
+    background: touch.pressed ? Theme.surface-selected : touch.has-hover || focus.has-focus ? Theme.surface-hover : Theme.surface;
+    border-width: 1px;
+    border-color: focus.has-focus ? Theme.accent : Theme.hairline;
+    accessible-role: button;
+    accessible-label: title + ", " + detail;
+    accessible-action-default => {
+        root.activated();
+    }
+    animate background { duration: Theme.quick; }
+
+    focus := FocusScope {
+        key-pressed(event) => {
+            if (event.text == Key.Return || event.text == " ") {
+                root.activated();
+                return accept;
+            }
+            return reject;
+        }
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.activated();
+        }
+    }
+
+    HorizontalLayout {
+        padding-left: Theme.space-3;
+        padding-right: Theme.space-3;
+        spacing: Theme.space-3;
+
+        VerticalLayout {
+            alignment: center;
+            Rectangle {
+                width: 32px;
+                height: 32px;
+                border-radius: Theme.radius;
+                background: root.hue.with-alpha(0.16);
+                Icon {
+                    source: root.icon;
+                    tint: root.hue;
+                }
+            }
+        }
+
+        VerticalLayout {
+            alignment: center;
+            spacing: 2px;
+            Text {
+                text: root.title;
+                color: Theme.text;
+                font-size: Theme.text-body;
+                font-weight: 600;
+                overflow: elide;
+            }
+
+            Text {
+                text: root.detail;
+                color: Theme.text-muted;
+                font-size: Theme.text-small;
+                overflow: elide;
+            }
+        }
+    }
+}

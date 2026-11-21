@@ -1,0 +1,49 @@
+[package]
+name = "senvakara"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Senvakara desktop app (native Slint UI, ADR-023)"
+build = "build.rs"
+
+[dependencies]
+senvakara-adapters-pty = { path = "../../crates/adapters-pty" }
+senvakara-app = { path = "../../crates/app" }
+tokio = { version = "1", features = ["rt-multi-thread", "sync", "time"] }
+# ADR-023: exact pins (ADR-016 policy).
+slint = { version = "=1.18.1", features = ["raw-window-handle-06"] }
+alacritty_terminal = "=0.26.0"
+anyhow.workspace = true
+# Workspace and recipe targets are stored as JSON (the v0.1.0 format); settings.json.
+serde_json = "1"
+arboard = { version = "3.7", default-features = false }
+# Native open and save dialogs (APK to install, where to save a screenshot).
+rfd = { version = "0.17", default-features = false }
+# PNG decode for the screenshot preview; the same crate Slint already builds.
+image = { version = "0.25", default-features = false, features = ["png"] }
+# ADR-024: H.264 decode for the Android mirror, built from source.
+openh264 = "=0.9.10"
+# Remote desktop: a native VNC client over the SSH tunnel (spike UI-MIG-04).
+vnc-rs = "=0.6.1"
+# Local time for the "Modified" column of the file panes; already in the workspace lock.
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+
+[build-dependencies]
+slint-build = "=1.18.1"
+# Embeds the icon and version information in senvakara.exe.
+winresource = "0.1"
+
+# Installer (UI-MIG-05): `cargo packager --release -p senvakara` after `cargo build --release -p senvakara`.
+[package.metadata.packager]
+product-name = "Senvakara"
+identifier = "dev.senvakara.desktop"
+publisher = "Senvakara"
+description = "Control Linux hosts and Android phones from one Windows app"
+formats = ["nsis"]
+icons = ["ui/icons/app.ico"]
+out-dir = "../../target/release/bundle"
+resources = ["resources/THIRD_PARTY_NOTICES.md"]
+
+[package.metadata.packager.nsis]
+installer-mode = "currentUser"

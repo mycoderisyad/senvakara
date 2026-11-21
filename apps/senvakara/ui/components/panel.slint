@@ -1,0 +1,59 @@
+// One live session of any kind, drawn by the view of its kind. The same component fills a
+// session tab and a panel of a workspace, so every view can be on screen more than once.
+
+import { Theme } from "../theme.slint";
+import { TermView, TermData } from "term-view.slint";
+import { MirrorView, MirrorData } from "mirror-view.slint";
+import { LogcatView, LogcatData } from "logcat-view.slint";
+import { FilesView, FilesData } from "files-view.slint";
+import { DesktopView, DesktopData } from "desktop-view.slint";
+
+export struct PanelView {
+    // "" | "terminal" | "mirror" | "logcat" | "files" | "desktop"
+    kind: string,
+    term: TermData,
+    mirror: MirrorData,
+    logcat: LogcatData,
+    files: FilesData,
+    desktop: DesktopData,
+}
+
+export component PanelHost inherits Rectangle {
+    in property <PanelView> panel;
+    // Inside a workspace panel rather than a tab of its own.
+    in property <bool> embedded;
+
+    background: Theme.ground;
+    clip: true;
+
+    if root.panel.kind == "terminal": TermView {
+        data: root.panel.term;
+        embedded: root.embedded;
+        init => {
+            // A tab's terminal takes the keyboard at once; a workspace panel waits for a click.
+            if (!root.embedded) {
+                self.focus();
+            }
+        }
+    }
+
+    if root.panel.kind == "mirror": MirrorView {
+        data: root.panel.mirror;
+        embedded: root.embedded;
+    }
+
+    if root.panel.kind == "logcat": LogcatView {
+        data: root.panel.logcat;
+        embedded: root.embedded;
+    }
+
+    if root.panel.kind == "files": FilesView {
+        data: root.panel.files;
+        embedded: root.embedded;
+    }
+
+    if root.panel.kind == "desktop": DesktopView {
+        data: root.panel.desktop;
+        embedded: root.embedded;
+    }
+}

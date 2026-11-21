@@ -3,7 +3,7 @@
 //! Run: cargo run -p senvakara-adapters-scrcpy --example mirror_probe [server-addr]
 
 use senvakara_adapters_adb::AdbServer;
-use senvakara_adapters_scrcpy::{control::Input, load_verified_server, start, stop, MirrorOptions};
+use senvakara_adapters_scrcpy::{control::Input, start, stop, verified_server, MirrorOptions};
 use std::time::{Duration, Instant};
 
 #[tokio::main]
@@ -21,11 +21,9 @@ async fn main() -> anyhow::Result<()> {
         .find(|d| d.state == "device")
         .expect("no device");
     let t = dev.transport_id.unwrap();
-    let jar =
-        load_verified_server("apps/desktop/src-tauri/resources/scrcpy-server-v3.3.3".as_ref())
-            .await?;
+    let jar = verified_server()?;
     let t0 = Instant::now();
-    let mut m = start(server, t, &jar, &MirrorOptions::default()).await?;
+    let mut m = start(server, t, jar, &MirrorOptions::default()).await?;
     println!(
         "started in {:?}: device={:?} codec=0x{:08x} {}x{}",
         t0.elapsed(),

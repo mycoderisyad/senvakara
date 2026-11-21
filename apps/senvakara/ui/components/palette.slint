@@ -1,0 +1,212 @@
+// The command palette (Ctrl+Shift+K): a search field over a list of things to open. Rust builds
+// and filters the list; this file draws it and forwards the keys.
+
+import { ListView } from "std-widgets.slint";
+import { Theme } from "../theme.slint";
+import { Icon } from "controls.slint";
+
+export struct PaletteItem {
+    title: string,
+    // Which machine or route the action uses.
+    detail: string,
+    // "terminal" | "mirror" | "logcat" | "files" | "desktop" | "workspace" | "section"
+    kind: string,
+}
+
+export global Palette {
+    in property <bool> open;
+    in-out property <string> query;
+    in property <[PaletteItem]> items;
+    // The row Enter runs.
+    in property <int> current;
+
+    callback edited(text: string);
+    callback move(by: int);
+    callback run(index: int);
+    callback close();
+}
+
+export component PaletteOverlay inherits Rectangle {
+    private property <length> row-height: 44px;
+    private property <int> current: Palette.current;
+
+    // Keep the chosen row in view.
+    changed current => {
+        if (current * row-height < -list.content-y) {
+            list.content-y = -current * row-height;
+        } else if ((current + 1) * row-height > list.visible-height - list.content-y) {
+            list.content-y = list.visible-height - (current + 1) * row-height;
+        }
+    }
+
+    background: #00000080;
+
+    TouchArea {
+        clicked => {
+            Palette.close();
+        }
+    }
+
+    FocusScope {
+        capture-key-pressed(event) => {
+            if (event.text == Key.Escape) {
+                Palette.close();
+                return accept;
+            }
+            if (event.text == Key.DownArrow) {
+                Palette.move(1);
+                return accept;
+            }
+            if (event.text == Key.UpArrow) {
+                Palette.move(-1);
+                return accept;
+            }
+            if (event.text == Key.Return) {
+                Palette.run(Palette.current);
+                return accept;
+            }
+            return reject;
+        }
+
+        Rectangle {
+            y: Math.max(Theme.space-6, root.height * 0.16);
+            width: Math.min(560px, root.width - 2 * Theme.space-6);
+            height: 46px + 1px + Math.max(1, Math.min(8, Palette.items.length)) * root.row-height + 2 * Theme.space-1;
+            border-radius: 10px;
+            border-width: 1px;
+            border-color: Theme.hairline-strong;
+            background: Theme.surface;
+            drop-shadow-blur: 32px;
+            drop-shadow-offset-y: 12px;
+            drop-shadow-color: #00000080;
+            clip: true;
+
+            // Swallow clicks inside the panel.
+            TouchArea { }
+
+            VerticalLayout {
+                HorizontalLayout {
+                    height: 46px;
+                    padding-left: Theme.space-4;
+                    padding-right: Theme.space-4;
+                    spacing: Theme.space-3;
+
+                    VerticalLayout {
+                        alignment: center;
+                        Icon {
+                            source: @image-url("../icons/search.svg");
+                        }
+                    }
+
+                    Rectangle {
+                        horizontal-stretch: 1;
+                        if Palette.query == "": Text {
+                            x: 0;
+                            width: parent.width;
+                            vertical-alignment: center;
+                            text: "Open a terminal, a screen, files, a workspace or a section";
+                            color: Theme.text-faint;
+                            font-size: Theme.text-body;
+                            overflow: elide;
+                        }
+                        input := TextInput {
+                            x: 0;
+                            width: parent.width;
+                            vertical-alignment: center;
+                            single-line: true;
+                            text <=> Palette.query;
+                            color: Theme.text;
+                            font-size: Theme.text-body;
+                            selection-background-color: Theme.accent.with-alpha(0.35);
+                            selection-foreground-color: Theme.text;
+                            accessible-label: "Search actions";
+                            edited => {
+                                Palette.edited(self.text);
+                            }
+                        }
+                    }
+                }
+
+                Rectangle {
+                    height: 1px;
+                    background: Theme.hairline;
+                }
+
+                Rectangle {
+                    vertical-stretch: 1;
+
+                    list := ListView {
+                        x: Theme.space-1;
+                        y: Theme.space-1;
+                        width: parent.width - 2 * Theme.space-1;
+                        height: parent.height - 2 * Theme.space-1;
+                        accessible-label: "Actions";
+
+                        for item[index] in Palette.items: Rectangle {
+                            height: root.row-height;
+                            border-radius: Theme.radius;
+                            background: index == Palette.current ? Theme.surface-selected : touch.has-hover ? Theme.surface-hover : transparent;
+                            accessible-role: list-item;
+                            accessible-label: item.title + ", " + item.detail;
+                            accessible-item-selected: index == Palette.current;
+                            accessible-action-default => {
+                                Palette.run(index);
+                            }
+
+                            touch := TouchArea {
+                                mouse-cursor: pointer;
+                                clicked => {
+                                    Palette.run(index);
+                                }
+                            }
+
+                            HorizontalLayout {
+                                padding-left: Theme.space-3;
+                                padding-right: Theme.space-3;
+                                spacing: Theme.space-3;
+
+                                VerticalLayout {
+                                    alignment: center;
+                                    Icon {
+                                        source: item.kind == "mirror" ? @image-url("../icons/phone.svg") : item.kind == "logcat" ? @image-url("../icons/list.svg") : item.kind == "files" ? @image-url("../icons/folder.svg") : item.kind == "desktop" ? @image-url("../icons/monitor.svg") : item.kind == "workspace" ? @image-url("../icons/layout.svg") : item.kind == "section" ? @image-url("../icons/home.svg") : @image-url("../icons/terminal.svg");
+                                        tint: index == Palette.current ? Theme.accent : Theme.text-muted;
+                                    }
+                                }
+
+                                VerticalLayout {
+                                    horizontal-stretch: 1;
+                                    alignment: center;
+                                    spacing: 1px;
+
+                                    Text {
+                                        text: item.title;
+                                        color: Theme.text;
+                                        font-size: Theme.text-body;
+                                        overflow: elide;
+                                    }
+
+                                    Text {
+                                        text: item.detail;
+                                        color: Theme.text-muted;
+                                        font-size: Theme.text-small;
+                                        overflow: elide;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if Palette.items.length == 0: Text {
+                        text: "Nothing matches. Try a host, phone or workspace name.";
+                        color: Theme.text-muted;
+                        font-size: Theme.text-small;
+                    }
+                }
+            }
+        }
+    }
+
+    init => {
+        input.focus();
+    }
+}

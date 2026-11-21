@@ -1,0 +1,259 @@
+// "Add over Wi-Fi": pair with a phone's Wireless debugging and connect to it through one host.
+
+import { ComboBox, ScrollView } from "std-widgets.slint";
+import { Theme } from "../theme.slint";
+import { DialogFrame } from "dialogs.slint";
+import { Button, GroupTitle, Notice, TextField, Reason } from "widgets.slint";
+import { Wireless } from "../data.slint";
+
+component Hint inherits Text {
+    color: Theme.text-muted;
+    font-size: Theme.text-small;
+    wrap: word-wrap;
+}
+
+component FieldLabel inherits Text {
+    color: Theme.text-muted;
+    font-size: Theme.text-small;
+}
+
+export component WirelessDialog inherits DialogFrame {
+    private property <bool> idle: Wireless.busy == "";
+    private property <string> wait: "Wait for the current step to finish.";
+
+    title: "Add a phone over Wi-Fi";
+    panel-width: 560px;
+    dismissed => {
+        Wireless.close();
+    }
+
+    Hint {
+        text: "On the phone (Android 11 or newer) open Developer options and turn on Wireless debugging. The phone and the chosen host must be on the same network. Older phones need a USB cable.";
+    }
+
+    HorizontalLayout {
+        spacing: Theme.space-2;
+
+        Text {
+            vertical-alignment: center;
+            text: "Connect through";
+            color: Theme.text;
+            font-size: Theme.text-body;
+        }
+
+        ComboBox {
+            horizontal-stretch: 1;
+            height: Theme.row;
+            enabled: Wireless.host-names.length > 0;
+            model: Wireless.host-names;
+            current-index <=> Wireless.host-index;
+            accessible-label: "Host to connect through";
+            selected => {
+                Wireless.host-changed(self.current-index);
+            }
+        }
+
+        Button {
+            text: Wireless.busy == "scan" ? "Scanning" : "Scan";
+            enabled: root.idle && Wireless.host-reason == "";
+            reason: Wireless.host-reason != "" ? Wireless.host-reason : root.idle ? "" : root.wait;
+            clicked => {
+                Wireless.scan();
+            }
+        }
+    }
+
+    if Wireless.host-reason != "": Notice {
+        kind: "danger";
+        text: Wireless.host-reason;
+    }
+
+    if Wireless.host-reason == "" && (Wireless.found.length > 0 || Wireless.scanned): VerticalLayout {
+        spacing: Theme.space-1;
+
+        if Wireless.found.length == 0: Hint {
+            text: "No phone is advertising Wireless debugging on that host's network right now. You can still type the address shown on the phone.";
+        }
+
+        for service in Wireless.found: HorizontalLayout {
+            spacing: Theme.space-3;
+
+            Text {
+                text: service.address;
+                color: Theme.text;
+                font-family: Theme.mono;
+                font-size: Theme.text-small;
+            }
+
+            Text {
+                text: service.state;
+                color: Theme.text;
+                font-size: Theme.text-small;
+            }
+
+            Text {
+                horizontal-stretch: 1;
+                text: service.name;
+                color: Theme.text-faint;
+                font-size: Theme.text-small;
+                overflow: elide;
+            }
+        }
+    }
+
+    VerticalLayout {
+        spacing: Theme.space-2;
+
+        GroupTitle {
+            text: "1. Pair (once per phone and host)";
+        }
+
+        Hint {
+            text: "On the phone tap Pair device with pairing code, then enter the address and the code it shows.";
+        }
+
+        HorizontalLayout {
+            spacing: Theme.space-2;
+
+            VerticalLayout {
+                horizontal-stretch: 1;
+                spacing: Theme.space-1;
+                FieldLabel {
+                    text: "IP address and port";
+                }
+
+                TextField {
+                    mono: true;
+                    text <=> Wireless.pair-address;
+                    placeholder: "192.0.2.20:37123";
+                    label: "Pairing address and port";
+                    edited => {
+                        Wireless.edited();
+                    }
+                }
+            }
+
+            VerticalLayout {
+                width: 104px;
+                spacing: Theme.space-1;
+                FieldLabel {
+                    text: "Code";
+                }
+
+                TextField {
+                    mono: true;
+                    text <=> Wireless.code;
+                    placeholder: "123456";
+                    label: "Pairing code";
+                    edited => {
+                        Wireless.edited();
+                    }
+                    accepted => {
+                        Wireless.pair();
+                    }
+                }
+            }
+
+            VerticalLayout {
+                alignment: end;
+                Button {
+                    text: Wireless.busy == "pair" ? "Pairing" : "Pair";
+                    kind: "primary";
+                    enabled: root.idle && Wireless.pair-reason == "";
+                    reason: Wireless.pair-reason != "" ? Wireless.pair-reason : root.idle ? "" : root.wait;
+                    clicked => {
+                        Wireless.pair();
+                    }
+                }
+            }
+        }
+
+        Reason {
+            text: Wireless.host-reason != "" ? "" : Wireless.pair-reason;
+        }
+    }
+
+    VerticalLayout {
+        spacing: Theme.space-2;
+
+        GroupTitle {
+            text: "2. Connect";
+        }
+
+        Hint {
+            text: "Use the IP address and port at the top of the Wireless debugging screen. The port is different from the pairing port.";
+        }
+
+        HorizontalLayout {
+            spacing: Theme.space-2;
+
+            VerticalLayout {
+                horizontal-stretch: 1;
+                spacing: Theme.space-1;
+                FieldLabel {
+                    text: "IP address and port";
+                }
+
+                TextField {
+                    mono: true;
+                    text <=> Wireless.connect-address;
+                    placeholder: "192.0.2.20:41234";
+                    label: "Connection address and port";
+                    edited => {
+                        Wireless.edited();
+                    }
+                    accepted => {
+                        Wireless.connect();
+                    }
+                }
+            }
+
+            VerticalLayout {
+                alignment: end;
+                Button {
+                    text: Wireless.busy == "connect" ? "Connecting" : "Connect";
+                    kind: "primary";
+                    enabled: root.idle && Wireless.connect-reason == "";
+                    reason: Wireless.connect-reason != "" ? Wireless.connect-reason : root.idle ? "" : root.wait;
+                    clicked => {
+                        Wireless.connect();
+                    }
+                }
+            }
+        }
+
+        Reason {
+            text: Wireless.host-reason != "" ? "" : Wireless.connect-reason;
+        }
+    }
+
+    // Results, newest first. Bounded so the dialog never outgrows the window.
+    if Wireless.log.length > 0: Rectangle {
+        height: Math.min(112px, results.preferred-height);
+        ScrollView {
+            results := VerticalLayout {
+                width: parent.width;
+                alignment: start;
+                spacing: Theme.space-1;
+                for note in Wireless.log: Notice {
+                    kind: note.ok ? "success" : "danger";
+                    text: (note.ok ? "Done. " : "Failed. ") + note.text;
+                }
+            }
+        }
+    }
+
+    Hint {
+        text: "A phone added over Wi-Fi is listed as its own device next to its USB entry. Senvakara does not merge them.";
+    }
+
+    HorizontalLayout {
+        alignment: end;
+        Button {
+            text: "Close";
+            clicked => {
+                Wireless.close();
+            }
+        }
+    }
+}

@@ -1,92 +1,91 @@
-# UI/UX & Design System — Senvakara
+# Design System — Senvakara
 
-**Status:** proposed guidelines, not an implemented interface. Desktop-first (Windows), expandable layout, keyboard-first, accessible states.
+**Status:** describes the native Slint interface in `apps/senvakara/ui` as built on 2026-11-22 (ADR-023). It replaces the earlier proposal written for the Tauri + React UI. The tokens below are read from `apps/senvakara/ui/theme.slint`; when they disagree, the file wins and this document is out of date.
 
-## 1. UX goals
+Direction, pinned by the owner: in the manner of Termius but more minimal; dark only; no emoji or glyph characters as icons; clean, light, professional, easy to understand. The surface contract is in `.impeccable/surfaces/apps-senvakara-ui-main-slint.md`.
 
-- **One place, clear context:** show target device/host/connection route before sensitive actions.
-- **Progressive disclosure:** main dashboard simple; advanced protocol settings in contextual panels.
-- **Integrated workspaces:** terminals, files, Android, and desktops behave as first-class tabs/panels.
-- **Honest feedback:** discovered ≠ trusted ≠ connected; permission denied has different UI from offline.
-- **Efficient density:** development-tool information density without unreadable tiny text.
-- **Performance:** no background video thumbnail streams; lazy mount of heavy panes.
+## 1. Principles
 
-## 2. Information architecture
+- **Always show the machine.** Every device, session and confirmation names the host and route it uses. The route trail ("RAFGT > USB") and the host's colour carry this.
+- **Sessions are tabs; the inventory is Home.** Terminals, files, screens, logs, remote desktops, workspaces and runs live as tabs and keep running when the user looks elsewhere.
+- **Details and forms in the inspector, not in modals.** A modal appears only when the user must decide before anything happens: confirmations, trusting a host key, pairing a phone.
+- **Honest state.** State is a word plus a shape; colour only reinforces it. A disabled control says why.
+- **Quiet chrome.** One small type scale, hairlines instead of boxes, no shadows except under overlays.
 
-Sidebar: **Overview**, **Hosts**, **Devices**, **Sessions**, **Files**, **Workspaces**, **Automations** (future), **Settings**. Search filters hosts/devices/workspaces. Global session tabs along top of content area; resizable main panel and optional inspector.
-
-## 3. Main surfaces
-
-**Overview:** grouped hosts + Android devices + recently used workspaces + active sessions; status/connection route always visible.
-
-**Hosts:** Windows (local), Fedora (remote) and later others. Actions depend on capabilities: Terminal, Desktop, Files, Metrics, Pair/Manage.
-
-**Devices:** Android A (Windows USB), B (Fedora USB), C (Wi-Fi ADB) shown **together**. Each card shows friendly label, host, transport, state; actions: Screen, Shell, Logcat, Install APK, Files (if available).
-
-**Workspace:** tab/split grid with terminal, remote desktop, mirror, logcat. Reopen restores layout and reconnects eligible sessions but cannot revive dead nonpersistent processes.
-
-**Activity panel:** ongoing transfers, builds, installs and automation jobs with target, progress, cancel, error and logs.
-
-## 4. Sample navigation sketch
+## 2. Structure
 
 ```text
-┌────────────────────────────────────────────────────────────────┐
-│ SENVAKARA    [Search devices / hosts…]           [Settings]   │
-├──────────────┬─────────────────────────────────────────────────┤
-│ Overview     │ Workspace: Flutter Testing                       │
-│ Hosts        │ [Fedora SSH] [Android B] [Files]  [+]             │
-│ Devices      ├────────────────────────┬────────────────────────┤
-│ Sessions     │ Fedora terminal        │ Android B mirror       │
-│ Files        │                        │ (active only on open)  │
-│ Workspaces   ├────────────────────────┴────────────────────────┤
-│ Automations  │ Transfer/build status & contextual inspector     │
-└──────────────┴─────────────────────────────────────────────────┘
++--------------------------------------------------------------------------+
+| native Windows title bar                                                 |
++--------------------------------------------------------------------------+
+| [Home] [session tab] [session tab] ... [+]                    tab strip  |
++-----------+------------------------------------------+-------------------+
+| Hosts     | search and quick filter       [New host] | inspector         |
+| Devices   | summary line                             | (selected item:   |
+| Workspaces| Hosts    [card] [card]                   |  state, actions,  |
+| Automations Devices  [card] [card] [card]            |  health, details, |
+|           |                                          |  forms)           |
+| Settings  | job list (transfers, installs)           |                   |
++-----------+------------------------------------------+-------------------+
 ```
 
-## 5. Visual tokens (initial proposal)
+- **Tab strip (38 px):** pinned Home, then one tab per session with an icon for its kind (terminal, screen, logcat, files, desktop, workspace, run). The active tab carries a 2 px underline in the colour of the host it runs on. Closing a running session asks first.
+- **Sidebar (208 px):** Hosts, Devices, Workspaces, Automations; Settings at the bottom.
+- **Inspector (340 px):** opens for the selected host or device. A form that has been typed into is never discarded without asking.
+- **Command palette:** Ctrl+Shift+K. Window shortcuts use Ctrl+Shift (T new terminal, W close tab, C copy, V paste) so plain Ctrl keys reach the shell.
 
-Use semantic tokens so theme can change; values below are starting proposals, not brand commitments.
+## 3. Tokens
 
-| Token | Dark (default candidate) | Light |
+| Role | Token | Value |
 |---|---|---|
-| `background` | `#0F141B` | `#F6F8FA` |
-| `surface` | `#18212B` | `#FFFFFF` |
-| `surface-hover` | `#22303D` | `#EEF2F7` |
-| `text-primary` | `#EAF0F6` | `#18212B` |
-| `text-muted` | `#A5B3C2` | `#536273` |
-| `accent` | `#69B8A9` | `#167A6B` |
-| `error` | `#F07F7F` | `#B42318` |
-| `warning` | `#F6C26B` | `#9A6700` |
-| `success` | `#7DD5A5` | `#137A46` |
+| Window chrome (tab strip, sidebar, inspector) | `shell` | `#0e1116` |
+| Work area | `ground` | `#13161b` |
+| Cards, fields, buttons | `surface` | `#1a1e25` |
+| Hover | `surface-hover` | `#212630` |
+| Selected | `surface-selected` | `#272e3a` |
+| Terminal background | `term-ground` | `#0c0f13` |
+| Hairline | `hairline` | `#262b34` |
+| Control border | `hairline-strong` | `#343b47` |
+| Text | `text` | `#e4e7ec` |
+| Secondary text | `text-muted` | `#9ba3b0` |
+| Hints, disabled | `text-faint` | `#7c8593` |
+| Primary action, selection, focus | `accent` / `accent-ink` | `#5bc4ae` / `#06231d` |
+| State | `success`, `warning`, `danger`, `info` | `#6ccb8e`, `#e3b34f`, `#f0807d`, `#6fa8f5` |
 
-Typography: system UI font for interface, accessible monospaced font for terminal/paths. Base spacing 4/8 px increments; minimum comfortable targets ~32–40 px for desktop icons/buttons; 8 px radius default; visible focus ring. Respect reduced motion.
+**Host hues** (one per host, by position in the host list; used for its icon tile, tab underline and route chips): `#5bc4ae`, `#6fa8f5`, `#a58bf0`, `#e487b8`, `#ee9a62`, `#d9be5a`, `#86ce77`, `#5cc3dc`.
 
-## 6. Components & states
+**Type:** Segoe UI Variable for the interface at 12, 13 and 15 px; rank is carried by weight (400, 500, 600) and tone rather than size. Cascadia Mono only for terminals, paths, serials, fingerprints and logs.
 
-- **HostCard:** name, OS, trust, last seen, endpoint labels, actions.
-- **DeviceCard:** stable friendly name, host, USB/Wi-Fi route, debugging auth state, action menu.
-- **ConnectionBadge:** online, offline, connecting, reconnecting, unauthorized, degraded; always text + icon (not color only).
-- **SessionTabs:** close/duplicate/split, session health, unsaved work warning if relevant.
-- **TransferJob:** source, destination, bytes, progress, cancel/retry (when safe).
-- **PairingDialog:** who is being trusted, fingerprint/identity, scopes, cancel.
-- **ErrorEmptyState:** diagnostic text, retry and documentation path.
+**Metrics:** 32 px rows and controls, spacing 4 / 8 / 12 / 16 / 24, radius 6 px (10 px for dialogs), 1 px hairlines, 120 ms state transitions.
 
-## 7. Important interactions
+**Terminal palette:** 16 ANSI colours tuned to the theme in `apps/senvakara/src/term/palette.rs`; the 256-colour cube and true colour are passed through.
 
-1. Click Android B → show **Fedora / USB** → choose ADB Shell → request routed through Fedora; never silently fall back to Android A.
-2. Install APK → confirm target device name/host and file → show progress + result; retry only if safe.
-3. Remote Desktop → confirm host and endpoint → open integrated tab or label temporary external viewer in early build.
-4. Unplug phone → route status flips offline; mirrored pane gives reconnect/close without freezing app.
-5. User can explicitly select a different verified connection route; no implicit merge from identical device names.
+## 4. Components
 
-## 8. Accessibility & localization
+All in `apps/senvakara/ui/components`. Every interactive one reacts to hover, press and keyboard focus (1 px accent border) and exposes an accessible role and label.
 
-Keyboard navigation across sidebar/tabs/menus; ARIA labeling; screen-reader friendly statuses; 4.5:1 text contrast target for normal text; support international labels and future Indonesian/English i18n. Never use red/green alone to convey state.
+- **Controls** (`controls.slint`, `widgets.slint`): `Button` (primary, secondary, danger, ghost), `IconButton`, `TextField` (with error text and a masked variant), `BoundField`, `Select`, `CheckBox`, `Segmented`, `SearchField`, `ProgressBar`.
+- **Status and text:** `StatusMark` (live = filled dot, idle = ring, busy = half-filled ring, attention = filled square, each with a word), `Notice` (danger, warning, info, success), `Reason` (why a control is unavailable), `DetailRow`, `MeterRow`, `GroupTitle`, `PageTitle`, `Hint`.
+- **Lists:** `ItemCard` (icon tile, name, route or address, state in a fixed right-hand cell, context menu), `SidebarItem`, `ActionList`, `JobList`.
+- **Overlays:** `DialogFrame`, `ConfirmDialog` (lists exactly what is affected), `WirelessDialog`, `PaletteOverlay`.
+- **Session views:** `TermView`, `MirrorView`, `LogcatView`, `FilesView`, `DesktopView`, `RunView`, `WorkspaceView`, hosted by `PanelHost` so the same view works as a tab or as a workspace panel.
+- **Icons:** monochrome 16 px stroke SVGs in `ui/icons`, tinted from `Theme` with `colorize`. No emoji or glyph characters.
 
-## 9. Responsiveness
+## 5. Behaviour rules
 
-Minimum supported window size TBD. At narrow desktop widths, collapse inspector/sidebar, preserve action access. GPU-heavy sessions should render only visible streams where possible; avoid auto-playing all device thumbnails.
+- A control that cannot be used stays visible with a sentence explaining why.
+- Every action that changes a phone shows the phone, the host and route, the serial and what will happen, and is bound to the serial the user saw.
+- Destructive actions and anything that ends a running session ask first. Escape or a click outside cancels a dialog.
+- Errors are sentences that name the problem and, where there is one, the way out. The raw backend code stays in the log.
+- Heavy streams (screen, desktop, logs, metrics) run only while something shows them.
 
-## 10. To validate with prototypes
+## 6. Accessibility
 
-Tab/split workspace interaction, embedded RDP/scrcpy surface, drag-and-drop APK targeting, appearance tokens, virtualized device list, keyboard shortcut conflicts with remote sessions, accessibility contrast.
+Keyboard reachable throughout, visible focus, text contrast of at least 4.5:1 on its surface for normal text, state never by colour alone, accessible labels on icon-only buttons. Not yet audited with a screen reader (QA-05).
+
+## 7. Known gaps
+
+- No light theme (owner decision).
+- The title bar follows the Windows theme rather than being forced dark.
+- Minimum window size 900 x 560 has not been checked on every screen.
+- The monospace face is the system's Cascadia Mono, not a bundled font.

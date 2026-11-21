@@ -17,6 +17,24 @@ Changes to documentation and (later) shipped product are tracked separately. For
 - Generalized remote host target from Fedora to generic Linux; Fedora remains the reference test host (ADR-013).
 - Added ADR-014..017: remote ADB via SSH port-forward, no bundled `adb.exe`, candidate library set, embedded streaming approach.
 
+## [0.2.0] - 2026-11-22 (built, not yet signed off)
+
+Installer `senvakara_0.2.0_x64-setup.exe` (NSIS, per-user) is built but has not been run; install, upgrade from 0.1.0 and uninstall are untested.
+
+### Changed
+
+- The desktop app is now a native Slint application (`apps/senvakara`, ADR-023). The Tauri + React app of 0.1.0 was removed; it remains in git history.
+- Navigation: an inventory Home (Hosts, Devices, Workspaces, Automations, Settings) with an inspector, and every session as a tab: terminals (PowerShell, WSL, SSH, tmux), Android screen, logcat, dual-pane files (PC, host, phone), remote desktop, workspaces, automation runs. Command palette on Ctrl+Shift+K.
+- Backend moved into the UI-independent crate `crates/app`. Only one Senvakara instance per data folder can run.
+- Terminal emulation (`alacritty_terminal`), H.264 decoding (`openh264`, ADR-024) and the VNC client (`vnc-rs` on the SSH channel) are native; WebView2 and Node.js are no longer needed.
+- Idle memory about 51 MB private (0.1.0: 204 MB); startup 0.14–0.50 s.
+
+### Known gaps
+
+- Many flows were exercised only up to their confirmation, or not on hardware (a phone behind the Linux host, two mirrors, Flutter deploy, recipe steps other than wait). See TESTING §9 and TASKS Phase 8.
+- Idle CPU on Home is higher than 0.1.0 (0.73 % of one core against 0.08 %).
+- Folder copy in Files, a forced-dark title bar, Tight/JPEG rectangles in remote desktop and the WebCodecs diagnostics page (replaced by a decoder self-test) are not there.
+
 ## [0.1.0] - 2026-11-21
 
 First Windows installer (`Senvakara_0.1.0_x64-setup.exe`, NSIS, per-user, no admin rights; not code-signed, so Windows SmartScreen may warn). Third-party notices ship in the install folder.

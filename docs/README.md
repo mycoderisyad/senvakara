@@ -39,12 +39,13 @@ Choose a **device and an action**, not which remote machine or ADB command to na
 
 ## Building a release (Windows)
 
-From `apps/desktop`:
+The desktop app is `apps/senvakara` (native Slint UI, ADR-023). From the repository root:
 
-1. Bump the version in `Cargo.toml` (workspace), `apps/desktop/package.json` and `src-tauri/tauri.conf.json`.
-2. `node ../../tools/licenses/gen-notices.mjs` — regenerate third-party notices (QA-04).
-3. `npm run tauri build` — produces `target/release/bundle/nsis/Senvakara_<version>_x64-setup.exe` (per-user install, no admin). The first release build takes ≈12 min (LTO).
-4. `node ../../tools/bench/measure.mjs <installed exe> --idle 300 --runs 3 --connect` — record results in `TESTING.md` §6 (QA-03).
+1. Bump `version` in `Cargo.toml` (workspace).
+2. `node tools/licenses/gen-notices.mjs` — regenerate `apps/senvakara/resources/THIRD_PARTY_NOTICES.md` (QA-04).
+3. `cargo build --release -p senvakara` — about 9 minutes the first time (LTO).
+4. `cd apps/senvakara && cargo packager --release` — needs `cargo install cargo-packager --locked` once; produces `target/release/bundle/senvakara_<version>_x64-setup.exe` (NSIS, per-user, no admin).
+5. `node tools/bench/measure.mjs target/release/senvakara.exe --idle 300 --runs 3` — record results in `TESTING.md` §6 (QA-03). Close the app first: only one instance can run per data folder.
 
 The installer is not code-signed; Windows SmartScreen may show "Windows protected your PC" until it is signed with a code-signing certificate.
 
@@ -59,19 +60,19 @@ See [ROADMAP.md](ROADMAP.md) for explicit gates. This ordering is intentional: e
 
 ## Setup / running
 
-Prerequisites (Windows): Rust stable (MSVC), Node.js 24, WebView2 runtime, and for Android features the user's own Android platform-tools (`adb`, not bundled — ADR-015).
+Prerequisites (Windows): Rust 1.94 (MSVC build tools, which also compile the bundled OpenH264 source). For Android features the user's own Android platform-tools (`adb`, not bundled — ADR-015). No Node.js and no WebView2 are needed to build or run the app; Node.js is only used by the two scripts in `tools/`.
 
 ```powershell
-cd apps/desktop
-npm install
-npm run tauri dev      # run the desktop app
-npm run typecheck; npm run lint; npm run test
-cargo test --workspace # from the repository root
+cargo run -p senvakara          # run the desktop app
+cargo test --workspace
+cargo clippy --workspace --all-targets -- -D warnings
 ```
+
+Set `SENVAKARA_DATA_DIR` to a scratch folder to run on separate data.
 
 Linux host PoC spike: `cargo run -p senvakara-adapters-ssh --example poc_linux -- <host> <user> <SHA256:host-key-fingerprint> [private-key]`.
 
-Other tools used later include Rust, Tauri 2, Node.js, Android platform-tools, scrcpy, Flutter SDK (only for optional deployment workflows), SSH server on Fedora, and appropriate desktop-sharing services.
+Other tools used include Rust, Slint, Android platform-tools, scrcpy, Flutter SDK (only for optional deployment workflows), SSH server on Fedora, and appropriate desktop-sharing services.
 
 ## Documentation rules
 

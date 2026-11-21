@@ -2,6 +2,17 @@
 
 **Status:** proposed architecture, subject to proof-of-concept and ADR decisions.
 
+**Update 2026-11-22 (ADR-023):** the desktop moved from Tauri 2 + React (v0.1.0, in git history) to a native Slint UI in 0.2.0. The layering is now:
+
+```
+apps/senvakara   Slint UI: .slint files draw view models; Rust controllers own all state and logic
+crates/app       headless service layer (no UI toolkit): hosts, terminals, files, Android, mirroring,
+                 remote desktop, workflows; session streams as callbacks, refresh hints on a broadcast channel
+crates/*         adapters (ssh, adb, pty, scrcpy), storage, secrets, metrics
+```
+
+In the Slint app the pieces a web view used to provide are native: terminal emulation (`alacritty_terminal`), H.264 decoding for mirroring (`openh264`, ADR-024) and the VNC client (`vnc-rs` directly over the SSH `direct-tcpip` channel, so no WebSocket bridge). Where the text below says "Tauri" or "React", read it as the v0.1.0 app.
+
 ## 1. Overview
 
 ```

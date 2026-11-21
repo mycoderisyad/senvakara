@@ -1,0 +1,129 @@
+// Transfers and installs: a compact list docked under the inventory, so it stays in view while
+// the inspector is open. Each job shows a word or a percentage next to its bar, never the bar
+// alone.
+
+import { ScrollView } from "std-widgets.slint";
+import { Theme } from "../theme.slint";
+import { IconButton } from "controls.slint";
+import { Button, GroupTitle, ProgressBar } from "widgets.slint";
+import { Jobs, JobItem } from "../data.slint";
+
+component JobRow inherits VerticalLayout {
+    in property <JobItem> job;
+    private property <color> ink: job.state == "failed" ? Theme.danger : job.state == "cancelled" ? Theme.text-faint : job.state == "done" ? Theme.success : Theme.accent;
+
+    spacing: 4px;
+    accessible-role: list-item;
+    accessible-label: job.label + ", " + job.state-text;
+
+    HorizontalLayout {
+        height: 26px;
+        spacing: Theme.space-2;
+
+        Text {
+            horizontal-stretch: 1;
+            vertical-alignment: center;
+            text: root.job.label;
+            color: Theme.text;
+            font-size: Theme.text-body;
+            overflow: elide;
+        }
+
+        Text {
+            vertical-alignment: center;
+            text: root.job.state-text;
+            color: root.job.state == "running" ? Theme.text-muted : root.ink;
+            font-size: Theme.text-small;
+        }
+
+        // A fixed cell, so the state words of all rows line up.
+        HorizontalLayout {
+            width: 64px;
+            alignment: end;
+
+            if root.job.state == "running": Button {
+                height: 26px;
+                text: "Cancel";
+                accessible-label: "Cancel " + root.job.label;
+                clicked => {
+                    Jobs.cancel(root.job.id);
+                }
+            }
+
+            if root.job.state != "running": IconButton {
+                icon: @image-url("../icons/close.svg");
+                label: "Remove " + root.job.label + " from the list";
+                clicked => {
+                    Jobs.dismiss(root.job.id);
+                }
+            }
+        }
+    }
+
+    ProgressBar {
+        fraction: root.job.fraction;
+        ink: root.ink;
+        accessible-role: progress-indicator;
+        accessible-label: root.job.label + " progress";
+        accessible-value: root.job.state-text;
+    }
+
+    // Usually a path: break it anywhere rather than let it run out of the list.
+    if root.job.detail != "": Text {
+        text: root.job.detail;
+        color: Theme.text-muted;
+        font-size: Theme.text-small;
+        wrap: char-wrap;
+    }
+
+    if root.job.error != "": Text {
+        text: root.job.error;
+        color: Theme.danger;
+        font-size: Theme.text-small;
+        wrap: word-wrap;
+    }
+}
+
+export component JobList inherits Rectangle {
+    background: Theme.shell;
+    height: Math.min(220px, content.preferred-height);
+
+    Rectangle {
+        y: 0;
+        height: 1px;
+        background: Theme.hairline;
+    }
+
+    ScrollView {
+        content := VerticalLayout {
+            width: root.width;
+            alignment: start;
+            padding: Theme.space-4;
+            padding-top: Theme.space-3;
+            padding-bottom: Theme.space-3;
+            spacing: Theme.space-3;
+
+            HorizontalLayout {
+                height: 26px;
+                GroupTitle {
+                    vertical-alignment: center;
+                    horizontal-stretch: 1;
+                    text: "Activity";
+                }
+
+                if Jobs.has-finished: Button {
+                    height: 26px;
+                    kind: "ghost";
+                    text: "Clear finished";
+                    clicked => {
+                        Jobs.clear-finished();
+                    }
+                }
+            }
+
+            for job in Jobs.items: JobRow {
+                job: job;
+            }
+        }
+    }
+}

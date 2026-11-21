@@ -1,0 +1,56 @@
+// Design tokens for the Senvakara desktop UI (dark only, owner decision 2026-11-21).
+// Every colour, size and font used by a component comes from here.
+
+export global Theme {
+    // Surfaces, darkest (window chrome) to lightest (selection).
+    out property <color> shell: #0e1116;
+    out property <color> ground: #13161b;
+    out property <color> surface: #1a1e25;
+    out property <color> surface-hover: #212630;
+    out property <color> surface-selected: #272e3a;
+    out property <color> term-ground: #0c0f13;
+    out property <color> hairline: #262b34;
+    out property <color> hairline-strong: #343b47;
+
+    // Text.
+    out property <color> text: #e4e7ec;
+    out property <color> text-muted: #9ba3b0;
+    out property <color> text-faint: #7c8593;
+
+    // Brand accent: primary action and selection only.
+    out property <color> accent: #5bc4ae;
+    out property <color> accent-ink: #06231d;
+
+    // State. Always paired with a word and a shape, never colour alone.
+    out property <color> success: #6ccb8e;
+    out property <color> warning: #e3b34f;
+    out property <color> danger: #f0807d;
+    out property <color> info: #6fa8f5;
+
+    // Host identity hues: one per host, used for its icon tile, tab underline and route chips.
+    out property <[color]> host-hues: [
+        #5bc4ae, #6fa8f5, #a58bf0, #e487b8, #ee9a62, #d9be5a, #86ce77, #5cc3dc,
+    ];
+
+    // Type. Rank is carried by weight and tone more than by size.
+    out property <string> sans: "Segoe UI Variable";
+    out property <string> mono: "Cascadia Mono";
+    out property <length> text-small: 12px;
+    out property <length> text-body: 13px;
+    out property <length> text-title: 15px;
+
+    // Metrics.
+    out property <length> row: 32px;
+    out property <length> tab-strip: 38px;
+    out property <length> radius: 6px;
+    out property <length> space-1: 4px;
+    out property <length> space-2: 8px;
+    out property <length> space-3: 12px;
+    out property <length> space-4: 16px;
+    out property <length> space-6: 24px;
+    out property <duration> quick: 120ms;
+
+    pure public function host-hue(index: int) -> color {
+        return host-hues[Math.mod(Math.max(index, 0), 8)];
+    }
+}

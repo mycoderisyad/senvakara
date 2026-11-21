@@ -1,0 +1,123 @@
+// Modal dialogs. Used only where the user must decide before anything happens: confirmations,
+// trusting a host key, pairing a phone. Details and forms live in the inspector instead.
+
+import { Theme } from "../theme.slint";
+import { Button, DetailRow, Notice } from "widgets.slint";
+import { KeyValue } from "../data.slint";
+
+// One question at a time. Rust opens it and receives the answer through `answered`.
+export global Confirm {
+    in property <bool> open;
+    in property <string> title;
+    in property <string> body;
+    // What exactly will be affected: target host and route, file, command.
+    in property <[KeyValue]> facts;
+    in property <string> warning;
+    in property <string> confirm-label: "Confirm";
+    in property <bool> danger;
+    callback answered(accepted: bool);
+}
+
+export component DialogFrame inherits Rectangle {
+    in property <string> title;
+    in property <length> panel-width: 480px;
+    callback dismissed();
+
+    background: #00000099;
+
+    // Clicking outside or pressing Escape cancels.
+    TouchArea {
+        clicked => {
+            root.dismissed();
+        }
+    }
+
+    scope := FocusScope {
+        capture-key-pressed(event) => {
+            if (event.text == Key.Escape) {
+                root.dismissed();
+                return accept;
+            }
+            return reject;
+        }
+
+        panel := Rectangle {
+            width: root.panel-width;
+            height: content.preferred-height;
+            border-radius: 10px;
+            border-width: 1px;
+            border-color: Theme.hairline-strong;
+            background: Theme.surface;
+            drop-shadow-blur: 32px;
+            drop-shadow-offset-y: 12px;
+            drop-shadow-color: #00000080;
+
+            // Swallow clicks inside the panel.
+            TouchArea { }
+
+            content := VerticalLayout {
+                padding: Theme.space-6;
+                spacing: Theme.space-4;
+
+                Text {
+                    text: root.title;
+                    color: Theme.text;
+                    font-size: Theme.text-title;
+                    font-weight: 600;
+                    wrap: word-wrap;
+                }
+
+                @children
+            }
+        }
+    }
+
+    init => {
+        scope.focus();
+    }
+}
+
+export component ConfirmDialog inherits DialogFrame {
+    title: Confirm.title;
+    dismissed => {
+        Confirm.answered(false);
+    }
+
+    if Confirm.body != "": Text {
+        text: Confirm.body;
+        color: Theme.text-muted;
+        font-size: Theme.text-body;
+        wrap: word-wrap;
+    }
+
+    if Confirm.facts.length > 0: VerticalLayout {
+        spacing: Theme.space-2;
+        for fact in Confirm.facts: DetailRow {
+            item: fact;
+        }
+    }
+
+    if Confirm.warning != "": Notice {
+        text: Confirm.warning;
+    }
+
+    HorizontalLayout {
+        alignment: end;
+        spacing: Theme.space-2;
+
+        Button {
+            text: Confirm.confirm-label == "" ? "Close" : "Cancel";
+            clicked => {
+                Confirm.answered(false);
+            }
+        }
+
+        if Confirm.confirm-label != "": Button {
+            text: Confirm.confirm-label;
+            kind: Confirm.danger ? "danger" : "primary";
+            clicked => {
+                Confirm.answered(true);
+            }
+        }
+    }
+}

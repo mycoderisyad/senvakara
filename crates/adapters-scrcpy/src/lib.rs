@@ -2,7 +2,7 @@
 //! tasks AND-IMPL-08/09). Protocol per scrcpy v3.3.3 `doc/develop.md`,
 //! `DesktopConnection.java` and `ControlMessageReader.java`.
 //!
-//! Flow: push the pinned `scrcpy-server` (SHA-256 checked) → start it with
+//! Flow: push the embedded, pinned `scrcpy-server` (SHA-256 checked) → start it with
 //! `app_process` over a `shell:` stream → connect twice to
 //! `localabstract:scrcpy_<scid>` through the *same* ADB server connection
 //! used for the device (so it works for phones behind a Linux host's SSH
@@ -16,8 +16,8 @@ use anyhow::{bail, Context, Result};
 use senvakara_adapters_adb::{sync, AdbServer};
 use senvakara_core::{CoreError, ErrorCode};
 use sha2::{Digest, Sha256};
-use std::path::Path;
 use std::sync::atomic::AtomicBool;
+use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
@@ -32,20 +32,27 @@ fn core(code: ErrorCode, msg: impl Into<String>) -> anyhow::Error {
     CoreError::new(code, msg).into()
 }
 
-/// Read the bundled server and refuse anything but the pinned build.
-pub async fn load_verified_server(path: &Path) -> Result<Vec<u8>> {
-    let bytes = tokio::fs::read(path)
-        .await
-        .with_context(|| format!("read {}", path.display()))?;
-    let digest = Sha256::digest(&bytes);
-    let hex: String = digest.iter().map(|b| format!("{b:02x}")).collect();
-    if hex != SERVER_SHA256 {
+/// The official release asset, compiled into the binary.
+static SERVER_JAR: &[u8] = include_bytes!("../assets/scrcpy-server-v3.3.3");
+
+fn sha256_hex(bytes: &[u8]) -> String {
+    Sha256::digest(bytes)
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect()
+}
+
+/// The embedded server, refused unless it is exactly the pinned build
+/// (checked once per process).
+pub fn verified_server() -> Result<&'static [u8]> {
+    static VERIFIED: OnceLock<bool> = OnceLock::new();
+    if !*VERIFIED.get_or_init(|| sha256_hex(SERVER_JAR) == SERVER_SHA256) {
         bail!(core(
             ErrorCode::InternalError,
             "bundled scrcpy-server failed its SHA-256 check"
         ));
     }
-    Ok(bytes)
+    Ok(SERVER_JAR)
 }
 
 #[derive(Debug, Clone)]

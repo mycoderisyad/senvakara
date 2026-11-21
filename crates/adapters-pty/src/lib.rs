@@ -44,7 +44,7 @@ impl ShellKind {
 pub struct PtySession {
     master: Box<dyn MasterPty + Send>,
     child: Box<dyn Child + Send + Sync>,
-    writer: Box<dyn Write + Send>,
+    writer: Option<Box<dyn Write + Send>>,
 }
 
 impl PtySession {
@@ -67,7 +67,7 @@ impl PtySession {
         Ok(Self {
             master: pair.master,
             child,
-            writer,
+            writer: Some(writer),
         })
     }
 
@@ -77,9 +77,20 @@ impl PtySession {
     }
 
     pub fn write_input(&mut self, bytes: &[u8]) -> Result<()> {
-        self.writer.write_all(bytes)?;
-        self.writer.flush()?;
+        let writer = self
+            .writer
+            .as_mut()
+            .context("pty writer was taken by take_writer")?;
+        writer.write_all(bytes)?;
+        writer.flush()?;
         Ok(())
+    }
+
+    /// Hand the input stream to a dedicated writer (thread), so a write that
+    /// blocks on a full pipe cannot hold up `resize` or `kill`. Afterwards
+    /// `write_input` fails; returns `None` if already taken.
+    pub fn take_writer(&mut self) -> Option<Box<dyn Write + Send>> {
+        self.writer.take()
     }
 
     pub fn resize(&self, cols: u16, rows: u16) -> Result<()> {

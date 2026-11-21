@@ -1,0 +1,106 @@
+// Senvakara main window: session tabs on top, Home (the inventory) or the active session below.
+
+import { Theme } from "theme.slint";
+import { TabStrip, TabInfo } from "components/tab-strip.slint";
+import { Term, TermRun, TermRow, TermData } from "components/term-view.slint";
+import { Mirror, MirrorData } from "components/mirror-view.slint";
+import { Logcat, LogLine, LogcatData } from "components/logcat-view.slint";
+import { WirelessDialog } from "components/wireless-dialog.slint";
+import { Files, FileRow, FileSide, FilesData } from "components/files-view.slint";
+import { Desktop, DesktopData } from "components/desktop-view.slint";
+import { PanelHost, PanelView } from "components/panel.slint";
+import { WorkspaceView, Workspaces, WorkspaceItem, SlotView } from "components/workspace-view.slint";
+import { RunView, Run, RunStep } from "components/run-view.slint";
+import { PaletteOverlay, Palette, PaletteItem } from "components/palette.slint";
+import { Deploy, Recipes, RecipeItem, StepItem, RunRow } from "screens/automations.slint";
+import { Settings } from "screens/settings.slint";
+import { HomeScreen, Nav } from "screens/home.slint";
+import { Confirm, ConfirmDialog } from "components/dialogs.slint";
+import { Inventory, HostItem, DeviceItem, Action, KeyValue, Meter, DeviceTools, Jobs, JobItem, Wireless, WirelessService, WirelessNote, HostForm, NetPaths, PathItem, VpnHint } from "data.slint";
+
+export { Mirror, MirrorData, Logcat, LogLine, LogcatData, Confirm, Theme, Term, TermRun, TermRow, TermData, TabInfo, Nav, Inventory, HostItem, DeviceItem, Action, KeyValue, Meter, DeviceTools, Jobs, JobItem, Wireless, WirelessService, WirelessNote, HostForm, NetPaths, PathItem, VpnHint, Files, FileRow, FileSide, FilesData, Desktop, DesktopData, PanelView, Workspaces, WorkspaceItem, SlotView, Run, RunStep, Palette, PaletteItem, Deploy, Recipes, RecipeItem, StepItem, RunRow, Settings }
+
+export global Shell {
+    in property <[TabInfo]> tabs;
+    // -1 is Home.
+    in property <int> active-tab: -1;
+    // "terminal" | "mirror" | "logcat" | "files" | "desktop" | "workspace" | "run"
+    in property <string> active-kind;
+    // The session of the active tab, when it is a single session.
+    in property <PanelView> panel;
+
+    callback select-tab(index: int);
+    callback close-tab(index: int);
+    callback new-session();
+    // Returns true when the key was a window shortcut.
+    callback shortcut(text: string, control: bool, shift: bool) -> bool;
+}
+
+export component MainWindow inherits Window {
+    title: "Senvakara";
+    icon: @image-url("icons/app.png");
+    background: Theme.ground;
+    preferred-width: 1280px;
+    preferred-height: 800px;
+    min-width: 900px;
+    min-height: 560px;
+    default-font-family: Theme.sans;
+    default-font-size: Theme.text-body;
+
+    // An overlay that closes, or a session view that goes away, leaves nothing focused; the
+    // window shortcuts would then stop working. The shell takes the keyboard back.
+    private property <bool> overlay: Confirm.open || Palette.open || Wireless.open;
+    private property <string> shown: Shell.active-tab + Shell.active-kind;
+    forward-focus: keys;
+
+    changed overlay => {
+        if (!overlay) {
+            keys.focus();
+        }
+    }
+
+    changed shown => {
+        if (Shell.active-tab < 0 || Shell.active-kind == "workspace" || Shell.active-kind == "run") {
+            keys.focus();
+        }
+    }
+
+    // Window shortcuts run before the focused pane sees the key.
+    keys := FocusScope {
+        capture-key-pressed(event) => {
+            return Shell.shortcut(event.text, event.modifiers.control, event.modifiers.shift) ? accept : reject;
+        }
+
+        VerticalLayout {
+            TabStrip {
+                tabs: Shell.tabs;
+                active: Shell.active-tab;
+                select(index) => {
+                    Shell.select-tab(index);
+                }
+                close(index) => {
+                    Shell.close-tab(index);
+                }
+                new-session => {
+                    Shell.new-session();
+                }
+            }
+
+            if Shell.active-tab < 0: HomeScreen { }
+
+            if Shell.active-tab >= 0 && Shell.active-kind == "workspace": WorkspaceView { }
+
+            if Shell.active-tab >= 0 && Shell.active-kind == "run": RunView { }
+
+            if Shell.active-tab >= 0 && Shell.active-kind != "workspace" && Shell.active-kind != "run": PanelHost {
+                panel: Shell.panel;
+            }
+        }
+
+        if Wireless.open: WirelessDialog { }
+
+        if Palette.open: PaletteOverlay { }
+
+        if Confirm.open: ConfirmDialog { }
+    }
+}
