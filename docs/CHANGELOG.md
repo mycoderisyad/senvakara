@@ -40,6 +40,8 @@ Changes to documentation and (later) shipped product are tracked separately. For
 
 - Workspaces: save and reopen 1/2/4-panel layouts mixing terminals (incl. tmux), phone screens, logcat, files and remote desktops; panels that cannot run explain why and offer to connect the host.
 
+- Send files straight from a Linux host to any phone, or from a phone to a Linux host, with progress and a size check — nothing is stored on this PC.
+
 ### Fixed (development builds)
 
 - Device availability shown after a restart no longer reflects the previous session.

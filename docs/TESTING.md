@@ -122,6 +122,9 @@ MVP ships only after `E2E-01` through `E2E-07` pass on reference setup plus secu
 | 2026-11-21 | MON-IMPL-02 / PRD scenario E (network part) | App dev build; Fedora Wi-Fi turned off ≈45 s by the user | PASS | Timeline (3 s recorder): 18:31:58 ssh up, B available → 18:34:01 log "heartbeat: host … stopped answering" → 18:34:02 ssh down, ADB watch off, B unavailable, A available throughout. After Wi-Fi returned: Connect → host watching, B available. Detection latency is bounded by the 15 s interval + 6 s probe timeout. |
 | 2026-11-21 | M4 exit gate | same | PASS (X11 targets) | Remote desktop on the Fedora X11 session (E2E-10), truthful metrics (MON-IMPL-01), heartbeat (MON-IMPL-02). RDP adapter deferred (no RDP target); Wayland sessions reported unsupported. |
 | 2026-11-21 | REC-IMPL-01/02 | App dev build; Fedora 45 | PASS | Connection loss simulated by killing only the app's own `sshd-session` on Fedora (identified by start time; the user's other sessions untouched). Automatic recovery in ≈17 s without user action; tmux-backed tab reattached with its shell state intact. Test tmux session removed afterwards. |
+| 2026-11-21 | FILE-IMPL-01 | App dev build; Fedora 45 ↔ Android A (USB on Windows) | PASS | Cross-host streaming both directions with matching SHA-256; conflict and target-mismatch refusals; test files removed from phone and host. |
+| 2026-11-21 | WORK-IMPL-01/02 | App dev build; Fedora + Android A/B | PASS | 2×2 workspace (tmux terminal, B screen via Fedora, Fedora files, A logcat) saved, closed and reopened with tmux state intact; host-disconnected case explained per panel and restored by "Connect host"; DB migrated v1→v2 in place. |
+| 2026-11-21 | M5 exit gate (E2E-12) | same | PASS | Layout restore, reconnect of eligible sessions (tmux), honest explanation of unrecoverable ones, automatic host reconnect, cross-host transfers. |
 
 ### Reference environment (POC-01)
 

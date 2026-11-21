@@ -370,3 +370,41 @@ export const workspacesList = () => invoke<WorkspaceRecord[]>("workspaces_list")
 export const workspaceSave = (input: { id: string | null; name: string; layout: { layout: LayoutKind }; panels: PanelSpec[] }) =>
   invoke<WorkspaceRecord>("workspace_save", { input });
 export const workspaceDelete = (id: string) => invoke<void>("workspace_delete", { id });
+
+// ---------- cross-host transfers ----------
+
+export const xferHostToDevice = (
+  hostId: string,
+  remotePath: string,
+  routeId: string,
+  expectedSerial: string,
+  deviceDir: string,
+  overwrite: boolean,
+  onEvent: (e: TransferEvent) => void,
+) =>
+  invoke<number>("xfer_host_to_device", {
+    hostId,
+    remotePath,
+    routeId,
+    expectedSerial,
+    deviceDir,
+    overwrite,
+    onEvent: new Channel<TransferEvent>(onEvent),
+  });
+
+export const xferDeviceToHost = (
+  routeId: string,
+  devicePath: string,
+  hostId: string,
+  remoteDir: string,
+  overwrite: boolean,
+  onEvent: (e: TransferEvent) => void,
+) =>
+  invoke<number>("xfer_device_to_host", {
+    routeId,
+    devicePath,
+    hostId,
+    remoteDir,
+    overwrite,
+    onEvent: new Channel<TransferEvent>(onEvent),
+  });

@@ -18,7 +18,12 @@ import {
   logcatStart,
   logcatStop,
   TransferEvent,
+  hostsList,
+  HostView,
+  sftpList,
+  xferDeviceToHost,
 } from "../../lib/ipc";
+import { SendDialog } from "../../components/SendDialog";
 import { useUi } from "../../lib/store";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { routeText } from "./DevicesView";
@@ -309,6 +314,7 @@ const join = (dir: string, name: string) => (dir.endsWith("/") ? dir + name : `$
 const parentOf = (p: string) => (p === "/" ? "/" : p.replace(/\/[^/]+\/?$/, "") || "/");
 
 function FilesSection({ device, ask }: { device: DeviceView; ask: (c: Confirm) => void }) {
+  const [sendFor, setSendFor] = useState<{ entry: DeviceEntry; hosts: HostView[]; home: string } | null>(null);
   const [path, setPath] = useState("/sdcard/");
   const [entries, setEntries] = useState<DeviceEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -346,6 +352,23 @@ function FilesSection({ device, ask }: { device: DeviceView; ask: (c: Confirm) =
       }
     };
     await go(overwrite);
+  };
+
+  const askSend = async (en: DeviceEntry) => {
+    const hosts = (await hostsList().catch(() => [] as HostView[])).filter((h) => !h.is_local && h.connected);
+    const home = hosts[0] ? (await sftpList(hosts[0].id, ".").catch(() => null))?.path ?? "/tmp" : "/tmp";
+    setSendFor({ entry: en, hosts, home });
+  };
+
+  const sendToHost = async (en: DeviceEntry, hostId: string, dir: string, overwrite: boolean) => {
+    const label = `→ ${en.name} to host`;
+    try {
+      track(await xferDeviceToHost(device.route_id, join(path, en.name), hostId, dir, overwrite, onEvent(label)), label);
+    } catch (e) {
+      if (errorCode(e) === "CONFLICT" && !overwrite) {
+        ask({ title: "Replace file on host?", body: `${en.name} already exists in ${dir}.`, label: "Replace", danger: true, run: () => void sendToHost(en, hostId, dir, true) });
+      } else setError(errorText(e));
+    }
   };
 
   const push = async () => {
@@ -391,6 +414,22 @@ function FilesSection({ device, ask }: { device: DeviceView; ask: (c: Confirm) =
       </form>
       {error && <p className="banner bad small">{error}</p>}
       <Jobs jobs={jobs} />
+      {sendFor && (
+        <SendDialog
+          title={`Send ${sendFor.entry.name} to a host`}
+          what={`Streams from ${device.display_name} to a Linux host over SFTP; nothing is stored on this PC.`}
+          targets={sendFor.hosts.map((h) => ({ value: h.id, label: h.display_name }))}
+          targetLabel="Host"
+          dirDefault={sendFor.home}
+          emptyText="No Linux host is connected."
+          onCancel={() => setSendFor(null)}
+          onSend={(hostId, dir) => {
+            const en = sendFor.entry;
+            setSendFor(null);
+            void sendToHost(en, hostId, dir, false);
+          }}
+        />
+      )}
       {entries && (
         <div className="filelist">
           <table className="grid full">
@@ -413,7 +452,14 @@ function FilesSection({ device, ask }: { device: DeviceView; ask: (c: Confirm) =
                   </td>
                   <td className="num">{en.is_dir ? "" : fmtSize(en.size)}</td>
                   <td className="muted small">{en.mtime ? new Date(en.mtime * 1000).toLocaleString() : ""}</td>
-                  <td className="row-actions">{!en.is_dir && <button onClick={() => pull(en)}>Download</button>}</td>
+                  <td className="row-actions">
+                    {!en.is_dir && (
+                      <>
+                        <button onClick={() => pull(en)}>Download</button>{" "}
+                        <button onClick={() => askSend(en)}>Send to host…</button>
+                      </>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>

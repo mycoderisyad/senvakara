@@ -32,7 +32,7 @@ pub struct AndroidTools {
     logcats: Mutex<HashMap<u32, tauri::async_runtime::JoinHandle<()>>>,
 }
 
-fn confirm_target(record: &DeviceRouteRecord, expected_serial: &str) -> CmdResult<()> {
+pub(crate) fn confirm_target(record: &DeviceRouteRecord, expected_serial: &str) -> CmdResult<()> {
     if record.serial != expected_serial {
         return Err(CoreError::new(
             ErrorCode::RouteStale,
@@ -42,19 +42,19 @@ fn confirm_target(record: &DeviceRouteRecord, expected_serial: &str) -> CmdResul
     Ok(())
 }
 
-fn now_secs() -> u32 {
+pub(crate) fn now_secs() -> u32 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_secs() as u32)
         .unwrap_or(0)
 }
 
-fn invalid(msg: &str) -> CoreError {
+pub(crate) fn invalid(msg: &str) -> CoreError {
     CoreError::new(ErrorCode::InvalidInput, msg)
 }
 
 /// Absolute device path without NULs or `..` components.
-fn check_device_path(p: &str) -> CmdResult<()> {
+pub(crate) fn check_device_path(p: &str) -> CmdResult<()> {
     if !p.starts_with('/') || p.contains('\0') || p.split('/').any(|c| c == "..") || p.len() > 1024
     {
         return Err(invalid(
@@ -64,7 +64,7 @@ fn check_device_path(p: &str) -> CmdResult<()> {
     Ok(())
 }
 
-fn device_join(dir: &str, name: &str) -> String {
+pub(crate) fn device_join(dir: &str, name: &str) -> String {
     if dir.ends_with('/') {
         format!("{dir}{name}")
     } else {
@@ -251,7 +251,7 @@ pub async fn device_uninstall(
 
 // ---------------------------------------------------------------- transfers
 
-fn progress_sender(id: u32, total: u64, ch: Channel<TransferEvent>) -> impl FnMut(u64) {
+pub(crate) fn progress_sender(id: u32, total: u64, ch: Channel<TransferEvent>) -> impl FnMut(u64) {
     let mut last = Instant::now() - Duration::from_secs(1);
     move |done| {
         if last.elapsed() >= Duration::from_millis(100) {
@@ -268,7 +268,7 @@ fn progress_sender(id: u32, total: u64, ch: Channel<TransferEvent>) -> impl FnMu
     }
 }
 
-fn finish(
+pub(crate) fn finish(
     app: &AppHandle,
     id: u32,
     ch: &Channel<TransferEvent>,
@@ -304,7 +304,7 @@ fn finish(
     app.state::<Transfers>().cancel.lock().unwrap().remove(&id);
 }
 
-fn new_transfer(transfers: &Transfers) -> (u32, Arc<AtomicBool>) {
+pub(crate) fn new_transfer(transfers: &Transfers) -> (u32, Arc<AtomicBool>) {
     let id = transfers.next_id.fetch_add(1, Ordering::Relaxed) + 1;
     let cancel = Arc::new(AtomicBool::new(false));
     transfers.cancel.lock().unwrap().insert(id, cancel.clone());

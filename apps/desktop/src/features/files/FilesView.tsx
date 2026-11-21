@@ -10,7 +10,11 @@ import {
   sftpUpload,
   transferCancel,
   TransferEvent,
+  devicesList,
+  DeviceView,
+  xferHostToDevice,
 } from "../../lib/ipc";
+import { SendDialog } from "../../components/SendDialog";
 import { useUi } from "../../lib/store";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 
@@ -78,6 +82,27 @@ export function RemoteBrowser({ hostId, hostName, picker }: { hostId: string; ho
   const [error, setError] = useState<string | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [pending, setPending] = useState<PendingOverwrite | null>(null);
+  const [sending, setSending] = useState<{ entry: RemoteEntry; devices: DeviceView[] } | null>(null);
+
+  const askSend = async (entry: RemoteEntry) => {
+    const all = await devicesList().catch(() => [] as DeviceView[]);
+    setSending({ entry, devices: all.filter((d) => d.state === "available") });
+  };
+
+  const startSend = async (entry: RemoteEntry, d: DeviceView, dir: string, overwrite: boolean) => {
+    if (!listing) return;
+    const label = `→ ${entry.name} to ${d.display_name}`;
+    const conflict = overwrite
+      ? null
+      : { label: `${entry.name} already exists in ${dir} on ${d.display_name}`, retry: () => void startSend(entry, d, dir, true) };
+    try {
+      const id = await xferHostToDevice(hostId, join(listing.path, entry.name), d.route_id, d.serial, dir, overwrite, onEvent(label, "upload", false, conflict));
+      track(id, label, "upload", { id, state: "running", done: 0, total: entry.size, result_path: null, error: null });
+    } catch (e) {
+      if (errorCode(e) === "CONFLICT" && conflict) setPending(conflict);
+      else setError(errorText(e));
+    }
+  };
 
   const show = useCallback((l: Listing) => {
     setListing(l);
@@ -236,7 +261,16 @@ export function RemoteBrowser({ hostId, hostName, picker }: { hostId: string; ho
                   </td>
                   <td className="num">{en.is_dir ? "" : fmtSize(en.size)}</td>
                   <td className="muted small">{fmtTime(en.modified)}</td>
-                  <td className="row-actions">{!en.is_dir && <button onClick={() => download(en)}>Download</button>}</td>
+                  <td className="row-actions">
+                    {!en.is_dir && (
+                      <>
+                        <button onClick={() => download(en)}>Download</button>{" "}
+                        <button onClick={() => askSend(en)} title="Copy straight to an Android device on any host">
+                          Send to device…
+                        </button>
+                      </>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -273,6 +307,23 @@ export function RemoteBrowser({ hostId, hostName, picker }: { hostId: string; ho
         </aside>
       )}
 
+      {sending && (
+        <SendDialog
+          title={`Send ${sending.entry.name} to a device`}
+          what={`Streams from ${hostName || "this host"} to the phone through its own route; nothing is stored on this PC.`}
+          targets={sending.devices.map((d) => ({ value: d.route_id, label: `${d.display_name} (${d.host_name} · ${d.connection_type === "usb_adb" ? "USB" : "Wi-Fi"})` }))}
+          targetLabel="Device"
+          dirDefault="/sdcard/Download"
+          emptyText="No device is available right now."
+          onCancel={() => setSending(null)}
+          onSend={(routeId, dir) => {
+            const d = sending.devices.find((x) => x.route_id === routeId)!;
+            const entry = sending.entry;
+            setSending(null);
+            void startSend(entry, d, dir, false);
+          }}
+        />
+      )}
       {pending && (
         <ConfirmDialog
           title="Replace existing file?"

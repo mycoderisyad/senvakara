@@ -3,6 +3,7 @@
 
 mod android;
 mod android_tools;
+mod crosshost;
 mod desktop;
 mod files;
 mod hosts;
@@ -86,6 +87,8 @@ pub fn run() {
             workspaces::workspaces_list,
             workspaces::workspace_save,
             workspaces::workspace_delete,
+            crosshost::xfer_host_to_device,
+            crosshost::xfer_device_to_host,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
