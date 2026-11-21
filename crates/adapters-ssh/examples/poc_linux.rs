@@ -90,6 +90,7 @@ async fn main() -> Result<()> {
         private_key: key.clone(),
         host_key: policy,
         connect_timeout: Duration::from_secs(8),
+        passphrase: None,
     };
 
     // ---------- POC-02: host key pinning ----------

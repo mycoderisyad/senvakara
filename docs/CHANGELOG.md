@@ -22,7 +22,11 @@ Changes to documentation and (later) shipped product are tracked separately. For
 - Desktop shell (Tauri 2 + React + TypeScript) with sidebar navigation; unbuilt sections state their planned milestone.
 - Local terminal tabs: Windows PowerShell and each installed WSL distribution (ConPTY), resize, close kills the process.
 - Diagnostics view: WebCodecs codec support and H.264 round-trip check for the local WebView2.
-- Rust adapters (not yet wired to UI): SSH with host-key pinning, PTY, SFTP, loopback-only port forwarding.
+- Hosts: add/edit/remove Linux hosts, first-connect host-key verification dialog, changed-key warning, connect/disconnect, detected OS/arch/ADB shown per host.
+- SSH terminal tabs alongside local tabs.
+- Files: browse remote folders over SFTP, upload/download with progress, cancel, and confirmation before replacing files.
+- Key passphrases stored in Windows Credential Manager; local SQLite stores only metadata.
+- Redacted application log in the user's local app-data folder.
 
 ## Versioning guidance
 

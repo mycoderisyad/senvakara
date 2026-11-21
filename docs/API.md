@@ -29,7 +29,7 @@ Discovery advertisements are untrusted until identity/pairing is complete. All a
 
 Responses conceptually include `request_id`, `ok`, `result` or `error`. Use structured error codes:
 
-`UNAUTHENTICATED`, `UNAUTHORIZED`, `HOST_OFFLINE`, `DEVICE_OFFLINE`, `ADB_UNAUTHORIZED`, `ROUTE_STALE`, `UNSUPPORTED_CAPABILITY`, `TIMEOUT`, `CANCELLED`, `CONFLICT`, `INTERNAL_ERROR`.
+`UNAUTHENTICATED`, `UNAUTHORIZED`, `HOST_OFFLINE`, `DEVICE_OFFLINE`, `ADB_UNAUTHORIZED`, `ROUTE_STALE`, `UNSUPPORTED_CAPABILITY`, `TIMEOUT`, `CANCELLED`, `CONFLICT`, `INVALID_INPUT`, `INTERNAL_ERROR`.
 
 ## 4. Capability / inventory operations (proposed)
 

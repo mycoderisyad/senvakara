@@ -15,7 +15,16 @@ export function errorText(e: unknown): string {
   return String(e);
 }
 
-export type ShellRequest = { kind: "power_shell" } | { kind: "wsl"; distro: string | null };
+export function errorCode(e: unknown): string | null {
+  return e && typeof e === "object" && "code" in e ? String((e as CoreError).code) : null;
+}
+
+// ---------- terminals ----------
+
+export type ShellRequest =
+  | { kind: "power_shell" }
+  | { kind: "wsl"; distro: string | null }
+  | { kind: "ssh"; host_id: string };
 
 export function termOpen(
   shell: ShellRequest,
@@ -32,3 +41,117 @@ export const termResize = (id: number, cols: number, rows: number) =>
   invoke<void>("term_resize", { id, cols, rows });
 export const termClose = (id: number) => invoke<void>("term_close", { id });
 export const wslDistros = () => invoke<string[]>("wsl_distros");
+
+// ---------- hosts ----------
+
+export interface SshView {
+  address: string;
+  port: number;
+  username: string;
+  private_key_path: string;
+  fingerprint: string | null;
+  has_passphrase: boolean;
+}
+
+export interface HostView {
+  id: string;
+  display_name: string;
+  os_family: string;
+  is_local: boolean;
+  trust_state: string;
+  last_seen_at: string | null;
+  capabilities: {
+    os_pretty_name?: string | null;
+    arch?: string;
+    adb_path?: string | null;
+  } | null;
+  connected: boolean;
+  ssh: SshView | null;
+}
+
+export interface HostInput {
+  display_name: string;
+  os_family: string;
+  address: string;
+  port: number;
+  username: string;
+  private_key_path: string;
+}
+
+export interface HostKeyCheck {
+  presented: string;
+  pinned: string | null;
+  matches: boolean;
+}
+
+export const hostsList = () => invoke<HostView[]>("hosts_list");
+export const hostCreate = (input: HostInput) => invoke<HostView>("host_create", { input });
+export const hostUpdate = (id: string, input: HostInput) => invoke<HostView>("host_update", { id, input });
+export const hostDelete = (id: string) => invoke<void>("host_delete", { id });
+export const hostCheckKey = (id: string) => invoke<HostKeyCheck>("host_check_key", { id });
+export const hostTrustKey = (id: string, fingerprint: string) =>
+  invoke<HostView>("host_trust_key", { id, fingerprint });
+export const hostSetPassphrase = (id: string, passphrase: string | null) =>
+  invoke<HostView>("host_set_passphrase", { id, passphrase });
+export const hostConnect = (id: string) => invoke<HostView>("host_connect", { id });
+export const hostDisconnect = (id: string) => invoke<HostView>("host_disconnect", { id });
+
+// ---------- files ----------
+
+export interface RemoteEntry {
+  name: string;
+  is_dir: boolean;
+  is_symlink: boolean;
+  size: number;
+  modified: number | null;
+}
+
+export interface Listing {
+  path: string;
+  entries: RemoteEntry[];
+}
+
+export interface TransferEvent {
+  id: number;
+  state: "running" | "done" | "failed" | "cancelled";
+  done: number;
+  total: number;
+  result_path: string | null;
+  error: CoreError | null;
+}
+
+export const sftpList = (hostId: string, path: string) => invoke<Listing>("sftp_list", { hostId, path });
+
+export function sftpDownload(
+  hostId: string,
+  remotePath: string,
+  localDir: string,
+  overwrite: boolean,
+  onEvent: (e: TransferEvent) => void,
+): Promise<number> {
+  return invoke<number>("sftp_download", {
+    hostId,
+    remotePath,
+    localDir,
+    overwrite,
+    onEvent: new Channel<TransferEvent>(onEvent),
+  });
+}
+
+export function sftpUpload(
+  hostId: string,
+  localPath: string,
+  remoteDir: string,
+  overwrite: boolean,
+  onEvent: (e: TransferEvent) => void,
+): Promise<number> {
+  return invoke<number>("sftp_upload", {
+    hostId,
+    localPath,
+    remoteDir,
+    overwrite,
+    onEvent: new Channel<TransferEvent>(onEvent),
+  });
+}
+
+export const transferCancel = (id: number) => invoke<void>("transfer_cancel", { id });

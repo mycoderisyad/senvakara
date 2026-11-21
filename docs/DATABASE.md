@@ -1,6 +1,6 @@
 # Database Design — Senvakara
 
-**Status:** proposed SQLite logical schema, **not yet migrated**. SQLite stores app metadata, **not** plaintext passwords, private keys or Android pairing secrets. OS credential manager/keyring is the designated secret boundary.
+**Status:** migration v1 implemented in `crates/storage/migrations/0001_init.sql` (hosts, host_endpoints, ssh_settings, devices, device_routes, sessions); workspaces/workflows tables are still proposals below. SQLite stores app metadata, **not** plaintext passwords, private keys or Android pairing secrets. OS credential manager/keyring is the designated secret boundary.
 
 ## 1. Entity model
 
@@ -122,6 +122,13 @@ CREATE INDEX idx_workflow_steps_run ON workflow_steps(run_id,ordinal);
 ```
 
 The SQL is a **starting model**, not a migration to execute blindly. Validate timestamps, schema/check constraints, unique handling of `NULL` port, lifecycle and relevant indexes before using in production. Workspaces may reference *session descriptors*, not raw process handles, across restarts.
+
+### Implementation notes (v1)
+
+- `host_endpoints.port` is `NOT NULL DEFAULT 0` (0 = not applicable) so the `UNIQUE(host_id,transport,address,port)` constraint is not bypassed by `NULL`.
+- `ssh_settings(endpoint_id, username, private_key_path, passphrase_ref)` holds SSH login settings; `passphrase_ref` is an opaque Windows Credential Manager entry name, never the passphrase.
+- Changing a host's SSH address or port keeps the host id but clears the pinned fingerprint and sets `trust_state='untrusted'`.
+- The local Windows machine is a singleton row with `is_local=1` and cannot be deleted.
 
 ## 3. Runtime vs persisted state
 

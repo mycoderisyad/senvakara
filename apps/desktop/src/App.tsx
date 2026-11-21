@@ -1,15 +1,16 @@
-import { useState } from "react";
+import { useEffect } from "react";
 import { SessionsView } from "./features/terminal/SessionsView";
 import { DiagnosticsView } from "./features/diagnostics/DiagnosticsView";
-
-type ViewId = "overview" | "hosts" | "devices" | "sessions" | "files" | "workspaces" | "diagnostics";
+import { HostsView } from "./features/hosts/HostsView";
+import { FilesView } from "./features/files/FilesView";
+import { useUi, ViewId } from "./lib/store";
 
 const NAV: Array<{ id: ViewId; label: string; milestone?: string }> = [
-  { id: "overview", label: "Overview", milestone: "M1" },
-  { id: "hosts", label: "Hosts", milestone: "M1" },
+  { id: "overview", label: "Overview", milestone: "M2" },
+  { id: "hosts", label: "Hosts" },
   { id: "devices", label: "Devices", milestone: "M2" },
   { id: "sessions", label: "Sessions" },
-  { id: "files", label: "Files", milestone: "M1" },
+  { id: "files", label: "Files" },
   { id: "workspaces", label: "Workspaces", milestone: "M5" },
   { id: "diagnostics", label: "Diagnostics" },
 ];
@@ -26,8 +27,12 @@ function NotYet({ label, milestone }: { label: string; milestone?: string }) {
 }
 
 export default function App() {
-  const [view, setView] = useState<ViewId>("sessions");
+  const { view, setView, tabs, refreshHosts } = useUi();
   const current = NAV.find((n) => n.id === view)!;
+
+  useEffect(() => {
+    void refreshHosts();
+  }, [refreshHosts]);
 
   return (
     <div className="shell">
@@ -41,6 +46,7 @@ export default function App() {
             onClick={() => setView(n.id)}
           >
             {n.label}
+            {n.id === "sessions" && tabs.length > 0 && <span className="nav-count">{tabs.length}</span>}
             {n.milestone && <span className="nav-tag">{n.milestone}</span>}
           </button>
         ))}
@@ -50,10 +56,10 @@ export default function App() {
         <div className="view-slot" hidden={view !== "sessions"}>
           <SessionsView />
         </div>
+        {view === "hosts" && <HostsView />}
+        {view === "files" && <FilesView />}
         {view === "diagnostics" && <DiagnosticsView />}
-        {view !== "sessions" && view !== "diagnostics" && (
-          <NotYet label={current.label} milestone={current.milestone} />
-        )}
+        {current.milestone && <NotYet label={current.label} milestone={current.milestone} />}
       </main>
     </div>
   );

@@ -16,6 +16,8 @@ pub enum ErrorCode {
     Timeout,
     Cancelled,
     Conflict,
+    /// Request rejected by validation (bad address, unsafe file name, ...).
+    InvalidInput,
     InternalError,
 }
 

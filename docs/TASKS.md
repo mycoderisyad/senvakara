@@ -16,13 +16,13 @@
 ## Phase 1 — App skeleton + MVP terminal and SFTP
 
 - [x] **CORE-01 [P0]** Bootstrap Tauri 2, Rust core, React+TS, formatting/lint/test workflows. *Evidence 2026-11-21: `apps/desktop` (Tauri 2.12 + React 19 + TS) in Cargo workspace; local `npm run typecheck/lint/test/build` and `cargo fmt --check`, `cargo clippy -D warnings`, `cargo test --workspace` pass; CI workflow `.github/workflows/ci.yml` added but not yet run on GitHub.*
-- [ ] **CORE-02 [P0]** SQLite migrations + host/connection registry.
-- [ ] **CORE-03 [P0]** Host list, status, manual add/edit/remove, connection errors.
+- [x] **CORE-02 [P0]** SQLite migrations + host/connection registry. *Evidence 2026-11-21: `crates/storage` migration v1 via `PRAGMA user_version` (hosts, host_endpoints, ssh_settings, devices, device_routes, sessions); 6 unit tests (idempotent migration, FK enforcement, cascade, trust reset on address change).*
+- [x] **CORE-03 [P0]** Host list, status, manual add/edit/remove, connection errors. *Evidence 2026-11-21: Hosts view in running app — added Fedora host via form, edit kept identity/trust, status badges text+icon (This PC / Connected / Not connected / Host key not trusted / error), remove behind in-app confirmation.*
 - [x] **CORE-04 [P0]** Local Windows/WSL PTY integration and tab lifecycle. *Evidence 2026-11-21: in the running app (`npm run tauri dev`), PowerShell 5.1 and WSL Ubuntu-24.04 tabs accept typed input via xterm.js, terminal auto-fits (`stty size` → `43 120`), closing a tab leaves 0 shell/conhost child processes (checked with Win32_Process).*
-- [ ] **CORE-05 [P0]** SSH interactive PTY adapter with verified server identity.
-- [ ] **CORE-06 [P0]** SFTP browse/upload/download, progress/error/cancel.
-- [ ] **CORE-07 [P0]** Secure credential/key lookup via OS store.
-- [ ] **CORE-08 [P0]** Basic logging, error model, unit/integration tests.
+- [x] **CORE-05 [P0]** SSH interactive PTY adapter with verified server identity. *Evidence 2026-11-21: in app, first-connect dialog showed fingerprint matching independent `ssh-keyscan`; SSH tab interactive (`<user>@<host>`, `stty size` 43 120); simulated changed key → connect refused `UNAUTHENTICATED`, dialog shows 'host key has changed', trusting a different fingerprint refused `CONFLICT`.*
+- [x] **CORE-06 [P0]** SFTP browse/upload/download, progress/error/cancel. *Evidence 2026-11-21: Files view lists the remote home directory; via app IPC: 8 MiB upload + download SHA-256 identical, existing destination → `CONFLICT` both directions, explicit overwrite works, 256 MiB upload cancelled → `CANCELLED` and no partial left on host. UI overwrite-confirm click-through not automated (native file dialog).*
+- [x] **CORE-07 [P0]** Secure credential/key lookup via OS store. *Evidence 2026-11-21: `crates/secrets` stores key passphrases in Windows Credential Manager (keyring-core 1.1 + windows-native-keyring-store 1.1); DB keeps only an opaque `passphrase_ref`; round-trip test against real Credential Manager passes. Encrypted-key login not yet exercised end-to-end (test key has no passphrase).*
+- [x] **CORE-08 [P0]** Basic logging, error model, unit/integration tests. *Evidence 2026-11-21: structured `CoreError` codes incl. new `INVALID_INPUT`; redacted rotating log at `%LOCALAPPDATA%/dev.senvakara.desktop/logs/senvakara.log`; redaction unit tests; grep of log after E2E found no key material or `password=`/`passphrase=` values.*
 
 ## Phase 2 — Multi-host Android registry + safe ADB
 

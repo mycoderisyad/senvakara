@@ -121,3 +121,66 @@ code { font-family: var(--mono); font-size: 12px; color: var(--text-muted); }
 .badge.ok { color: var(--success); }
 .badge.bad { color: var(--error); }
 .badge.warn { color: var(--warning); }
+
+/* Shared controls */
+button.primary { background: var(--accent); border-color: var(--accent); color: #0b1016; font-weight: 600; }
+button.primary:hover:not(:disabled) { filter: brightness(1.08); background: var(--accent); }
+button.danger { color: var(--error); border-color: color-mix(in srgb, var(--error) 50%, var(--border)); }
+button.link { border: none; background: none; padding: 0; min-height: 0; color: var(--text-primary); text-align: left; }
+button.link:hover { text-decoration: underline; background: none; }
+input, select {
+  font: inherit; color: var(--text-primary); background: var(--background);
+  border: 1px solid var(--border); border-radius: var(--radius); padding: 6px 10px; min-height: 32px; width: 100%;
+}
+input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 0; }
+label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--text-muted); }
+label.inline { flex-direction: row; align-items: center; gap: 8px; }
+label.inline select { width: auto; }
+label.check { flex-direction: row; align-items: center; gap: 8px; }
+label.check input { width: auto; min-height: 0; }
+.row { display: flex; gap: 10px; align-items: flex-end; }
+.grow { flex: 1; }
+.narrow { width: 110px; }
+.banner { padding: 8px 12px; border-radius: var(--radius); border: 1px solid currentColor; margin: 8px 0; }
+.banner.bad { color: var(--error); }
+.banner.ok { color: var(--success); }
+.nav-count { margin-left: auto; margin-right: 6px; font-size: 11px; color: var(--accent); }
+
+/* Hosts */
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 14px; margin-top: 18px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; }
+.card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.card h3 { margin: 0; font-size: 15px; }
+.card p { margin: 0; }
+.card-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.fingerprint { word-break: break-all; }
+
+/* Modal */
+.modal-backdrop { position: fixed; inset: 0; background: rgb(0 0 0 / 0.55); display: grid; place-items: center; z-index: 10; }
+.modal { width: min(520px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px 22px; display: flex; flex-direction: column; gap: 12px; }
+.modal h2 { margin: 0; }
+.modal p { margin: 0; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; margin: 0; }
+.kv dt { color: var(--text-muted); font-size: 12px; }
+.kv dd { margin: 0; }
+
+/* Files */
+.files { display: flex; flex-direction: column; gap: 10px; }
+.pathbar { display: flex; gap: 6px; }
+.pathbar input { font-family: var(--mono); font-size: 13px; }
+.filelist { overflow: auto; border: 1px solid var(--border); border-radius: var(--radius); }
+.grid.full { width: 100%; min-width: 0; margin: 0; }
+.grid.full td, .grid.full th { padding: 5px 12px; }
+.grid tbody tr:hover { background: var(--surface-hover); }
+.num { text-align: right; white-space: nowrap; }
+.row-actions { text-align: right; width: 1%; white-space: nowrap; }
+.row-actions button { min-height: 26px; padding: 2px 10px; }
+.activity { border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 14px; background: var(--surface); }
+.activity h2 { margin: 0 0 6px; }
+.job { padding: 6px 0; border-top: 1px solid var(--border); }
+.job:first-of-type { border-top: none; }
+.job-head { display: flex; align-items: center; gap: 10px; }
+.job-head span:first-child { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.job p { margin: 2px 0 0; }
+progress { width: 100%; height: 6px; accent-color: var(--accent); }

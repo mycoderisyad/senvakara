@@ -1,23 +1,32 @@
-//! Local terminal sessions (TERM-01, TERM-03 / task CORE-04).
+//! Terminal sessions: local PTY (TERM-01) and remote SSH PTY (TERM-02),
+//! one tab model for both (TERM-03, tasks CORE-04, CORE-05).
 //!
-//! Output bytes go to the webview through a `Channel` as raw `ArrayBuffer`s
-//! (not JSON events). Each session is torn down on close; dropping the
-//! `PtySession` kills its child so no shells are orphaned (NFR-02).
+//! Output bytes go to the webview through a `Channel` as raw `ArrayBuffer`s.
+//! Closing a session kills the local process or closes the SSH channel
+//! (NFR-02); the SSH connection itself stays pooled for other tabs.
 
+use crate::logging;
+use crate::state::{to_core, AppState, CmdResult};
 use senvakara_adapters_pty::{PtySession, ShellKind};
+use senvakara_adapters_ssh::{SshPtyEvent, SshPtyWriter};
 use senvakara_core::{CoreError, ErrorCode};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io::Read;
 use std::sync::atomic::{AtomicU32, Ordering};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use tauri::ipc::{Channel, InvokeResponseBody};
 use tauri::{AppHandle, Emitter, State};
+
+enum Session {
+    Local(PtySession),
+    Ssh(Arc<SshPtyWriter>),
+}
 
 #[derive(Default)]
 pub struct Terminals {
     next_id: AtomicU32,
-    sessions: Mutex<HashMap<u32, PtySession>>,
+    sessions: Mutex<HashMap<u32, Session>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -25,94 +34,170 @@ pub struct Terminals {
 pub enum ShellRequest {
     PowerShell,
     Wsl { distro: Option<String> },
+    Ssh { host_id: String },
 }
 
 #[derive(Debug, Clone, Serialize)]
 pub struct TermExit {
     pub id: u32,
+    pub exit_status: Option<u32>,
 }
 
 fn internal(e: impl std::fmt::Display) -> CoreError {
     CoreError::internal(e.to_string())
 }
 
-fn not_found(id: u32) -> CoreError {
+fn not_open(id: u32) -> CoreError {
     CoreError::new(ErrorCode::Conflict, format!("terminal {id} is not open"))
 }
 
 #[tauri::command]
-pub fn term_open(
+pub async fn term_open(
     app: AppHandle,
-    state: State<'_, Terminals>,
+    terms: State<'_, Terminals>,
+    state: State<'_, AppState>,
     shell: ShellRequest,
     cols: u16,
     rows: u16,
     on_data: Channel<InvokeResponseBody>,
-) -> Result<u32, CoreError> {
-    let kind = match shell {
-        ShellRequest::PowerShell => ShellKind::PowerShell,
-        ShellRequest::Wsl { distro } => ShellKind::Wsl { distro },
-    };
-    let session = PtySession::spawn(&kind, &[], cols.max(2), rows.max(2)).map_err(internal)?;
-    let mut reader = session.reader().map_err(internal)?;
-    let id = state.next_id.fetch_add(1, Ordering::Relaxed) + 1;
-    state.sessions.lock().unwrap().insert(id, session);
-
-    std::thread::Builder::new()
-        .name(format!("pty-reader-{id}"))
-        .spawn(move || {
-            let mut buf = vec![0u8; 16 * 1024];
-            loop {
-                match reader.read(&mut buf) {
-                    Ok(0) | Err(_) => break,
-                    Ok(n) => {
-                        if on_data
-                            .send(InvokeResponseBody::Raw(buf[..n].to_vec()))
-                            .is_err()
-                        {
-                            break;
+) -> CmdResult<u32> {
+    let (cols, rows) = (cols.max(2), rows.max(2));
+    let id = terms.next_id.fetch_add(1, Ordering::Relaxed) + 1;
+    match shell {
+        ShellRequest::Ssh { host_id } => {
+            let conn = state.connection(&host_id).await?;
+            let (writer, mut reader) = conn
+                .open_pty(cols.into(), rows.into())
+                .await
+                .map_err(|e| to_core("open ssh shell", e))?;
+            terms
+                .sessions
+                .lock()
+                .unwrap()
+                .insert(id, Session::Ssh(Arc::new(writer)));
+            logging::info(&format!("ssh terminal {id} opened on host {host_id}"));
+            tauri::async_runtime::spawn(async move {
+                let mut exit_status = None;
+                while let Some(ev) = reader.next().await {
+                    match ev {
+                        SshPtyEvent::Data(bytes) => {
+                            if on_data.send(InvokeResponseBody::Raw(bytes)).is_err() {
+                                break;
+                            }
+                        }
+                        SshPtyEvent::Exit(code) => {
+                            exit_status = exit_status.or(code);
+                            if code.is_none() {
+                                break;
+                            }
                         }
                     }
                 }
-            }
-            let _ = app.emit("term-exit", TermExit { id });
-        })
-        .map_err(internal)?;
+                let _ = app.emit("term-exit", TermExit { id, exit_status });
+            });
+        }
+        local => {
+            let kind = match local {
+                ShellRequest::PowerShell => ShellKind::PowerShell,
+                ShellRequest::Wsl { distro } => ShellKind::Wsl { distro },
+                ShellRequest::Ssh { .. } => unreachable!(),
+            };
+            let session = PtySession::spawn(&kind, &[], cols, rows).map_err(internal)?;
+            let mut reader = session.reader().map_err(internal)?;
+            terms
+                .sessions
+                .lock()
+                .unwrap()
+                .insert(id, Session::Local(session));
+            std::thread::Builder::new()
+                .name(format!("pty-reader-{id}"))
+                .spawn(move || {
+                    let mut buf = vec![0u8; 16 * 1024];
+                    loop {
+                        match reader.read(&mut buf) {
+                            Ok(0) | Err(_) => break,
+                            Ok(n) => {
+                                if on_data
+                                    .send(InvokeResponseBody::Raw(buf[..n].to_vec()))
+                                    .is_err()
+                                {
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    let _ = app.emit(
+                        "term-exit",
+                        TermExit {
+                            id,
+                            exit_status: None,
+                        },
+                    );
+                })
+                .map_err(internal)?;
+        }
+    }
     Ok(id)
 }
 
-#[tauri::command]
-pub fn term_write(state: State<'_, Terminals>, id: u32, data: String) -> Result<(), CoreError> {
-    let mut sessions = state.sessions.lock().unwrap();
-    let s = sessions.get_mut(&id).ok_or_else(|| not_found(id))?;
-    s.write_input(data.as_bytes()).map_err(internal)
+fn ssh_writer(terms: &Terminals, id: u32) -> CmdResult<Option<Arc<SshPtyWriter>>> {
+    match terms.sessions.lock().unwrap().get(&id) {
+        None => Err(not_open(id)),
+        Some(Session::Ssh(w)) => Ok(Some(w.clone())),
+        Some(Session::Local(_)) => Ok(None),
+    }
 }
 
 #[tauri::command]
-pub fn term_resize(
-    state: State<'_, Terminals>,
+pub async fn term_write(terms: State<'_, Terminals>, id: u32, data: String) -> CmdResult<()> {
+    match ssh_writer(&terms, id)? {
+        Some(w) => w
+            .write(data.as_bytes())
+            .await
+            .map_err(|e| to_core("ssh write", e)),
+        None => match terms.sessions.lock().unwrap().get_mut(&id) {
+            Some(Session::Local(s)) => s.write_input(data.as_bytes()).map_err(internal),
+            _ => Err(not_open(id)),
+        },
+    }
+}
+
+#[tauri::command]
+pub async fn term_resize(
+    terms: State<'_, Terminals>,
     id: u32,
     cols: u16,
     rows: u16,
-) -> Result<(), CoreError> {
-    let sessions = state.sessions.lock().unwrap();
-    let s = sessions.get(&id).ok_or_else(|| not_found(id))?;
-    s.resize(cols.max(2), rows.max(2)).map_err(internal)
+) -> CmdResult<()> {
+    let (cols, rows) = (cols.max(2), rows.max(2));
+    match ssh_writer(&terms, id)? {
+        Some(w) => w
+            .resize(cols.into(), rows.into())
+            .await
+            .map_err(|e| to_core("ssh resize", e)),
+        None => match terms.sessions.lock().unwrap().get(&id) {
+            Some(Session::Local(s)) => s.resize(cols, rows).map_err(internal),
+            _ => Err(not_open(id)),
+        },
+    }
 }
 
 #[tauri::command]
-pub fn term_close(state: State<'_, Terminals>, id: u32) -> Result<(), CoreError> {
-    // Dropping the session kills the child process and closes the PTY.
-    let removed = state.sessions.lock().unwrap().remove(&id);
-    if let Some(mut s) = removed {
-        s.kill().map_err(internal)?;
+pub async fn term_close(terms: State<'_, Terminals>, id: u32) -> CmdResult<()> {
+    let removed = terms.sessions.lock().unwrap().remove(&id);
+    match removed {
+        Some(Session::Local(mut s)) => s.kill().map_err(internal)?,
+        Some(Session::Ssh(w)) => {
+            let _ = w.close().await;
+        }
+        None => {}
     }
     Ok(())
 }
 
 /// Installed WSL distributions (`wsl.exe -l -q` prints UTF-16LE).
 #[tauri::command]
-pub async fn wsl_distros() -> Result<Vec<String>, CoreError> {
+pub async fn wsl_distros() -> CmdResult<Vec<String>> {
     let out = std::process::Command::new("wsl.exe")
         .args(["-l", "-q"])
         .output()

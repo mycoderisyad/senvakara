@@ -13,3 +13,4 @@ russh = { version = "=0.65.2", default-features = false, features = ["ring", "fl
 russh-sftp = "=3.0.1"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "sync", "time", "fs"] }
 anyhow.workspace = true
+serde.workspace = true

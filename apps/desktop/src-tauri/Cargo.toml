@@ -20,3 +20,9 @@ senvakara-adapters-pty = { path = "../../../crates/adapters-pty" }
 tauri = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+senvakara-storage = { path = "../../../crates/storage" }
+senvakara-secrets = { path = "../../../crates/secrets" }
+senvakara-adapters-ssh = { path = "../../../crates/adapters-ssh" }
+tauri-plugin-dialog = "2.8"
+tokio = { version = "1", features = ["sync", "time", "fs"] }
+anyhow.workspace = true

@@ -10,11 +10,17 @@
 //! - Public-key auth only in this adapter; no password handling.
 //! - Forwarded ports bind to 127.0.0.1 only.
 
-use anyhow::{bail, Context, Result};
+pub mod pty;
+pub mod sftp;
+
+pub use pty::{SshPtyEvent, SshPtyReader, SshPtyWriter};
+
+use anyhow::{Context, Result};
 use russh::client::{self, Handle};
 use russh::keys::{load_secret_key, HashAlg, PrivateKeyWithHashAlg, PublicKeyOrCertificate};
 use russh::{ChannelMsg, Disconnect};
 use russh_sftp::client::SftpSession;
+use senvakara_core::{CoreError, ErrorCode};
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -40,6 +46,14 @@ pub struct ConnectParams {
     pub private_key: PathBuf,
     pub host_key: HostKeyPolicy,
     pub connect_timeout: Duration,
+    /// Passphrase for an encrypted private key (from the OS credential store).
+    pub passphrase: Option<String>,
+}
+
+/// Errors from this adapter carry a [`CoreError`] so callers can
+/// `downcast_ref::<CoreError>()` and show a structured state.
+fn core_err(code: ErrorCode, message: impl Into<String>) -> anyhow::Error {
+    CoreError::new(code, message).into()
 }
 
 struct VerifyingHandler {
@@ -88,12 +102,23 @@ impl SshConnection {
 
         let connecting = client::connect(config, (p.host.as_str(), p.port), handler);
         let mut handle = match tokio::time::timeout(p.connect_timeout, connecting).await {
-            Err(_) => bail!("HOST_OFFLINE: connect timeout to {}:{}", p.host, p.port),
+            Err(_) => {
+                return Err(core_err(
+                    ErrorCode::HostOffline,
+                    format!("connection to {}:{} timed out", p.host, p.port),
+                ))
+            }
             Ok(Err(e)) => {
                 if let Some(seen) = observed.lock().unwrap().clone() {
-                    bail!("UNAUTHENTICATED: host key rejected (server presented {seen}): {e}");
+                    return Err(core_err(
+                        ErrorCode::Unauthenticated,
+                        format!("host key rejected: server presented {seen}, which does not match the trusted key"),
+                    ));
                 }
-                return Err(e).context("ssh connect");
+                return Err(core_err(
+                    ErrorCode::HostOffline,
+                    format!("cannot reach {}:{}: {e}", p.host, p.port),
+                ));
             }
             Ok(Ok(h)) => h,
         };
@@ -103,7 +128,22 @@ impl SshConnection {
             .clone()
             .context("server presented no host key")?;
 
-        let key = load_secret_key(&p.private_key, None).context("load private key")?;
+        let key = match load_secret_key(&p.private_key, p.passphrase.as_deref()) {
+            Ok(k) => k,
+            Err(russh::keys::Error::KeyIsEncrypted) => {
+                return Err(core_err(
+                    ErrorCode::Unauthenticated,
+                    "private key is encrypted: save its passphrase for this host",
+                ))
+            }
+            // Do not echo the key path or key material back to the UI/logs.
+            Err(e) => {
+                return Err(core_err(
+                    ErrorCode::Unauthenticated,
+                    format!("cannot load private key: {e}"),
+                ))
+            }
+        };
         let hash = handle.best_supported_rsa_hash().await?.flatten();
         let auth = handle
             .authenticate_publickey(
@@ -112,12 +152,63 @@ impl SshConnection {
             )
             .await?;
         if !auth.success() {
-            bail!("UNAUTHENTICATED: public key rejected for user {}", p.user);
+            return Err(core_err(
+                ErrorCode::Unauthenticated,
+                format!("public key rejected for user {}", p.user),
+            ));
         }
         Ok(Arc::new(Self {
             handle,
             host_key_fingerprint,
         }))
+    }
+
+    /// Connect only far enough to read the server's host-key fingerprint, then
+    /// abort before authenticating. Used to show the key for user approval.
+    pub async fn fetch_host_key(host: &str, port: u16, timeout: Duration) -> Result<String> {
+        struct Recorder(Arc<Mutex<Option<String>>>);
+        impl client::Handler for Recorder {
+            type Error = russh::Error;
+            async fn check_server_key(
+                &mut self,
+                k: &PublicKeyOrCertificate,
+            ) -> Result<bool, Self::Error> {
+                if let PublicKeyOrCertificate::PublicKey { key, .. } = k {
+                    *self.0.lock().unwrap() = Some(key.fingerprint(HashAlg::Sha256).to_string());
+                }
+                Ok(false)
+            }
+        }
+        let seen = Arc::new(Mutex::new(None));
+        let connecting = client::connect(
+            Arc::new(client::Config::default()),
+            (host, port),
+            Recorder(seen.clone()),
+        );
+        match tokio::time::timeout(timeout, connecting).await {
+            Err(_) => Err(core_err(
+                ErrorCode::HostOffline,
+                format!("connection to {host}:{port} timed out"),
+            )),
+            Ok(result) => {
+                let fp = seen.lock().unwrap().clone();
+                match (fp, result) {
+                    (Some(fp), _) => Ok(fp),
+                    (None, Err(e)) => Err(core_err(
+                        ErrorCode::HostOffline,
+                        format!("cannot reach {host}:{port}: {e}"),
+                    )),
+                    (None, Ok(_)) => Err(core_err(
+                        ErrorCode::InternalError,
+                        "server presented no host key",
+                    )),
+                }
+            }
+        }
+    }
+
+    pub fn is_closed(&self) -> bool {
+        self.handle.is_closed()
     }
 
     /// Fingerprint the server actually presented (persist it after TOFU).
@@ -158,6 +249,11 @@ impl SshConnection {
             .await?;
         ch.request_shell(true).await?;
         Ok(ch)
+    }
+
+    /// Open an interactive login shell, split for concurrent read/write.
+    pub async fn open_pty(&self, cols: u32, rows: u32) -> Result<(SshPtyWriter, SshPtyReader)> {
+        Ok(pty::split(self.open_pty_shell(cols, rows).await?))
     }
 
     pub async fn sftp(&self) -> Result<SftpSession> {
