@@ -2,9 +2,8 @@
 /target/
 **/target/
 
-# Node
+# Node (only for the scripts in tools/)
 node_modules/
-dist/
 
 # Local data / secrets — never commit
 *.db

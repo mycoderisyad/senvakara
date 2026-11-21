@@ -49,7 +49,7 @@ Topology-aware orchestration: an Android phone plugged into a Linux host appears
 
 ## Evidence on Hand
 
-- Working v0.1.0 (Tauri) with measured benchmarks in `docs/TESTING.md`.
+- Working v0.1.0 (Tauri, in git history) and 0.2.0 (native Slint) with measured benchmarks in `docs/TESTING.md`.
 - Screenshots of the current UI and of the Termius reference were supplied in conversation; none are stored in the repository.
 - No testimonials, customers or pricing exist. Do not invent them.
 

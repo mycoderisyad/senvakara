@@ -2,17 +2,16 @@
 
 **Status:** proposed choices only. Record selected versions, license audit, benchmark and platform tests before declaring production-ready.
 
+The v0.1.0 stack (Tauri 2, React + TypeScript, Zustand, xterm.js) was replaced by the native Slint app in 0.2.0 (ADR-023); it lives in git history (commit 23bff18).
+
 | Layer | Candidate | Why | Caution / gate |
 |---|---|---|---|
-| Desktop UI (target, ADR-023) | Slint 1.18.1 (pinned; 1.19 needs rustc 1.95) | Native, one language, no WebView2 (about 200 MB less memory) | Royalty-free licence requires the `AboutSlint` attribution (Settings > About) |
-| Terminal emulation (Slint app) | `alacritty_terminal` 0.26.0 | Mature VT emulator; rows drawn as styled text runs | Worst-case full-screen redraw is near the 30 fps gate (TESTING §9) |
-| Mirror decoding (Slint app) | `openh264` 0.9.10 from source (ADR-024) | No web view codec needed | Software decode; H.264 patent review before wide distribution |
-| Remote desktop client (Slint app) | `vnc-rs` 0.6.1 | Runs directly on the SSH channel | Tight/JPEG rectangles are not drawn yet |
-| File dialogs (Slint app) | `rfd` 0.17 | Native Windows dialogs | |
-| Desktop shell | Tauri 2 | Native system bridge + web UI; packaging support | Native video embedding needs PoC |
-| Frontend | React + TypeScript | Component-based multi-pane UX, typing | Control render/DOM memory |
-| UI state | Zustand or equivalent | Simple local state store | Avoid duplicate registry source of truth |
-| Terminal display | xterm.js | Proven terminal renderer | PTY backend and lifecycle separate |
+| Desktop UI (ADR-023) | Slint 1.18.1 (pinned; 1.19 needs rustc 1.95) | Native, one language, no WebView2 (about 200 MB less memory) | Royalty-free licence requires the `AboutSlint` attribution (Settings > About) |
+| Terminal emulation | `alacritty_terminal` 0.26.0 | Mature VT emulator; rows drawn as styled text runs | Worst-case full-screen redraw is near the 30 fps gate (TESTING §9) |
+| Mirror decoding | `openh264` 0.9.10 from source (ADR-024) | No web view codec needed | Software decode; H.264 patent review before wide distribution |
+| Remote desktop client (VNC) | `vnc-rs` 0.6.1 | Runs directly on the SSH channel | Tight/JPEG rectangles are not drawn yet |
+| File dialogs | `rfd` 0.17 | Native Windows dialogs | |
+| Packaging | `cargo-packager` (NSIS, per-user) | No admin rights needed | Installer not code-signed yet |
 | Local Windows shell | Windows ConPTY or supported PTY wrapper | Real interactive terminal | Win compatibility and UTF-8 handling |
 | WSL | `wsl.exe` launched through PTY | Uses installed distribution | WSL availability and distro selection |
 | Rust desktop core | Rust | Host integration, concurrency, process isolation | Rust alone does not guarantee speed |
@@ -27,7 +26,7 @@
 | Credentials | Windows Credential Manager / platform keyring | Secrets outside SQLite plaintext | API support and secure migration |
 | Discovery | mDNS / Zeroconf | LAN service discovery | Multicast limitations and spoofing risk |
 | Future VPN | Tailscale / WireGuard | Encrypted reachability | No built-in VPN requirement for MVP |
-| Testing | Rust tests, TS unit tests, Playwright where useful | Layered confidence | Hardware integration tests needed |
+| Testing | Rust unit/integration tests; manual runs via the Slint debug MCP server | Layered confidence | Hardware integration tests needed |
 
 ## Selection principles
 
@@ -42,12 +41,12 @@
 
 - No custom SSH, ADB, VNC, or RDP protocol implementation unless existing code cannot satisfy measurable needs.
 - Flutter is an **external tool invoked on a configured build host**, not a framework used to build Senvakara.
-- Tauri/Rust is for application core; React renders UI; scrcpy/ADB/backend libraries handle specialized streams.
+- Rust owns the application core (`crates/app`); Slint only draws view models (`apps/senvakara`); scrcpy/ADB/backend libraries handle specialized streams.
 - Platform compatibility target starts with Windows desktop and Linux host agent, then expands.
 
 ## Proof-of-concept checklist
 
-- [ ] Tauri window with multiple terminals shows acceptable input/resize behavior.
+- [ ] Desktop window with multiple terminals shows acceptable input/resize behavior.
 - [ ] Rust PTY/SSH integration with proper host-key validation.
 - [ ] SFTP operations and cancellation on Fedora.
 - [ ] ADB list and `-s`-scoped operations for local Windows phone.

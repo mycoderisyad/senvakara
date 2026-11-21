@@ -11,12 +11,12 @@ crates/app       headless service layer (no UI toolkit): hosts, terminals, files
 crates/*         adapters (ssh, adb, pty, scrcpy), storage, secrets, metrics
 ```
 
-In the Slint app the pieces a web view used to provide are native: terminal emulation (`alacritty_terminal`), H.264 decoding for mirroring (`openh264`, ADR-024) and the VNC client (`vnc-rs` directly over the SSH `direct-tcpip` channel, so no WebSocket bridge). Where the text below says "Tauri" or "React", read it as the v0.1.0 app.
+In the Slint app the pieces a web view used to provide are native: terminal emulation (`alacritty_terminal`), H.264 decoding for mirroring (`openh264`, ADR-024) and the VNC client (`vnc-rs` directly over the SSH `direct-tcpip` channel, so no WebSocket bridge).
 
 ## 1. Overview
 
 ```
-Windows — Senvakara Desktop (Tauri 2 + React + Rust core)
+Windows — Senvakara Desktop (native Slint UI + Rust core)
   ├─ UI: dashboard / sessions / files / workspaces / workflows
   ├─ Local host adapter: PowerShell / WSL / Windows metrics
   ├─ Local ADB: Android A via USB; Android C via paired Wi-Fi
@@ -123,7 +123,7 @@ Initial LAN is **Wi-Fi or Ethernet**; peers need IP-level reachability and appro
 
 ## 11. Open feasibility gates
 
-- Tauri-compatible embedded RDP/VNC renderer and Fedora Wayland.
+- Embedded RDP renderer and Fedora Wayland (VNC runs natively via `vnc-rs`).
 - scrcpy stream embedding and reliable remote ADB routing.
 - Windows local PTY API choice.
 - Rust agent protocol and secure pairing.
