@@ -15,10 +15,10 @@
 
 ## Phase 1 — App skeleton + MVP terminal and SFTP
 
-- [ ] **CORE-01 [P0]** Bootstrap Tauri 2, Rust core, React+TS, formatting/lint/test workflows.
+- [x] **CORE-01 [P0]** Bootstrap Tauri 2, Rust core, React+TS, formatting/lint/test workflows. *Evidence 2026-11-21: `apps/desktop` (Tauri 2.12 + React 19 + TS) in Cargo workspace; local `npm run typecheck/lint/test/build` and `cargo fmt --check`, `cargo clippy -D warnings`, `cargo test --workspace` pass; CI workflow `.github/workflows/ci.yml` added but not yet run on GitHub.*
 - [ ] **CORE-02 [P0]** SQLite migrations + host/connection registry.
 - [ ] **CORE-03 [P0]** Host list, status, manual add/edit/remove, connection errors.
-- [ ] **CORE-04 [P0]** Local Windows/WSL PTY integration and tab lifecycle.
+- [x] **CORE-04 [P0]** Local Windows/WSL PTY integration and tab lifecycle. *Evidence 2026-11-21: in the running app (`npm run tauri dev`), PowerShell 5.1 and WSL Ubuntu-24.04 tabs accept typed input via xterm.js, terminal auto-fits (`stty size` → `43 120`), closing a tab leaves 0 shell/conhost child processes (checked with Win32_Process).*
 - [ ] **CORE-05 [P0]** SSH interactive PTY adapter with verified server identity.
 - [ ] **CORE-06 [P0]** SFTP browse/upload/download, progress/error/cancel.
 - [ ] **CORE-07 [P0]** Secure credential/key lookup via OS store.

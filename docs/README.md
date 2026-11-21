@@ -48,7 +48,19 @@ See [ROADMAP.md](ROADMAP.md) for explicit gates. This ordering is intentional: e
 
 ## Setup / running
 
-**No application source or runnable build is part of this documentation package.** When implementation starts, maintain platform-specific prerequisites and executable commands here. Initial candidate tools include Rust, Tauri 2, Node.js, Android platform-tools, scrcpy, Flutter SDK (only for optional deployment workflows), SSH server on Fedora, and appropriate desktop-sharing services.
+Prerequisites (Windows): Rust stable (MSVC), Node.js 24, WebView2 runtime, and for Android features the user's own Android platform-tools (`adb`, not bundled — ADR-015).
+
+```powershell
+cd apps/desktop
+npm install
+npm run tauri dev      # run the desktop app
+npm run typecheck; npm run lint; npm run test
+cargo test --workspace # from the repository root
+```
+
+Linux host PoC spike: `cargo run -p senvakara-adapters-ssh --example poc_linux -- <host> <user> <SHA256:host-key-fingerprint> [private-key]`.
+
+Other tools used later include Rust, Tauri 2, Node.js, Android platform-tools, scrcpy, Flutter SDK (only for optional deployment workflows), SSH server on Fedora, and appropriate desktop-sharing services.
 
 ## Documentation rules
 

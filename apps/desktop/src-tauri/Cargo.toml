@@ -1,0 +1,22 @@
+[package]
+name = "senvakara-desktop"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Senvakara Windows desktop shell (Tauri 2)"
+
+[lib]
+# Distinct lib name avoids bin/lib name clash on Windows (cargo#8519).
+name = "senvakara_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+senvakara-core = { path = "../../../crates/core" }
+senvakara-adapters-pty = { path = "../../../crates/adapters-pty" }
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

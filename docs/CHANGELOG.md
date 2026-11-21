@@ -17,9 +17,12 @@ Changes to documentation and (later) shipped product are tracked separately. For
 - Generalized remote host target from Fedora to generic Linux; Fedora remains the reference test host (ADR-013).
 - Added ADR-014..017: remote ADB via SSH port-forward, no bundled `adb.exe`, candidate library set, embedded streaming approach.
 
-### Application
+### Application (development builds only, no release)
 
-- No application release yet. Implementation pending.
+- Desktop shell (Tauri 2 + React + TypeScript) with sidebar navigation; unbuilt sections state their planned milestone.
+- Local terminal tabs: Windows PowerShell and each installed WSL distribution (ConPTY), resize, close kills the process.
+- Diagnostics view: WebCodecs codec support and H.264 round-trip check for the local WebView2.
+- Rust adapters (not yet wired to UI): SSH with host-key pinning, PTY, SFTP, loopback-only port forwarding.
 
 ## Versioning guidance
 

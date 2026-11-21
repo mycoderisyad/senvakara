@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/*"]
+members = ["crates/*", "apps/desktop/src-tauri"]
 
 [workspace.package]
 version = "0.0.1"
@@ -12,3 +12,12 @@ publish = false
 thiserror = "2"
 serde = { version = "1", features = ["derive"] }
 anyhow = "1"
+
+# Release profile for the desktop binary (profiles only apply at workspace root).
+# See https://tauri.app/concept/size/#cargo-configuration
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+panic = "abort"
+strip = true
