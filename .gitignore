@@ -21,3 +21,14 @@ known_hosts
 Thumbs.db
 .vscode/
 .idea/
+
+# Local tool state
+.claude/settings.local.json
+.impeccable/
+
+# More local secrets and noise
+*.log
+*.ppk
+*.pfx
+*.p12
+*.bundle
