@@ -64,7 +64,7 @@ Direction, pinned by the owner: in the manner of Termius but more minimal; dark 
 
 All in `apps/senvakara/ui/components`. Every interactive one reacts to hover, press and keyboard focus (1 px accent border) and exposes an accessible role and label.
 
-- **Controls** (`controls.slint`, `widgets.slint`): `Button` (primary, secondary, danger, ghost), `IconButton`, `TextField` (with error text and a masked variant), `BoundField`, `Select`, `CheckBox`, `Segmented`, `SearchField`, `ProgressBar`.
+- **Controls** (`controls.slint`; `widgets.slint`, which re-exports the files in `widgets/`): `Button` (primary, secondary, danger, ghost), `IconButton`, `TextField` (with error text and a masked variant), `BoundField`, `Select`, `CheckBox`, `Segmented`, `SearchField`, `ProgressBar`.
 - **Status and text:** `StatusMark` (live = filled dot, idle = ring, busy = half-filled ring, attention = filled square, each with a word), `Notice` (danger, warning, info, success), `Reason` (why a control is unavailable), `DetailRow`, `MeterRow`, `GroupTitle`, `PageTitle`, `Hint`.
 - **Lists:** `ItemCard` (icon tile, name, route or address, state in a fixed right-hand cell, context menu), `SidebarItem`, `ActionList`, `JobList`.
 - **Overlays:** `DialogFrame`, `ConfirmDialog` (lists exactly what is affected), `WirelessDialog`, `PaletteOverlay`.

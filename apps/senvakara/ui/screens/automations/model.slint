@@ -1,0 +1,118 @@
+// The view models of the Automations page: run history rows, the Flutter deploy form and saved recipes.
+
+// One finished or running run in a history table.
+export struct RunRow {
+    // "2026-11-22 14:05"
+    when: string,
+    target: string,
+    // The build mode or the recipe name, depending on the table.
+    what: string,
+    tone: string,
+    // "Succeeded" | "Failed" | "Cancelled" | "Running"
+    state-text: string,
+    result: string,
+    // "42 s"
+    duration: string,
+}
+
+export global Deploy {
+    // "live" | "attention" | "busy"
+    in property <string> sdk-tone: "busy";
+    // "Flutter 3.24.0" | "Flutter SDK not found" | "Looking for the Flutter SDK"
+    in property <string> sdk-text;
+    // Where the SDK is, or what to do when it is missing.
+    in property <string> sdk-detail;
+    in property <string> build-host;
+    in-out property <string> project;
+    // "release" | "debug"
+    in property <string> mode: "release";
+    in property <[string]> targets;
+    in property <int> target-index;
+    in property <bool> launch: true;
+    in property <bool> logcat: true;
+    // Why "Build and deploy" cannot be pressed ("" when it can).
+    in property <string> reason;
+    in property <string> error;
+    in property <[RunRow]> history;
+
+    callback edited();
+    callback browse();
+    callback set-mode(mode: string);
+    callback pick-target(index: int);
+    callback set-launch(on: bool);
+    callback set-logcat(on: bool);
+    callback start();
+}
+
+export struct RecipeItem {
+    id: string,
+    name: string,
+    // "3 steps, for 2201117PG"
+    detail: string,
+    selected: bool,
+}
+
+export struct StepItem {
+    // Index into Recipes.kinds, and the kind itself.
+    kind-index: int,
+    // install_apk | uninstall_package | launch_app | wait | device_shell | screenshot | flutter_deploy
+    kind: string,
+    // The path, package, command, folder or project of the step.
+    text: string,
+    seconds: string,
+    // "release" | "debug"
+    mode: string,
+    launch: bool,
+    // What is wrong with the step, in words.
+    error: string,
+    first: bool,
+    last: bool,
+}
+
+export global Recipes {
+    in property <[RecipeItem]> items;
+    // A recipe is open in the editor.
+    in property <bool> editing;
+    // "New recipe" | "Edit Smoke test"
+    in property <string> title;
+    // The open recipe has been saved at least once.
+    in property <bool> saved;
+    in-out property <string> name;
+    in property <string> name-error;
+    in property <[string]> targets;
+    in property <int> target-index;
+    in property <bool> allow-install;
+    in property <bool> allow-shell;
+    in property <[StepItem]> steps;
+    in property <[string]> kinds;
+    // Why each button cannot be pressed ("" when it can).
+    in property <string> add-reason;
+    in property <string> remove-reason;
+    in property <string> save-reason;
+    in property <string> run-reason;
+    in property <string> permission-warning;
+    in property <string> target-warning;
+    in property <string> error;
+    // Runs of the open recipe, or of every recipe when none is open.
+    in property <[RunRow]> history;
+
+    callback select(id: string);
+    callback create();
+    callback close();
+    callback edited();
+    callback pick-target(index: int);
+    callback set-install(on: bool);
+    callback set-shell(on: bool);
+    callback step-kind(step: int, kind: int);
+    callback step-text(step: int, text: string);
+    callback step-seconds(step: int, text: string);
+    callback step-mode(step: int, mode: string);
+    callback step-launch(step: int, on: bool);
+    callback step-browse(step: int);
+    callback step-move(step: int, by: int);
+    callback step-remove(step: int);
+    callback step-add();
+    callback save();
+    callback remove();
+    callback run();
+}

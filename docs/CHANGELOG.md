@@ -22,6 +22,7 @@ Changes to documentation and (later) shipped product are tracked separately. For
 - Idle CPU on Home: a health sample now redraws only that host's card instead of rebuilding every list, and this PC's disk is read for free space only. Measured 1.20 % of one core before, 0.86 % after (60 s, release build, Intel GPU).
 - The default renderer is Slint's software renderer instead of FemtoVG/OpenGL: the Intel OpenGL driver kept a time-critical thread busy at about 0.5 % of a core with no frames drawn. Idle on Home is now 0.10–0.23 % of one core. `SLINT_BACKEND=winit-femtovg` brings OpenGL back. Settings shows the renderer in use.
 - The window title bar is asked to be dark whatever the Windows theme (winit window theme). Seen dark on a PC whose Windows theme is already dark; not yet checked with the light theme.
+- Internal, no behaviour change: the app's largest source files were split into smaller modules (`apps/senvakara/src` and `ui`), and `docs/AGENTS.md` now points at the Rust guideline skill in `.claude/skills/rust-guidelines`. Evidence under QA-06 in `docs/TASKS.md`.
 
 ## [0.2.0] - 2026-11-22 (built, not yet signed off)
 

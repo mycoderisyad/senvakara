@@ -1,0 +1,66 @@
+// Page layout: GroupTitle, Labeled, PageTitle and Card.
+
+import { Theme } from "../../theme.slint";
+import { Hint } from "status.slint";
+
+export component GroupTitle inherits Text {
+    color: Theme.text-muted;
+    font-size: Theme.text-small;
+    font-weight: 600;
+}
+
+// A label over a control, with what is wrong with it underneath, in words.
+export component Labeled inherits VerticalLayout {
+    in property <string> label;
+    in property <string> error;
+    alignment: start;
+    spacing: Theme.space-1;
+
+    Text {
+        text: root.label;
+        color: Theme.text-muted;
+        font-size: Theme.text-small;
+    }
+
+    @children
+
+    if root.error != "": Hint {
+        text: root.error;
+        ink: Theme.danger;
+    }
+}
+
+// The heading of a page section: a title and one sentence under it.
+export component PageTitle inherits VerticalLayout {
+    in property <string> title;
+    in property <string> body;
+    alignment: start;
+    spacing: Theme.space-1;
+
+    Text {
+        text: root.title;
+        color: Theme.text;
+        font-size: Theme.text-title;
+        font-weight: 600;
+    }
+
+    if root.body != "": Hint {
+        text: root.body;
+    }
+}
+
+// A bordered block that groups one topic on a page.
+export component Card inherits Rectangle {
+    in property <length> pad: Theme.space-4;
+    border-radius: Theme.radius;
+    border-width: 1px;
+    border-color: Theme.hairline;
+    background: Theme.surface;
+    height: content.preferred-height;
+
+    content := VerticalLayout {
+        padding: root.pad;
+        spacing: Theme.space-3;
+        @children
+    }
+}

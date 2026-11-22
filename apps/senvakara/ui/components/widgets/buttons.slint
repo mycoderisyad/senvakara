@@ -1,0 +1,112 @@
+// Text buttons: Button, and ActionList with one button per action of the selected item.
+
+import { Theme } from "../../theme.slint";
+import { Action } from "../../data.slint";
+
+// A text button. kind: "primary" | "secondary" | "danger" | "ghost".
+export component Button inherits Rectangle {
+    in property <string> text;
+    in property <string> kind: "secondary";
+    in property <bool> enabled: true;
+    // Why the button cannot be used; shown next to it by the caller and read by screen readers.
+    in property <string> reason;
+    callback clicked();
+
+    private property <color> ink: !enabled ? Theme.text-faint : kind == "primary" ? Theme.accent-ink : kind == "danger" ? Theme.danger : Theme.text;
+    private property <color> fill: kind == "primary" ? Theme.accent : kind == "ghost" ? transparent : Theme.surface;
+
+    height: Theme.row;
+    min-width: label.preferred-width + 2 * Theme.space-3;
+    horizontal-stretch: 0;
+    border-radius: Theme.radius;
+    border-width: 1px;
+    border-color: focus.has-focus ? Theme.accent : kind == "ghost" ? transparent : !enabled ? Theme.hairline : kind == "primary" ? transparent : Theme.hairline-strong;
+    background: !enabled ? Theme.surface : touch.pressed ? fill.darker(0.15) : touch.has-hover ? fill.brighter(kind == "primary" ? 0.1 : 0.35) : fill;
+    accessible-role: button;
+    accessible-label: reason == "" ? text : text + ". Unavailable: " + reason;
+    accessible-enabled: enabled;
+    accessible-action-default => {
+        if (enabled) {
+            root.clicked();
+        }
+    }
+    animate background { duration: Theme.quick; }
+
+    focus := FocusScope {
+        enabled: root.enabled;
+        key-pressed(event) => {
+            if (event.text == Key.Return || event.text == " ") {
+                root.clicked();
+                return accept;
+            }
+            return reject;
+        }
+    }
+
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+    }
+
+    label := Text {
+        text: root.text;
+        color: root.ink;
+        font-size: Theme.text-body;
+        font-weight: root.kind == "primary" ? 600 : 500;
+    }
+}
+
+// One action as a button, with the reason underneath when it cannot be used. Sized by hand:
+// a wrapped line inside nested layouts is otherwise measured too short and overlaps what follows.
+component ActionRow inherits Rectangle {
+    in property <Action> entry;
+    in property <bool> primary;
+    callback run();
+
+    height: button.height + (entry.reason == "" ? 0px : reason.preferred-height + 2px);
+
+    button := Button {
+        x: 0;
+        y: 0;
+        width: parent.width;
+        text: root.entry.label;
+        kind: root.primary ? "primary" : root.entry.danger ? "danger" : "secondary";
+        enabled: root.entry.reason == "";
+        reason: root.entry.reason;
+        clicked => {
+            root.run();
+        }
+    }
+
+    reason := Text {
+        x: 0;
+        y: button.height + 2px;
+        width: parent.width;
+        visible: root.entry.reason != "";
+        text: root.entry.reason;
+        color: root.primary ? Theme.text-muted : Theme.text-faint;
+        font-size: Theme.text-small;
+        wrap: word-wrap;
+    }
+}
+
+// Buttons for every action of the selected item; an unavailable one says why underneath.
+// `primary` must be one of `actions`: it is drawn as the filled button.
+export component ActionList inherits VerticalLayout {
+    in property <Action> primary;
+    in property <[Action]> actions;
+    callback run(string);
+
+    spacing: Theme.space-2;
+
+    for entry in root.actions: ActionRow {
+        entry: entry;
+        primary: entry.id == root.primary.id;
+        run => {
+            root.run(entry.id);
+        }
+    }
+}

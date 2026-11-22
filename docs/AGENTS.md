@@ -24,6 +24,7 @@ Build Senvakara incrementally as a **local-first, device-centric control center*
 ## Coding conventions (proposed; refine after repo bootstrap)
 
 - Desktop (ADR-023): native Slint app in `apps/senvakara`. All state and logic in Rust; `.slint` files only draw view models and forward input; every colour and size comes from `ui/theme.slint`; no emoji or glyph icons; see `docs/DESIGN.md`. Backend calls go through `crates/app` and never block the UI thread.
+- Rust: follow the project skill `.claude/skills/rust-guidelines/SKILL.md` (module layout, naming, comments, errors, threads, tests, checks). In `apps/senvakara/src` a module root is `src/<name>.rs` with children in `src/<name>/` (no `mod.rs`), split by responsibility; aim for 400 lines per file and keep every file under 600.
 - Fedora: standalone Rust agent/service with versioned protocol; no direct trust in incoming user-provided shell strings.
 - Database: SQLite migrations, referential integrity, no raw secrets.
 - Protocol adapters behind typed contracts; cancelable operations and structured errors.

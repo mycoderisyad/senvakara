@@ -1,0 +1,149 @@
+// The Flutter build-and-deploy card: SDK state, project, mode, target phone and its runs.
+
+import { Theme } from "../../theme.slint";
+import { Button, GroupTitle, Notice, TextField, CheckBox, Segmented, Select, StatusMark, Hint, Labeled, Card } from "../../components/widgets.slint";
+import { Deploy } from "model.slint";
+import { HistoryTable } from "history-table.slint";
+
+export component DeployCard inherits Card {
+    GroupTitle {
+        text: "Flutter build and deploy";
+    }
+
+    Hint {
+        text: "Builds the app on " + Deploy.build-host + " and installs it on a phone, also one that is plugged into another host.";
+    }
+
+    HorizontalLayout {
+        spacing: Theme.space-3;
+
+        StatusMark {
+            horizontal-stretch: 0;
+            alignment: start;
+            tone: Deploy.sdk-tone;
+            text: Deploy.sdk-text;
+        }
+
+        Text {
+            horizontal-stretch: 1;
+            vertical-alignment: center;
+            text: Deploy.sdk-detail;
+            color: Theme.text-faint;
+            font-size: Theme.text-small;
+            font-family: Deploy.sdk-tone == "live" ? Theme.mono : Theme.sans;
+            overflow: elide;
+        }
+    }
+
+    Labeled {
+        label: "Project folder";
+        HorizontalLayout {
+            spacing: Theme.space-2;
+
+            TextField {
+                horizontal-stretch: 1;
+                mono: true;
+                text <=> Deploy.project;
+                label: "Flutter project folder";
+                placeholder: "The folder that holds pubspec.yaml";
+                edited => {
+                    Deploy.edited();
+                }
+            }
+
+            Button {
+                text: "Browse";
+                accessible-label: "Browse for the Flutter project folder";
+                clicked => {
+                    Deploy.browse();
+                }
+            }
+        }
+    }
+
+    HorizontalLayout {
+        spacing: Theme.space-4;
+
+        Labeled {
+            label: "Mode";
+            Segmented {
+                width: 190px;
+                items: [{ id: "release", label: "Release" }, { id: "debug", label: "Debug" }];
+                current: Deploy.mode;
+                picked(id) => {
+                    Deploy.set-mode(id);
+                }
+            }
+        }
+
+        Labeled {
+            horizontal-stretch: 1;
+            label: "Target phone";
+            Select {
+                model: Deploy.targets;
+                index: Deploy.target-index;
+                label: "Target phone for the build";
+                enabled: Deploy.targets.length > 0;
+                picked(index) => {
+                    Deploy.pick-target(index);
+                }
+            }
+        }
+    }
+
+    HorizontalLayout {
+        spacing: Theme.space-3;
+
+        CheckBox {
+            text: "Launch after install";
+            checked: Deploy.launch;
+            toggled(on) => {
+                Deploy.set-launch(on);
+            }
+        }
+
+        CheckBox {
+            text: "Show app log";
+            checked: Deploy.logcat && Deploy.launch;
+            enabled: Deploy.launch;
+            reason: "The app log is only read when the app is launched.";
+            toggled(on) => {
+                Deploy.set-logcat(on);
+            }
+        }
+
+        Text {
+            horizontal-stretch: 1;
+            vertical-alignment: center;
+            horizontal-alignment: right;
+            text: Deploy.reason != "" ? Deploy.reason : !Deploy.launch ? "The app log is only read when the app is launched." : "";
+            color: Theme.text-faint;
+            font-size: Theme.text-small;
+            overflow: elide;
+        }
+
+        Button {
+            text: "Build and deploy";
+            kind: "primary";
+            enabled: Deploy.reason == "";
+            reason: Deploy.reason;
+            clicked => {
+                Deploy.start();
+            }
+        }
+    }
+
+    if Deploy.error != "": Notice {
+        kind: "danger";
+        text: Deploy.error;
+    }
+
+    if Deploy.history.length > 0: GroupTitle {
+        text: "Deploy runs";
+    }
+
+    if Deploy.history.length > 0: HistoryTable {
+        rows: Deploy.history;
+        what-title: "Mode";
+    }
+}

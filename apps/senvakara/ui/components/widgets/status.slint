@@ -1,0 +1,107 @@
+// Status and feedback: StatusMark, Notice, ProgressBar, and the Reason and Hint lines of text.
+
+import { Theme } from "../../theme.slint";
+
+// State as a shape plus a word, in a fixed cell so a column of them lines up.
+// tone: "live" | "idle" | "busy" | "attention".
+export component StatusMark inherits HorizontalLayout {
+    in property <string> tone;
+    in property <string> text;
+    private property <color> ink: tone == "live" ? Theme.success : tone == "attention" ? Theme.warning : tone == "busy" ? Theme.info : Theme.text-faint;
+
+    spacing: 6px;
+    alignment: end;
+
+    VerticalLayout {
+        alignment: center;
+        Rectangle {
+            width: 8px;
+            height: 8px;
+            // live: filled dot. idle: ring. busy: half-filled ring. attention: filled square.
+            border-radius: root.tone == "attention" ? 1px : 4px;
+            border-width: root.tone == "idle" || root.tone == "busy" ? 1.5px : 0px;
+            border-color: root.ink;
+            background: root.tone == "live" || root.tone == "attention" ? root.ink : root.tone == "busy" ? root.ink.with-alpha(0.45) : transparent;
+        }
+    }
+
+    Text {
+        vertical-alignment: center;
+        text: root.text;
+        color: root.tone == "idle" ? Theme.text-muted : root.ink;
+        font-size: Theme.text-small;
+        overflow: elide;
+    }
+}
+
+export component Notice inherits Rectangle {
+    in property <string> text;
+    // "danger" | "warning" | "info" | "success"
+    in property <string> kind: "warning";
+    private property <color> ink: kind == "danger" ? Theme.danger : kind == "info" ? Theme.info : kind == "success" ? Theme.success : Theme.warning;
+
+    border-radius: Theme.radius;
+    background: ink.with-alpha(0.1);
+    // Sized from its own width, not through a layout: a message with one very long word (a
+    // path, an address) must be cut, not widen the panel it sits in.
+    height: body.preferred-height + 2 * Theme.space-2;
+    clip: true;
+
+    body := Text {
+        x: Theme.space-3;
+        y: Theme.space-2;
+        width: parent.width - 2 * Theme.space-3;
+        text: root.text;
+        color: root.ink;
+        font-size: Theme.text-small;
+        wrap: word-wrap;
+    }
+}
+
+// A thin bar for progress that is known as a fraction.
+export component ProgressBar inherits Rectangle {
+    in property <float> fraction;
+    in property <color> ink: Theme.accent;
+
+    height: 4px;
+    border-radius: 2px;
+    background: Theme.hairline;
+
+    Rectangle {
+        x: 0;
+        width: parent.width * Math.clamp(root.fraction, 0, 1);
+        border-radius: 2px;
+        background: root.ink;
+        animate width { duration: 160ms; easing: ease-out; }
+    }
+}
+
+// Why a control next to this line cannot be used. Draws nothing when there is no reason.
+export component Reason inherits Text {
+    visible: self.text != "";
+    height: self.text == "" ? 0px : self.preferred-height;
+    color: Theme.text-faint;
+    font-size: Theme.text-small;
+    wrap: word-wrap;
+}
+
+// A wrapped line of help or of what is wrong. Sized from its own width, not through the layout:
+// a wrapped Text inside nested layouts is otherwise measured as a single line.
+export component Hint inherits Rectangle {
+    in property <string> text;
+    in property <color> ink: Theme.text-muted;
+    in property <bool> mono;
+
+    height: body.preferred-height;
+
+    body := Text {
+        x: 0;
+        y: 0;
+        width: parent.width;
+        text: root.text;
+        color: root.ink;
+        font-size: Theme.text-small;
+        font-family: root.mono ? Theme.mono : Theme.sans;
+        wrap: root.mono ? char-wrap : word-wrap;
+    }
+}
