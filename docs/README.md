@@ -83,4 +83,4 @@ Other tools used include Rust, Slint, Android platform-tools, scrcpy, Flutter SD
 
 ## Naming and licensing
 
-**Senvakara** is a working project name; trademark, repository name, domain, and third-party license checks remain open. Project license and distribution policy are not yet decided.
+**Senvakara** is a working project name; trademark, repository name, domain, and third-party license checks remain open. The project is licensed under Apache-2.0 (see `LICENSE`); distribution policy is not yet decided.

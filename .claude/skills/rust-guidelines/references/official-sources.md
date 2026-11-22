@@ -217,7 +217,7 @@ review.
 | Comment width | 80 characters (Style Guide, comments) | 80 in `crates/*`; 100 in `apps/senvakara` | Match the crate |
 | Key order in `Cargo.toml` | Version-sorted keys outside `[package]` (Style Guide, Cargo.toml) | Dependencies grouped by purpose, path crates first, with comments | Keep the grouping; do not re-sort |
 | `[package]` key order | `description` last | `description` last in `crates/*`; `build` follows it in `apps/senvakara/Cargo.toml:7-8` | Leave as is; put `description` last in a new manifest |
-| `license` value | Valid SPDX expression | `license = "UNLICENSED"` (root `Cargo.toml:8`) | Leave it: the licence is an open owner decision (`docs/DECISIONS.md:57`) |
+| `license` value | Valid SPDX expression | `license = "Apache-2.0"` (root `Cargo.toml:8`) | Matches the `LICENSE` file |
 | Rustdoc examples | Every public item (C-EXAMPLE) | None; unit tests instead | Do not add doctests unless asked |
 | Failure docs | `# Errors`, `# Panics` sections (C-FAILURE) | A sentence in the doc comment; `// SAFETY:` on unsafe blocks | Either form; never silence |
 | Package metadata | authors, repository, keywords, categories (C-METADATA) | Only name, version, edition, license, publish, description | Nothing is published; add none |

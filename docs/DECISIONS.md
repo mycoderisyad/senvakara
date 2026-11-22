@@ -57,7 +57,7 @@ This is a lightweight ADR (Architecture Decision Record) log. **Accepted** descr
 4. What Fedora Wayland desktop protocol/server stack is supported?
 5. Which encrypted, authenticated agent transport/pairing scheme is practical and secure?
 6. How can the same Android be verified across USB and wireless route changes without accidental merge?
-7. Which third-party binaries are legally distributable/bundleable, and what is final project license?
+7. Which third-party binaries are legally distributable/bundleable? (Project license decided: Apache-2.0, see `LICENSE`.)
 8. ~~Should future VPN connectivity be user-managed or have optional guided setup?~~ Decided in ADR-022: user-managed, with guided address registration.
 
 When a decision changes, add superseding ADR and update impacted `ARCHITECTURE.md`, `TECH_STACK.md`, `API.md`, `SECURITY.md`, `TASKS.md` rather than silently rewriting history.
