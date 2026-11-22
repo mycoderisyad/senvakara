@@ -91,7 +91,7 @@ Plan approved by the owner on 2026-11-21. The Tauri app was removed on 2026-11-2
 
 ## Phase 9 — Credentials, keychain, new-tab launcher, SFTP drag and drop
 
-Plan approved by the owner on 2026-11-22 (ADR-025 to ADR-027). Reference screenshots are in `docs/image-ref/`. Chain: CRED-01 → CRED-02 → CRED-03 → HOST-UI-02; TAB-NEW-* and FILE-* can run in parallel with the credential chain.
+Plan approved by the owner on 2026-11-22 (ADR-025 to ADR-027). Chain: CRED-01 → CRED-02 → CRED-03 → HOST-UI-02; TAB-NEW-* and FILE-* can run in parallel with the credential chain.
 
 - [ ] **CRED-01 [P0]** SSH password authentication (PRD TERM-02, NFR-01). *Pass: a host added with only a password connects to the Fedora host (terminal and SFTP); the password lives only in Windows Credential Manager (SQLite holds an opaque reference, logs never show it); servers that only offer keyboard-interactive still work through the fallback; a wrong host key is refused before any credential is sent; a wrong password reports an authentication error and never retries in a loop.*
   - Progress 2026-11-22 (backend only, box stays open): `Auth::Password` in `crates/adapters-ssh/src/auth.rs` with the keyboard-interactive fallback (one hidden prompt, answered once), `App::host_set_password`, `AppState::connection` builds the sign-in from `SshAuth`. Covered by `crates/adapters-ssh/tests/auth.rs` against an in-process server (right and wrong password, prompt-only server, wrong host key sees no attempt). Not done: form UI (HOST-UI-02), login to the Fedora host.
