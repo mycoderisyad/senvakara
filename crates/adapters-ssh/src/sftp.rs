@@ -2,6 +2,12 @@
 //! with progress. Transfers never overwrite silently and never leave a
 //! partial file under the final name (docs/SECURITY.md §7).
 
+mod between;
+mod tree;
+
+pub use between::copy_between;
+pub use tree::{copy_dir_between, download_dir, upload_dir, walk_local, walk_remote, Copied, Plan};
+
 use anyhow::{Context, Result};
 use russh_sftp::client::SftpSession;
 use russh_sftp::protocol::OpenFlags;
@@ -21,6 +27,9 @@ pub struct RemoteEntry {
     pub size: u64,
     /// Unix seconds, if the server reported it.
     pub modified: Option<u32>,
+    /// Type and permissions as `ls -l` writes them ("drwxr-xr-x"), if the
+    /// server reported them.
+    pub permissions: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -72,6 +81,16 @@ pub async fn list(sftp: &SftpSession, path: &str) -> Result<Listing> {
                 is_symlink: m.is_symlink(),
                 size: m.size.unwrap_or(0),
                 modified: m.mtime,
+                permissions: m.permissions.map(|_| {
+                    let kind = if m.is_dir() {
+                        'd'
+                    } else if m.is_symlink() {
+                        'l'
+                    } else {
+                        '-'
+                    };
+                    format!("{kind}{}", m.permissions())
+                }),
             }
         })
         .filter(|e| e.name != "." && e.name != "..")
@@ -82,6 +101,33 @@ pub async fn list(sftp: &SftpSession, path: &str) -> Result<Listing> {
             .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
     });
     Ok(Listing { path, entries })
+}
+
+/// The last component of a remote path, if it names something a copy can
+/// be called (not empty, `.` or `..`).
+pub(crate) fn remote_name(path: &str) -> Option<&str> {
+    let name = path.trim_end_matches('/').rsplit('/').next()?;
+    (!name.is_empty() && name != "." && name != ".." && !name.contains('\0')).then_some(name)
+}
+
+/// Create the folder `name` in `dir`. Fails with `Conflict` when something
+/// with that name is already there, and with `InvalidInput` when `name` is
+/// not a single path component.
+pub async fn mkdir(sftp: &SftpSession, dir: &str, name: &str) -> Result<String> {
+    if name.contains('/') || remote_name(name).is_none() {
+        return Err(err(ErrorCode::InvalidInput, "folder name is not valid"));
+    }
+    let target = remote_join(dir, name);
+    if sftp.try_exists(target.clone()).await.unwrap_or(false) {
+        return Err(err(
+            ErrorCode::Conflict,
+            format!("{name} already exists on the remote host"),
+        ));
+    }
+    sftp.create_dir(target.clone())
+        .await
+        .context("create remote folder")?;
+    Ok(target)
 }
 
 /// Download `remote` into `local_dir`. Writes to `<name>.part` and renames on

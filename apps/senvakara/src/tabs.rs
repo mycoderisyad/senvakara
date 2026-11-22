@@ -22,11 +22,16 @@ impl App {
             ),
             _ => (ShellKind::PowerShell, "PowerShell".to_string()),
         };
+        self.open_local_shell(&shell, &title);
+    }
+
+    /// Open a terminal tab that runs `shell` on this PC.
+    pub(crate) fn open_local_shell(self: &Rc<Self>, shell: &ShellKind, title: &str) {
         let id = self.take_id();
         let (cols, lines) = self.grid.get();
         let notify = notifier(id);
         let Some(ui) = self.ui.upgrade() else { return };
-        match term::Session::spawn(id, &shell, cols, lines, notify) {
+        match term::Session::spawn(id, shell, cols, lines, notify) {
             Ok(session) => {
                 self.sessions.borrow_mut().push(Pane::Term(session));
                 self.tabs.push(TabInfo {
@@ -34,7 +39,11 @@ impl App {
                     kind: "terminal".into(),
                     title: title.into(),
                     detail: SharedString::new(),
-                    hue: if kind == "wsl" { 4 } else { 1 },
+                    hue: if matches!(shell, ShellKind::Wsl { .. }) {
+                        4
+                    } else {
+                        1
+                    },
                     exited: false,
                 });
                 ui.global::<Inventory>().set_error(SharedString::new());
@@ -204,6 +213,7 @@ impl App {
     /// The user went to a section of Home: read what it shows.
     pub fn section_opened(self: &Rc<Self>, section: &str) {
         match section {
+            "keychain" => self.keychain_reload(),
             "workspaces" => self.workspaces_reload(),
             "automations" => self.automations_opened(),
             "settings" => self.settings_opened(),
@@ -211,7 +221,8 @@ impl App {
         }
     }
 
-    /// Window shortcuts: Ctrl+Tab, and Ctrl+Shift with T, W, C, V and K (the command palette).
+    /// Window shortcuts: Ctrl+Tab, and Ctrl+Shift with T (the New Tab page), W, C, V, K (the
+    /// command palette) and 1 to 9 (the nth entry of the menu next to "+").
     /// Plain Ctrl+T/W/K stay with the shell, as in Windows Terminal.
     pub(crate) fn shortcut(self: &Rc<Self>, text: &str, control: bool, shift: bool) -> bool {
         if !control {
@@ -233,7 +244,7 @@ impl App {
         }
         match key {
             Some('t') | Some('\u{14}') => {
-                self.open_shell("powershell", "");
+                self.launcher_open();
                 true
             }
             Some('w') | Some('\u{17}') => {
@@ -265,7 +276,14 @@ impl App {
                 }
                 true
             }
-            _ => false,
+            Some(key) => match crate::launcher::quick_slot(key) {
+                Some(slot) => {
+                    self.launcher_quick_shortcut(slot);
+                    true
+                }
+                None => false,
+            },
+            None => false,
         }
     }
 }

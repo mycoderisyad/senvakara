@@ -4,7 +4,7 @@ use std::rc::Rc;
 
 use slint::{ComponentHandle, ModelRc, VecModel};
 
-use crate::{hostform, jobs, workspace, App, Confirm, KeyValue};
+use crate::{hostform, jobs, keychain, workspace, App, Confirm, KeyValue};
 
 /// What a confirmation dialog asks.
 pub struct Question {
@@ -47,6 +47,10 @@ pub enum Pending {
     CopyFiles(Vec<(String, jobs::JobSpec)>),
     /// Close the host form although the user typed in it, then go on to something else.
     DiscardHostForm(hostform::Next),
+    /// Close the key form although the user typed in it, then go on to something else.
+    DiscardKeyForm(keychain::Next),
+    /// Id of a key of the Keychain.
+    DeleteKey(String),
     /// Host id.
     RemoveHost(String),
     RemoveVpn {
@@ -107,6 +111,10 @@ impl App {
             return;
         };
         if !accepted {
+            if let Pending::TrustKey(host, _) = &pending {
+                // The key was not accepted: the terminal that waited for it is not opened.
+                self.hosts.take_connect_after_trust(host);
+            }
             return;
         }
         match pending {
@@ -153,6 +161,8 @@ impl App {
                 }
             }
             Pending::DiscardHostForm(next) => self.host_form_discard(next),
+            Pending::DiscardKeyForm(next) => self.keychain_discard(next),
+            Pending::DeleteKey(id) => self.keychain_delete(id),
             Pending::RemoveHost(host_id) => self.host_remove(host_id),
             Pending::RemoveVpn {
                 host_id,

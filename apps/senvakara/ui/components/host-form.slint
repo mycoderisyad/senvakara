@@ -1,102 +1,16 @@
 // The host half of the inspector that takes input: the form to add or edit a host, and the
-// addresses a host can be reached at. Checking and saving happen in Rust.
+// addresses a host can be reached at. Checking and saving happen in Rust. The pieces are in
+// host-form/: the view models, one file per card, and the network paths.
 
 import { Theme } from "../theme.slint";
 import { IconButton } from "controls.slint";
-import { Button, GroupTitle, Notice, TextField, CheckBox, Segmented, Reason, StatusMark } from "widgets.slint";
-import { HostItem } from "../data.slint";
+import { Button, Notice, Reason, Hint } from "widgets.slint";
+import { HostForm, NetPaths, KeyChoice } from "host-form/model.slint";
+import { AddressCard, GeneralCard } from "host-form/general.slint";
+import { ConnectionCard } from "host-form/credentials.slint";
+import { NetworkPaths } from "host-form/paths.slint";
 
-// Add or edit a remote host. Shown in the inspector instead of the details while open.
-export global HostForm {
-    in property <bool> open;
-    // "New host" | "Edit Fedora laptop"
-    in property <string> title;
-    in property <bool> editing;
-    in-out property <string> name;
-    in-out property <string> address;
-    in-out property <string> port;
-    in-out property <string> username;
-    // "linux" | "unknown"
-    in property <string> os: "linux";
-    in-out property <string> key-path;
-    in-out property <string> passphrase;
-    // A passphrase is stored for this host already.
-    in property <bool> has-passphrase;
-    in property <bool> remove-passphrase;
-    // What is wrong with a field, in words ("" when it is fine).
-    in property <string> name-error;
-    in property <string> address-error;
-    in property <string> port-error;
-    in property <string> username-error;
-    in property <string> key-error;
-    // Why saving failed.
-    in property <string> error;
-    in property <bool> saving;
-    // Bumped whenever the form is (re)opened: the first field takes the cursor.
-    in property <int> revision;
-
-    callback edited();
-    callback set-os(os: string);
-    callback set-remove-passphrase(on: bool);
-    callback browse();
-    callback save();
-    callback cancel();
-}
-
-// Adding a VPN address to the host selected on Home. The addresses themselves are in HostItem.
-export global NetPaths {
-    in-out property <string> address;
-    in-out property <string> port;
-    // Why Add cannot be pressed ("" when it can).
-    in property <string> add-reason;
-    in property <string> error;
-
-    callback edited();
-    callback add();
-    callback add-hint(address: string);
-    callback remove(endpoint-id: string);
-}
-
-// A wrapped line of help. Sized from its own width, not through the layout: a wrapped Text
-// inside nested layouts is otherwise measured as a single line, and the panel then cannot be
-// scrolled to its end.
-component Hint inherits Rectangle {
-    in property <string> text;
-    in property <color> ink: Theme.text-muted;
-
-    height: body.preferred-height;
-
-    body := Text {
-        x: 0;
-        y: 0;
-        width: parent.width;
-        text: root.text;
-        color: root.ink;
-        font-size: Theme.text-small;
-        wrap: word-wrap;
-    }
-}
-
-// A labelled field with what is wrong with it underneath, in words.
-component Field inherits VerticalLayout {
-    in property <string> label;
-    in property <string> error;
-    alignment: start;
-    spacing: Theme.space-1;
-
-    Text {
-        text: root.label;
-        color: Theme.text-muted;
-        font-size: Theme.text-small;
-    }
-
-    @children
-
-    if root.error != "": Hint {
-        text: root.error;
-        ink: Theme.danger;
-    }
-}
+export { HostForm, NetPaths, KeyChoice, NetworkPaths }
 
 export component HostFormPanel inherits VerticalLayout {
     private property <int> revision: HostForm.revision;
@@ -105,11 +19,11 @@ export component HostFormPanel inherits VerticalLayout {
     spacing: Theme.space-3;
 
     changed revision => {
-        name.focus-input();
+        address.focus-input();
     }
 
     init => {
-        name.focus-input();
+        address.focus-input();
     }
 
     HorizontalLayout {
@@ -133,164 +47,13 @@ export component HostFormPanel inherits VerticalLayout {
         }
     }
 
-    Hint {
-        text: "Senvakara signs in with an SSH key. Add your public key to ~/.ssh/authorized_keys on the host first.";
-    }
+    address := AddressCard { }
 
-    Field {
-        label: "Name";
-        error: HostForm.name-error;
-        name := TextField {
-            text <=> HostForm.name;
-            label: "Name";
-            placeholder: "Fedora laptop";
-            edited => {
-                HostForm.edited();
-            }
-            accepted => {
-                HostForm.save();
-            }
-        }
-    }
+    GeneralCard { }
 
-    HorizontalLayout {
-        spacing: Theme.space-2;
+    ConnectionCard { }
 
-        Field {
-            horizontal-stretch: 1;
-            label: "Address";
-            TextField {
-                mono: true;
-                text <=> HostForm.address;
-                label: "Address";
-                placeholder: "192.0.2.10 or host.local";
-                edited => {
-                    HostForm.edited();
-                }
-                accepted => {
-                    HostForm.save();
-                }
-            }
-        }
-
-        Field {
-            width: 84px;
-            label: "Port";
-            TextField {
-                mono: true;
-                text <=> HostForm.port;
-                label: "Port";
-                placeholder: "22";
-                edited => {
-                    HostForm.edited();
-                }
-                accepted => {
-                    HostForm.save();
-                }
-            }
-        }
-    }
-
-    // The notes of the two fields above go under the row, at full width.
-    if HostForm.address-error != "": Hint {
-        text: HostForm.address-error;
-        ink: Theme.danger;
-    }
-
-    if HostForm.port-error != "": Hint {
-        text: HostForm.port-error;
-        ink: Theme.danger;
-    }
-
-    Field {
-        label: "User name";
-        error: HostForm.username-error;
-        TextField {
-            mono: true;
-            text <=> HostForm.username;
-            label: "User name";
-            placeholder: "The account on the host";
-            edited => {
-                HostForm.edited();
-            }
-            accepted => {
-                HostForm.save();
-            }
-        }
-    }
-
-    Field {
-        label: "Operating system";
-        Segmented {
-            items: [{ id: "linux", label: "Linux" }, { id: "unknown", label: "Other" }];
-            current: HostForm.os;
-            picked(id) => {
-                HostForm.set-os(id);
-            }
-        }
-    }
-
-    Field {
-        label: "Private key file";
-        error: HostForm.key-error;
-        HorizontalLayout {
-            spacing: Theme.space-2;
-            TextField {
-                horizontal-stretch: 1;
-                mono: true;
-                text <=> HostForm.key-path;
-                label: "Private key file";
-                placeholder: "Path to the key file";
-                edited => {
-                    HostForm.edited();
-                }
-                accepted => {
-                    HostForm.save();
-                }
-            }
-
-            Button {
-                text: "Browse";
-                accessible-label: "Browse for the private key file";
-                clicked => {
-                    HostForm.browse();
-                }
-            }
-        }
-    }
-
-    Field {
-        label: "Key passphrase (optional)";
-        TextField {
-            secret: true;
-            text <=> HostForm.passphrase;
-            label: "Key passphrase";
-            placeholder: HostForm.has-passphrase ? "Type a new one to replace the saved one" : "Leave empty if the key has none";
-            edited => {
-                HostForm.edited();
-            }
-            accepted => {
-                HostForm.save();
-            }
-        }
-
-        Hint {
-            text: HostForm.has-passphrase ? "A passphrase is saved for this host in Windows Credential Manager. It is never shown." : "No passphrase is saved. If you type one, it is stored in Windows Credential Manager.";
-        }
-    }
-
-    if HostForm.has-passphrase: HorizontalLayout {
-        alignment: start;
-        CheckBox {
-            text: "Remove saved passphrase";
-            checked: HostForm.remove-passphrase;
-            toggled(on) => {
-                HostForm.set-remove-passphrase(on);
-            }
-        }
-    }
-
-    if HostForm.editing: Hint {
+    if HostForm.editing && HostForm.protocol == "ssh": Hint {
         text: "Changing the address or port requires verifying the host key again.";
     }
 
@@ -300,12 +63,22 @@ export component HostFormPanel inherits VerticalLayout {
     }
 
     HorizontalLayout {
-        alignment: start;
         spacing: Theme.space-2;
 
         Button {
-            text: HostForm.saving ? "Saving" : "Save";
+            horizontal-stretch: 1;
+            text: HostForm.saving ? "Saving" : "Connect";
             kind: "primary";
+            enabled: !HostForm.saving;
+            reason: root.wait;
+            accessible-label: HostForm.protocol == "rdp" ? "Save the host and open it in Remote Desktop" : "Save the host and open a terminal on it";
+            clicked => {
+                HostForm.connect();
+            }
+        }
+
+        Button {
+            text: "Save";
             enabled: !HostForm.saving;
             reason: root.wait;
             accessible-label: "Save host";
@@ -316,6 +89,7 @@ export component HostFormPanel inherits VerticalLayout {
 
         Button {
             text: "Cancel";
+            kind: "ghost";
             enabled: !HostForm.saving;
             reason: root.wait;
             accessible-label: "Cancel the host form";
@@ -327,132 +101,5 @@ export component HostFormPanel inherits VerticalLayout {
 
     Reason {
         text: root.wait;
-    }
-}
-
-// The addresses of the selected host, which one the connection uses, and adding or removing
-// VPN addresses.
-export component NetworkPaths inherits VerticalLayout {
-    in property <HostItem> host;
-    spacing: Theme.space-2;
-
-    GroupTitle {
-        text: "Network paths";
-    }
-
-    // Rows close together, like the details above.
-    VerticalLayout {
-        for item in root.host.paths: HorizontalLayout {
-            height: 26px;
-            spacing: Theme.space-2;
-
-            Text {
-                width: 32px;
-                vertical-alignment: center;
-                text: item.kind;
-                color: Theme.text-muted;
-                font-size: Theme.text-small;
-            }
-
-            Text {
-                horizontal-stretch: 1;
-                vertical-alignment: center;
-                text: item.address;
-                color: Theme.text;
-                font-size: Theme.text-small;
-                font-family: Theme.mono;
-                overflow: elide;
-            }
-
-            if item.in-use: StatusMark {
-                tone: "live";
-                text: "In use";
-            }
-
-            if item.id != "": IconButton {
-                icon: @image-url("../icons/trash.svg");
-                label: "Remove VPN address " + item.address;
-                clicked => {
-                    NetPaths.remove(item.id);
-                }
-            }
-        }
-    }
-
-    if root.host.path-note != "": Hint {
-        text: root.host.path-note;
-    }
-
-    Hint {
-        text: "The LAN address is tried first. When it does not answer, Senvakara falls back to a VPN address. The host must present the same trusted key on every address.";
-    }
-
-    if root.host.vpn-hints.length > 0: VerticalLayout {
-        spacing: Theme.space-2;
-        padding-top: Theme.space-1;
-        Hint {
-            text: "VPN addresses seen on this host:";
-        }
-
-        for hint in root.host.vpn-hints: Button {
-            text: hint.label;
-            clicked => {
-                NetPaths.add-hint(hint.address);
-            }
-        }
-    }
-
-    HorizontalLayout {
-        padding-top: Theme.space-1;
-        spacing: Theme.space-2;
-
-        TextField {
-            horizontal-stretch: 1;
-            mono: true;
-            text <=> NetPaths.address;
-            label: "VPN address";
-            placeholder: "VPN address";
-            edited => {
-                NetPaths.edited();
-            }
-            accepted => {
-                NetPaths.add();
-            }
-        }
-
-        TextField {
-            width: 72px;
-            mono: true;
-            text <=> NetPaths.port;
-            label: "VPN SSH port";
-            placeholder: "22";
-            edited => {
-                NetPaths.edited();
-            }
-            accepted => {
-                NetPaths.add();
-            }
-        }
-    }
-
-    HorizontalLayout {
-        alignment: start;
-        Button {
-            text: "Add VPN address";
-            enabled: NetPaths.add-reason == "";
-            reason: NetPaths.add-reason;
-            clicked => {
-                NetPaths.add();
-            }
-        }
-    }
-
-    Reason {
-        text: NetPaths.add-reason;
-    }
-
-    if NetPaths.error != "": Notice {
-        kind: "danger";
-        text: NetPaths.error;
     }
 }

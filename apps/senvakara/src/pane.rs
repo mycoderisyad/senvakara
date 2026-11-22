@@ -18,6 +18,8 @@ pub enum Pane {
     Workspace(workspace::WorkspacePane),
     /// A Flutter build-and-deploy or a recipe run.
     Run(run::RunPane),
+    /// The New Tab page, by its id: a list of things to open, one of which takes its place.
+    Launcher(i32),
 }
 
 impl Pane {
@@ -30,6 +32,7 @@ impl Pane {
             Pane::Desktop(pane) => pane.id,
             Pane::Workspace(pane) => pane.id,
             Pane::Run(pane) => pane.id,
+            Pane::Launcher(id) => *id,
         }
     }
 
@@ -43,6 +46,7 @@ impl Pane {
             Pane::Desktop(_) => "desktop",
             Pane::Workspace(_) => "workspace",
             Pane::Run(_) => "run",
+            Pane::Launcher(_) => "new-tab",
         }
     }
 
@@ -57,6 +61,7 @@ impl Pane {
             Pane::Desktop(pane) => !pane.ended(),
             Pane::Workspace(pane) => pane.running(),
             Pane::Run(pane) => pane.running(),
+            Pane::Launcher(_) => false,
         }
     }
 
@@ -76,6 +81,7 @@ impl Pane {
             Pane::Run(_) => {
                 "The run is cancelled: it stops at the next point where it can. What it already did on the phone stays.".into()
             }
+            Pane::Launcher(_) => String::new(),
         }
     }
 }

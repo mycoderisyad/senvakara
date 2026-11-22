@@ -11,6 +11,7 @@
 
 use crate::events::TermEvent;
 use crate::logging;
+use crate::shells::LocalShell;
 use crate::sink::Sink;
 use crate::state::{to_core, CmdResult};
 use crate::App;
@@ -94,12 +95,20 @@ pub(crate) async fn term_open(
                 }
             }
             let conn = app.state.connection(&host_id).await?;
+            // Decided before the shell opens: for tmux this must see whether
+            // the session already existed.
+            let startup = startup_input(app, &conn, &host_id, tmux.as_deref()).await;
             let (writer, mut reader) = conn
                 .open_pty_or_tmux(cols.into(), rows.into(), tmux.as_deref())
                 .await
                 .map_err(|e| to_core("open ssh shell", e))?;
             let writer = Arc::new(writer);
             let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<TermCmd>();
+            // Queued before the session can be written to, so the snippet is
+            // typed ahead of anything the user types.
+            if let Some(bytes) = startup {
+                let _ = tx.send(TermCmd::Input(bytes));
+            }
             let w = writer.clone();
             let write_task = app.rt.spawn(async move {
                 while let Some(cmd) = rx.recv().await {
@@ -252,6 +261,49 @@ pub(crate) fn term_close(app: &App, id: u32) -> CmdResult<()> {
     Ok(())
 }
 
+/// What to type into a new SSH shell: the host's startup snippet, once
+/// (HOST-UI-02). A tmux tab re-attaches to its session after a reconnect, and
+/// typing the snippet into a shell that already ran it would run it twice, so
+/// it is only sent when the tmux session does not exist yet. The snippet is
+/// the user's own text and is never logged.
+async fn startup_input(
+    app: &App,
+    conn: &senvakara_adapters_ssh::SshConnection,
+    host_id: &str,
+    tmux: Option<&str>,
+) -> Option<Vec<u8>> {
+    let snippet = app
+        .state
+        .db
+        .lock()
+        .unwrap()
+        .get_host(host_id)
+        .ok()?
+        .ssh?
+        .startup_snippet?;
+    if let Some(name) = tmux {
+        // `=name` is an exact match; a plain name would match by prefix.
+        let exact = format!("={name}");
+        let found = conn.exec(&["tmux", "has-session", "-t", &exact]).await;
+        // If it cannot be told, assume the session exists and type nothing.
+        if found.map(|out| out.success()).unwrap_or(true) {
+            return None;
+        }
+    }
+    snippet_keys(&snippet)
+}
+
+/// The snippet as keystrokes: each line ends with Enter, as if typed.
+fn snippet_keys(snippet: &str) -> Option<Vec<u8>> {
+    let text = snippet.trim_end_matches(['\r', '\n']);
+    if text.trim().is_empty() {
+        return None;
+    }
+    let mut keys = text.replace("\r\n", "\r").replace('\n', "\r");
+    keys.push('\r');
+    Some(keys.into_bytes())
+}
+
 /// tmux session names Senvakara creates: letters, digits, `-`, `_`.
 pub fn valid_tmux_name(name: &str) -> bool {
     !name.is_empty()
@@ -293,46 +345,30 @@ impl PtyOrTmux for senvakara_adapters_ssh::SshConnection {
     }
 }
 
-/// Installed WSL distributions (`wsl.exe -l -q` prints UTF-16LE).
+/// Installed WSL distributions, default first.
 pub(crate) async fn wsl_distros() -> CmdResult<Vec<String>> {
     // `wsl.exe` can take a moment to answer: keep it off the async workers.
-    let out = tokio::task::spawn_blocking(|| {
-        std::process::Command::new("wsl.exe")
-            .args(["-l", "-q"])
-            .output()
-    })
-    .await
-    .map_err(internal)?
-    .map_err(|e| {
-        CoreError::new(
-            ErrorCode::UnsupportedCapability,
-            format!("WSL unavailable: {e}"),
-        )
-    })?;
-    Ok(parse_wsl_list(&out.stdout))
+    tokio::task::spawn_blocking(crate::shells::wsl_list)
+        .await
+        .map_err(internal)?
+        .map_err(|e| {
+            CoreError::new(
+                ErrorCode::UnsupportedCapability,
+                format!("WSL unavailable: {e}"),
+            )
+        })
 }
 
-fn parse_wsl_list(bytes: &[u8]) -> Vec<String> {
-    let text = if bytes.len() >= 2 && bytes[1] == 0 {
-        let units: Vec<u16> = bytes
-            .chunks_exact(2)
-            .map(|c| u16::from_le_bytes([c[0], c[1]]))
-            .collect();
-        String::from_utf16_lossy(&units)
-    } else {
-        String::from_utf8_lossy(bytes).into_owned()
-    };
-    text.lines()
-        .map(|l| l.trim_matches(|c: char| c.is_whitespace() || c == '\u{feff}' || c == '\0'))
-        .filter(|l| !l.is_empty())
-        .map(str::to_string)
-        .collect()
+/// The shells installed on this PC (see [`crate::shells`]).
+pub(crate) async fn local_shells() -> CmdResult<Vec<LocalShell>> {
+    // Reads the file system and waits for `wsl.exe`.
+    tokio::task::spawn_blocking(crate::shells::detect)
+        .await
+        .map_err(internal)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::parse_wsl_list;
-
     #[test]
     fn tmux_names() {
         assert!(super::valid_tmux_name("svk-fedora_1"));
@@ -342,9 +378,14 @@ mod tests {
     }
 
     #[test]
-    fn parses_utf16_wsl_output() {
-        let s = "Ubuntu-24.04\r\ndocker-desktop\r\n";
-        let bytes: Vec<u8> = s.encode_utf16().flat_map(|u| u.to_le_bytes()).collect();
-        assert_eq!(parse_wsl_list(&bytes), ["Ubuntu-24.04", "docker-desktop"]);
+    fn a_startup_snippet_is_typed_line_by_line_with_enter() {
+        let keys = |s: &str| super::snippet_keys(s).map(|b| String::from_utf8(b).unwrap());
+        assert_eq!(keys("cd /srv").as_deref(), Some("cd /srv\r"));
+        assert_eq!(
+            keys("cd /srv\r\nsource env.sh\n\n").as_deref(),
+            Some("cd /srv\rsource env.sh\r")
+        );
+        assert_eq!(keys(" \n"), None);
+        assert_eq!(keys(""), None);
     }
 }

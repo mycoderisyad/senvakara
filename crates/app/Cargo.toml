@@ -32,3 +32,7 @@ windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Securit
 vnc-rs = "=0.6.1"
 png = "0.18"
 tokio = { version = "1", features = ["rt-multi-thread"] }
+# Keychain and sign-in tests generate throw-away SSH keys. Same pin and
+# features as crates/adapters-ssh (ADR-016), so nothing extra is built.
+russh = { version = "=0.65.2", default-features = false, features = ["ring", "flate2", "rsa"] }
+rand = { version = "0.10", features = ["thread_rng"] }

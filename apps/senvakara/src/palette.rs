@@ -4,6 +4,7 @@
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
+use senvakara_adapters_pty::ShellKind;
 use slint::{ComponentHandle, Model, VecModel};
 
 use crate::{App, Nav, Palette, PaletteItem};
@@ -18,6 +19,10 @@ pub enum Command {
     Workspace(String),
     NewWorkspace,
     Section(&'static str),
+    /// A shell on this PC and the title of its tab. Offered by the New Tab page.
+    Shell(ShellKind, String),
+    /// The Files tab with this PC on both sides, for the user to pick the other place.
+    Sftp,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -34,16 +39,27 @@ pub struct Entry {
 /// title or the detail, ignoring case; titles that start with the query come first, then
 /// titles that contain all of it, then matches through the detail. Ties keep their order.
 pub fn filter(entries: &[Entry], query: &str) -> Vec<Entry> {
+    filter_by(entries, query, |entry| {
+        (entry.title.clone(), entry.detail.clone())
+    })
+}
+
+/// [`filter`] for any list: `text` gives the title and the detail of an item.
+pub fn filter_by<T: Clone>(
+    items: &[T],
+    query: &str,
+    text: impl Fn(&T) -> (String, String),
+) -> Vec<T> {
     let query = query.trim().to_lowercase();
     let words: Vec<&str> = query.split_whitespace().collect();
     if words.is_empty() {
-        return entries.to_vec();
+        return items.to_vec();
     }
-    let mut ranked: Vec<(u8, &Entry)> = entries
+    let mut ranked: Vec<(u8, &T)> = items
         .iter()
         .filter_map(|entry| {
-            let title = entry.title.to_lowercase();
-            let detail = entry.detail.to_lowercase();
+            let (title, detail) = text(entry);
+            let (title, detail) = (title.to_lowercase(), detail.to_lowercase());
             if !words
                 .iter()
                 .all(|word| title.contains(word) || detail.contains(word))
@@ -81,9 +97,10 @@ pub struct State {
     model: Rc<VecModel<PaletteItem>>,
 }
 
-const SECTIONS: [(&str, &str); 5] = [
+const SECTIONS: [(&str, &str); 6] = [
     ("hosts", "Hosts"),
     ("devices", "Devices"),
+    ("keychain", "Keychain"),
     ("workspaces", "Workspaces"),
     ("automations", "Automations"),
     ("settings", "Settings"),
@@ -138,6 +155,7 @@ impl App {
                     ),
                     "files" => (format!("Open files on {}", host.name), "files"),
                     "desktop" => (format!("Open desktop of {}", host.name), "desktop"),
+                    "rdp" => (format!("Open {} in Remote Desktop", host.name), "desktop"),
                     wsl if wsl.starts_with("wsl:") => {
                         (format!("Open WSL {}", &wsl[4..]), "terminal")
                     }
@@ -235,12 +253,19 @@ impl App {
         let entry = self.palette.shown.borrow().get(index).cloned();
         let Some(entry) = entry else { return };
         self.palette_close();
-        match entry.command {
+        self.run_command(entry.command);
+    }
+
+    /// Do what an entry of the palette or of the New Tab page stands for.
+    pub(crate) fn run_command(self: &Rc<Self>, command: Command) {
+        match command {
             Command::Host(host, action) => self.host_action(&host, &action),
             Command::Device(route, action) => self.device_action(&route, &action),
             Command::Workspace(id) => self.workspace_open(&id),
             Command::NewWorkspace => self.workspace_create(),
             Command::Section(section) => self.go_to_section(section),
+            Command::Shell(shell, title) => self.open_local_shell(&shell, &title),
+            Command::Sftp => self.open_sftp(),
         }
     }
 

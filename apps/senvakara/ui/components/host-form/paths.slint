@@ -1,0 +1,133 @@
+// The addresses of the selected host, which one the connection uses, and adding or removing VPN
+// addresses.
+
+import { Theme } from "../../theme.slint";
+import { IconButton } from "../controls.slint";
+import { Button, GroupTitle, Notice, TextField, Reason, StatusMark, Hint } from "../widgets.slint";
+import { HostItem } from "../../data.slint";
+import { NetPaths } from "model.slint";
+
+export component NetworkPaths inherits VerticalLayout {
+    in property <HostItem> host;
+    spacing: Theme.space-2;
+
+    GroupTitle {
+        text: "Network paths";
+    }
+
+    // Rows close together, like the details above.
+    VerticalLayout {
+        for item in root.host.paths: HorizontalLayout {
+            height: 26px;
+            spacing: Theme.space-2;
+
+            Text {
+                width: 32px;
+                vertical-alignment: center;
+                text: item.kind;
+                color: Theme.text-muted;
+                font-size: Theme.text-small;
+            }
+
+            Text {
+                horizontal-stretch: 1;
+                vertical-alignment: center;
+                text: item.address;
+                color: Theme.text;
+                font-size: Theme.text-small;
+                font-family: Theme.mono;
+                overflow: elide;
+            }
+
+            if item.in-use: StatusMark {
+                tone: "live";
+                text: "In use";
+            }
+
+            if item.id != "": IconButton {
+                icon: @image-url("../../icons/trash.svg");
+                label: "Remove VPN address " + item.address;
+                clicked => {
+                    NetPaths.remove(item.id);
+                }
+            }
+        }
+    }
+
+    if root.host.path-note != "": Hint {
+        text: root.host.path-note;
+    }
+
+    Hint {
+        text: "The LAN address is tried first. When it does not answer, Senvakara falls back to a VPN address. The host must present the same trusted key on every address.";
+    }
+
+    if root.host.vpn-hints.length > 0: VerticalLayout {
+        spacing: Theme.space-2;
+        padding-top: Theme.space-1;
+        Hint {
+            text: "VPN addresses seen on this host:";
+        }
+
+        for hint in root.host.vpn-hints: Button {
+            text: hint.label;
+            clicked => {
+                NetPaths.add-hint(hint.address);
+            }
+        }
+    }
+
+    HorizontalLayout {
+        padding-top: Theme.space-1;
+        spacing: Theme.space-2;
+
+        TextField {
+            horizontal-stretch: 1;
+            mono: true;
+            text <=> NetPaths.address;
+            label: "VPN address";
+            placeholder: "VPN address";
+            edited => {
+                NetPaths.edited();
+            }
+            accepted => {
+                NetPaths.add();
+            }
+        }
+
+        TextField {
+            width: 72px;
+            mono: true;
+            text <=> NetPaths.port;
+            label: "VPN SSH port";
+            placeholder: "22";
+            edited => {
+                NetPaths.edited();
+            }
+            accepted => {
+                NetPaths.add();
+            }
+        }
+    }
+
+    HorizontalLayout {
+        alignment: start;
+        Button {
+            text: "Add VPN address";
+            enabled: NetPaths.add-reason == "";
+            reason: NetPaths.add-reason;
+            clicked => {
+                NetPaths.add();
+            }
+        }
+    }
+
+    Reason {
+        text: NetPaths.add-reason;
+    }
+
+    if NetPaths.error != "": Notice {
+        kind: "danger";
+        text: NetPaths.error;
+    }
+}

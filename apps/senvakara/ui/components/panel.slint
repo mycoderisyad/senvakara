@@ -7,9 +7,11 @@ import { MirrorView, MirrorData } from "mirror-view.slint";
 import { LogcatView, LogcatData } from "logcat-view.slint";
 import { FilesView, FilesData } from "files-view.slint";
 import { DesktopView, DesktopData } from "desktop-view.slint";
+import { NewTabView } from "new-tab.slint";
 
 export struct PanelView {
-    // "" | "terminal" | "mirror" | "logcat" | "files" | "desktop"
+    // "" | "terminal" | "mirror" | "logcat" | "files" | "desktop" | "new-tab" (the New Tab
+    // page, which draws the `Launcher` global and needs no data here)
     kind: string,
     term: TermData,
     mirror: MirrorData,
@@ -55,5 +57,12 @@ export component PanelHost inherits Rectangle {
     if root.panel.kind == "desktop": DesktopView {
         data: root.panel.desktop;
         embedded: root.embedded;
+    }
+
+    if root.panel.kind == "new-tab": NewTabView {
+        init => {
+            // The search field takes the keyboard as soon as the page shows.
+            self.focus();
+        }
     }
 }

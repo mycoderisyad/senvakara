@@ -1,9 +1,9 @@
 //! The host side of Home's state: lookups over the host list and the card built for each host.
 
-use senvakara_app::HostView;
+use senvakara_app::{HostView, Protocol};
 use slint::{ModelRc, SharedString, VecModel};
 
-use crate::{Action, HostItem, PathItem, VpnHint};
+use crate::{Action, HostItem, KeyValue, PathItem, VpnHint};
 
 use super::metrics::meters;
 use super::text::{action, blocked, fact};
@@ -23,6 +23,50 @@ pub fn desktop_problem(connected: bool, session: &str, has_x11vnc: bool) -> &'st
     }
 }
 
+/// What a card says under a remote host's name: how it is opened and as whom ("ssh, bob").
+pub fn host_subtitle(protocol: Protocol, username: &str) -> String {
+    match username.trim() {
+        "" => protocol.as_str().to_string(),
+        username => format!("{}, {username}", protocol.as_str()),
+    }
+}
+
+/// The card of a Remote Desktop host: (subtitle, actions, details). It is opened in
+/// Windows' own client, so it has no connection state, terminal, files or host key.
+fn rdp_card(host: &HostView) -> (String, Vec<Action>, Vec<KeyValue>) {
+    let rdp = host.rdp.as_ref();
+    let username = rdp.map(|rdp| rdp.username.as_str()).unwrap_or("");
+    let mut details = Vec::new();
+    if let Some(rdp) = rdp {
+        details.push(fact(
+            "Address",
+            format!("{}:{}", rdp.address, rdp.port),
+            true,
+        ));
+        if !rdp.username.is_empty() {
+            details.push(fact("User", rdp.username.as_str(), true));
+        }
+        details.push(fact(
+            "Password",
+            if rdp.has_credential {
+                "Saved in Windows Credential Manager"
+            } else {
+                "Not saved: Remote Desktop asks for it"
+            },
+            false,
+        ));
+    }
+    let actions = vec![
+        action("rdp", "Open in Remote Desktop"),
+        action("edit", "Edit"),
+        Action {
+            danger: true,
+            ..action("remove", "Remove host")
+        },
+    ];
+    (host_subtitle(Protocol::Rdp, username), actions, details)
+}
+
 impl State {
     /// Every host, as the backend last reported them.
     pub fn hosts(&self) -> Vec<HostView> {
@@ -32,6 +76,11 @@ impl State {
     /// Installed WSL distributions, default first.
     pub fn wsl(&self) -> Vec<String> {
         self.wsl.borrow().clone()
+    }
+
+    /// The WSL distributions the shell detection found. The caller redraws Home.
+    pub fn set_wsl(&self, distros: Vec<String>) {
+        *self.wsl.borrow_mut() = distros;
     }
 
     /// This PC.
@@ -127,14 +176,23 @@ impl State {
                 adb.unwrap_or_else(|| "Not found. Install Android platform-tools.".into()),
                 true,
             ));
+        } else if host.protocol == Protocol::Rdp {
+            (subtitle, actions, details) = rdp_card(host);
+            tone = if error.is_empty() {
+                "idle"
+            } else {
+                "attention"
+            };
+            state_text = "Remote Desktop".to_string();
         } else {
             let ssh = host.ssh.as_ref();
-            let address = ssh
-                .map(|s| format!("{}@{}", s.username, s.address))
-                .unwrap_or_default();
+            let who = host_subtitle(
+                Protocol::Ssh,
+                ssh.map(|ssh| ssh.username.as_str()).unwrap_or(""),
+            );
             subtitle = match text("os_pretty_name") {
-                Some(os) if host.connected => format!("{address}  ·  {os}"),
-                _ => format!("ssh, {address}"),
+                Some(os) if host.connected => format!("{who}  ·  {os}"),
+                _ => who,
             };
             let via_vpn = host
                 .path
@@ -305,7 +363,9 @@ impl State {
             id: host.id.as_str().into(),
             name: host.display_name.as_str().into(),
             subtitle: subtitle.into(),
-            os: if host.os_family == "windows" {
+            os: if host.protocol == Protocol::Rdp {
+                "rdp"
+            } else if host.os_family == "windows" {
                 "windows"
             } else {
                 "linux"
@@ -341,5 +401,12 @@ mod tests {
         assert!(desktop_problem(true, "x11", false).contains("sudo dnf install x11vnc"));
         assert!(desktop_problem(true, "wayland", true).contains("Wayland"));
         assert!(desktop_problem(true, "none", false).contains("text mode"));
+    }
+
+    #[test]
+    fn a_card_names_the_protocol_and_the_user() {
+        assert_eq!(host_subtitle(Protocol::Ssh, "bob"), "ssh, bob");
+        assert_eq!(host_subtitle(Protocol::Rdp, " alice "), "rdp, alice");
+        assert_eq!(host_subtitle(Protocol::Rdp, ""), "rdp");
     }
 }

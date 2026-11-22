@@ -1,0 +1,276 @@
+// The New Tab page: a search field over the hosts, local shells and phones that can be opened.
+// Rust builds and filters the list and decides what a pick does; this file draws it and
+// forwards the keys. The same items fill the menu next to "+" in the tab strip.
+
+import { ListView } from "std-widgets.slint";
+import { Theme } from "../theme.slint";
+import { Icon } from "controls.slint";
+
+export struct LaunchItem {
+    // A section title ("Recent connections"): it cannot be chosen.
+    header: bool,
+    // The first entry of a new group in the menu: a line is drawn above it.
+    divider: bool,
+    title: string,
+    detail: string,
+    // "terminal" | "linux" | "server" | "desktop" | "mirror" | "files"
+    kind: string,
+    // At the end of the row: a host's parent group on the page, the shortcut in the menu.
+    label: string,
+    hue: int,
+}
+
+export global Launcher {
+    in-out property <string> query;
+    in property <[LaunchItem]> items;
+    // The row Enter opens.
+    in property <int> current;
+    // What the last pick did when it opened no tab, or why it failed.
+    in property <string> note;
+    // The entries of the menu next to "+".
+    in property <[LaunchItem]> quick;
+
+    callback edited(text: string);
+    callback move(by: int);
+    callback run(index: int);
+    callback escape();
+    // The menu is about to open: Rust fills `quick`.
+    callback quick-opening();
+    callback quick-run(index: int);
+}
+
+// The icon of an item on a tile in the colour of the machine it runs on.
+export component LaunchIcon inherits Rectangle {
+    in property <string> kind;
+    in property <int> hue;
+
+    width: 24px;
+    height: 24px;
+    border-radius: Theme.radius - 2px;
+    background: Theme.host-hue(root.hue).with-alpha(0.16);
+
+    Icon {
+        source: root.kind == "linux" ? @image-url("../icons/linux.svg") : root.kind == "server" ? @image-url("../icons/server.svg") : root.kind == "desktop" ? @image-url("../icons/monitor.svg") : root.kind == "mirror" ? @image-url("../icons/phone.svg") : root.kind == "files" ? @image-url("../icons/folder.svg") : @image-url("../icons/terminal.svg");
+        tint: Theme.host-hue(root.hue);
+    }
+}
+
+export component NewTabView inherits Rectangle {
+    private property <length> row-height: 40px;
+    private property <length> field-height: 40px;
+    private property <int> current: Launcher.current;
+    private property <length> top: Math.max(Theme.space-6, Math.min(72px, root.height * 0.1));
+
+    // Keep the chosen row in view.
+    changed current => {
+        if (current * row-height < -list.content-y) {
+            // The section title above the first item comes back into view with it.
+            list.content-y = current <= 1 ? 0px : -current * row-height;
+        } else if ((current + 1) * row-height > list.visible-height - list.content-y) {
+            list.content-y = list.visible-height - (current + 1) * row-height;
+        }
+    }
+
+    background: Theme.ground;
+    forward-focus: input;
+
+    FocusScope {
+        capture-key-pressed(event) => {
+            if (event.text == Key.Escape) {
+                Launcher.escape();
+                return accept;
+            }
+            if (event.text == Key.DownArrow) {
+                Launcher.move(1);
+                return accept;
+            }
+            if (event.text == Key.UpArrow) {
+                Launcher.move(-1);
+                return accept;
+            }
+            if (event.text == Key.Return) {
+                Launcher.run(Launcher.current);
+                return accept;
+            }
+            return reject;
+        }
+
+        VerticalLayout {
+            x: (root.width - self.width) / 2;
+            y: root.top;
+            width: Math.min(680px, root.width - 2 * Theme.space-6);
+            height: root.height - root.top - Theme.space-6;
+            spacing: Theme.space-4;
+
+            Rectangle {
+                height: root.field-height;
+                border-radius: Theme.radius;
+                border-width: 1px;
+                border-color: input.has-focus ? Theme.accent : Theme.hairline-strong;
+                background: Theme.shell;
+
+                HorizontalLayout {
+                    padding-left: Theme.space-3;
+                    padding-right: Theme.space-3;
+                    spacing: Theme.space-3;
+
+                    VerticalLayout {
+                        alignment: center;
+                        Icon {
+                            source: @image-url("../icons/search.svg");
+                        }
+                    }
+
+                    Rectangle {
+                        horizontal-stretch: 1;
+                        if Launcher.query == "": Text {
+                            x: 0;
+                            width: parent.width;
+                            vertical-alignment: center;
+                            text: "Search hosts, shells and phones";
+                            color: Theme.text-faint;
+                            font-size: Theme.text-body;
+                            overflow: elide;
+                        }
+                        input := TextInput {
+                            x: 0;
+                            width: parent.width;
+                            vertical-alignment: center;
+                            single-line: true;
+                            text <=> Launcher.query;
+                            color: Theme.text;
+                            font-size: Theme.text-body;
+                            selection-background-color: Theme.accent.with-alpha(0.35);
+                            selection-foreground-color: Theme.text;
+                            accessible-label: "Search hosts, shells and phones";
+                            edited => {
+                                Launcher.edited(self.text);
+                            }
+                        }
+                    }
+
+                    Text {
+                        vertical-alignment: center;
+                        text: Launcher.query == "" ? "Esc closes" : "Esc clears";
+                        color: Theme.text-faint;
+                        font-size: Theme.text-small;
+                    }
+                }
+            }
+
+            if Launcher.note != "": Text {
+                text: Launcher.note;
+                color: Theme.text-muted;
+                font-size: Theme.text-small;
+                wrap: word-wrap;
+                accessible-role: text;
+            }
+
+            Rectangle {
+                // As tall as its rows, up to the room there is.
+                vertical-stretch: 0;
+                min-height: root.row-height + 2 * Theme.space-2;
+                preferred-height: Math.max(1, Launcher.items.length) * root.row-height + 2 * Theme.space-2;
+                max-height: self.preferred-height;
+                border-radius: 10px;
+                border-width: 1px;
+                border-color: Theme.hairline;
+                background: Theme.surface;
+                clip: true;
+
+                list := ListView {
+                    x: Theme.space-2;
+                    y: Theme.space-2;
+                    width: parent.width - 2 * Theme.space-2;
+                    height: parent.height - 2 * Theme.space-2;
+                    accessible-label: "Things to open";
+
+                    for item[index] in Launcher.items: Rectangle {
+                        height: root.row-height;
+                        border-radius: Theme.radius;
+                        background: item.header ? transparent : index == Launcher.current ? Theme.surface-selected : touch.has-hover ? Theme.surface-hover : transparent;
+                        accessible-role: list-item;
+                        accessible-label: item.header ? item.title : item.label == "" ? item.title + ", " + item.detail : item.title + ", " + item.detail + ", " + item.label;
+                        accessible-item-selected: !item.header && index == Launcher.current;
+                        accessible-action-default => {
+                            if (!item.header) {
+                                Launcher.run(index);
+                            }
+                        }
+
+                        touch := TouchArea {
+                            enabled: !item.header;
+                            mouse-cursor: pointer;
+                            clicked => {
+                                Launcher.run(index);
+                            }
+                        }
+
+                        if item.header: Text {
+                            x: Theme.space-3;
+                            y: 0;
+                            width: parent.width - 2 * Theme.space-3;
+                            height: parent.height - Theme.space-2;
+                            vertical-alignment: bottom;
+                            text: item.title;
+                            color: Theme.text;
+                            font-size: Theme.text-body;
+                            font-weight: 600;
+                            overflow: elide;
+                        }
+
+                        if !item.header: HorizontalLayout {
+                            padding-left: Theme.space-3;
+                            padding-right: Theme.space-3;
+                            spacing: Theme.space-3;
+
+                            VerticalLayout {
+                                alignment: center;
+                                LaunchIcon {
+                                    kind: item.kind;
+                                    hue: item.hue;
+                                }
+                            }
+
+                            Text {
+                                vertical-alignment: center;
+                                text: item.title;
+                                color: Theme.text;
+                                font-size: Theme.text-body;
+                                font-weight: 500;
+                                overflow: elide;
+                                max-width: 320px;
+                            }
+
+                            Text {
+                                horizontal-stretch: 1;
+                                min-width: 0px;
+                                vertical-alignment: center;
+                                text: item.detail;
+                                color: Theme.text-muted;
+                                font-size: Theme.text-small;
+                                overflow: elide;
+                            }
+
+                            if item.label != "": Text {
+                                vertical-alignment: center;
+                                text: item.label;
+                                color: Theme.text-faint;
+                                font-size: Theme.text-small;
+                            }
+                        }
+                    }
+                }
+
+                if Launcher.items.length == 0: Text {
+                    text: "Nothing matches. Try a host name, a shell or a phone.";
+                    color: Theme.text-muted;
+                    font-size: Theme.text-small;
+                }
+            }
+
+            // Takes the room the list does not need.
+            Rectangle { }
+        }
+    }
+}

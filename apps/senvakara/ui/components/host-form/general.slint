@@ -1,0 +1,152 @@
+// The first two cards of the host form: where the host is, and how it is filed on Home.
+
+import { Theme } from "../../theme.slint";
+import { Icon } from "../controls.slint";
+import { Card, Hint, IconField, ChipRows, Segmented } from "../widgets.slint";
+import { HostForm } from "model.slint";
+
+// The heading of a card of the form.
+export component CardTitle inherits Text {
+    color: Theme.text;
+    font-size: Theme.text-body;
+    font-weight: 600;
+}
+
+export component AddressCard inherits Card {
+    pad: Theme.space-3;
+
+    public function focus-input() {
+        address.focus-input();
+    }
+
+    CardTitle {
+        text: "Address";
+    }
+
+    HorizontalLayout {
+        spacing: Theme.space-2;
+
+        Rectangle {
+            width: Theme.row;
+            height: Theme.row;
+            border-radius: Theme.radius;
+            background: Theme.accent.with-alpha(0.16);
+            Icon {
+                source: HostForm.protocol == "rdp" ? @image-url("../../icons/monitor.svg") : @image-url("../../icons/server.svg");
+                tint: Theme.accent;
+            }
+        }
+
+        address := IconField {
+            horizontal-stretch: 1;
+            mono: true;
+            text <=> HostForm.address;
+            label: "Address";
+            placeholder: "IP or Hostname";
+            edited => {
+                HostForm.edited();
+            }
+            accepted => {
+                HostForm.save();
+            }
+        }
+    }
+
+    if HostForm.address-error != "": Hint {
+        text: HostForm.address-error;
+        ink: Theme.danger;
+    }
+
+    // What kind of host this is can only be chosen while adding it.
+    if !HostForm.editing: Segmented {
+        items: [{ id: "ssh", label: "SSH" }, { id: "rdp", label: "Remote Desktop" }];
+        current: HostForm.protocol;
+        picked(id) => {
+            HostForm.set-protocol(id);
+        }
+    }
+}
+
+export component GeneralCard inherits Card {
+    pad: Theme.space-3;
+    gap: Theme.space-2;
+
+    CardTitle {
+        text: "General";
+    }
+
+    IconField {
+        text <=> HostForm.name;
+        label: "Label";
+        placeholder: "Label";
+        edited => {
+            HostForm.edited();
+        }
+        accepted => {
+            HostForm.save();
+        }
+    }
+
+    IconField {
+        icon: @image-url("../../icons/group.svg");
+        text <=> HostForm.group;
+        label: "Parent group";
+        placeholder: "Parent Group";
+        edited => {
+            HostForm.edited();
+        }
+        accepted => {
+            HostForm.save();
+        }
+    }
+
+    if HostForm.group-suggestions.length > 0: ChipRows {
+        rows: HostForm.group-suggestions;
+        clickable: true;
+        clicked(index, text) => {
+            HostForm.pick-group(text);
+        }
+    }
+
+    if HostForm.group-error != "": Hint {
+        text: HostForm.group-error;
+        ink: Theme.danger;
+    }
+
+    if HostForm.tags.length > 0: ChipRows {
+        rows: HostForm.tags;
+        removable: true;
+        noun: "tag";
+        removed(index) => {
+            HostForm.remove-tag(index);
+        }
+    }
+
+    IconField {
+        icon: @image-url("../../icons/tag.svg");
+        text <=> HostForm.tag-draft;
+        label: "New tag";
+        placeholder: "Tags";
+        trail-icon: @image-url("../../icons/plus.svg");
+        trail-label: "Add tag";
+        accepted => {
+            HostForm.add-tag();
+        }
+        trail-clicked => {
+            HostForm.add-tag();
+        }
+    }
+
+    if HostForm.tag-error != "": Hint {
+        text: HostForm.tag-error;
+        ink: Theme.danger;
+    }
+
+    if HostForm.protocol == "ssh": Segmented {
+        items: [{ id: "linux", label: "Linux" }, { id: "unknown", label: "Other system" }];
+        current: HostForm.os;
+        picked(id) => {
+            HostForm.set-os(id);
+        }
+    }
+}

@@ -5259,6 +5259,7 @@ dependencies = [
  "senvakara-core",
  "serde",
  "tokio",
+ "zeroize",
 ]
 
 [[package]]
@@ -5267,6 +5268,8 @@ version = "0.2.0"
 dependencies = [
  "anyhow",
  "png",
+ "rand",
+ "russh",
  "senvakara-adapters-adb",
  "senvakara-adapters-pty",
  "senvakara-adapters-scrcpy",

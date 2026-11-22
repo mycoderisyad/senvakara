@@ -15,7 +15,7 @@ pub fn friendly(error: &CoreError) -> String {
 pub fn friendly_with(error: &CoreError, conflict: &str) -> String {
     let lead = match error.code {
         ErrorCode::HostOffline => "The host did not answer. Check that it is on and reachable on this network.",
-        ErrorCode::Unauthenticated => "The host refused the key. Check the username, the private key and its passphrase.",
+        ErrorCode::Unauthenticated => "The host refused the sign-in. Check the username and the password or key saved for this host.",
         ErrorCode::Unauthorized => "This is not allowed.",
         ErrorCode::DeviceOffline => "The phone is not connected any more.",
         ErrorCode::AdbUnauthorized => "The phone has not allowed USB debugging from this computer. Unlock it and accept the prompt.",

@@ -4,7 +4,7 @@
 
 use russh::keys::{ssh_key::LineEnding, Algorithm, HashAlg, PrivateKey};
 use russh::server::{self, Server as _};
-use senvakara_adapters_ssh::{connect_any, Candidate, ConnectParams, HostKeyPolicy};
+use senvakara_adapters_ssh::{connect_any, Auth, Candidate, ConnectParams, HostKeyPolicy};
 use senvakara_core::{CoreError, ErrorCode};
 use std::sync::Arc;
 use std::time::Duration;
@@ -96,10 +96,12 @@ fn client(pinned: &str) -> Client {
             host: String::new(),
             port: 0,
             user: "tester".into(),
-            private_key: path,
+            auth: Auth::KeyFile {
+                path,
+                passphrase: None,
+            },
             host_key: HostKeyPolicy::Pinned(pinned.to_string()),
             connect_timeout: Duration::from_secs(5),
-            passphrase: None,
         },
     }
 }

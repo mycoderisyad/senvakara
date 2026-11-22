@@ -24,6 +24,35 @@ Changes to documentation and (later) shipped product are tracked separately. For
 - The window title bar is asked to be dark whatever the Windows theme (winit window theme). Seen dark on a PC whose Windows theme is already dark; not yet checked with the light theme.
 - Internal, no behaviour change: the app's largest source files were split into smaller modules (`apps/senvakara/src` and `ui`), and `docs/AGENTS.md` now points at the Rust guideline skill in `.claude/skills/rust-guidelines`. Evidence under QA-06 in `docs/TASKS.md`.
 
+### Added — 2026-11-22 (SFTP tab, drag and drop, folders, host to host; not yet released)
+
+Built and tested against in-process fakes; not yet tried by hand in the running app or against a real host (see FILE-DND-01, FILE-DIR-01 and FILE-H2H-01 in `docs/TASKS.md`).
+
+- "SFTP" on the New Tab page and in the palette opens a tab named **SFTP**: this PC on the left, and on the right "Connect to host" with a **Select host** button. The list it opens has a search field, the SSH hosts (subtitle "ssh, user"; connected ones say so), the phones that are available and a **Local** button. Choosing a host that is not connected connects it; a host whose key is not trusted yet shows the host-key dialog first and is listed once the key is accepted. Either side can show another place with **Change**; this replaces the drop-down of places.
+- The file list has the columns Name, Date Modified, Size and Kind. A click on a header sorts by it, a second click turns the order around; folders always come first. On a host the type and permissions ("drwxr-xr-x") are shown under the name. A path bar shows the folders down to the current one, each one clickable, with Back and Forward; a click next to it (or Actions > Type a path) brings back the typed path. A **Filter** field keeps the names that contain the text. **Actions** has Refresh, New folder (this PC and hosts; a phone says why not), Copy to other side and Type a path.
+- **Drag and drop**: rows can be dragged to the other list or onto a folder of either list; everything selected goes along, and dragging a row that is not selected selects it first. The drop runs the same checks and questions as Copy to other side (phone confirmation, "Replace existing file?"). Files and folders dropped from Windows Explorer are uploaded to the side that shows a host or a phone (the side the pointer was over last, else the other one); with no host or phone on either side a note says so.
+- **Folders** are copied with everything in them between this PC and a host and between hosts: the folders are created first, then the files, as one job with progress over the whole tree. Cancel stops between files and removes the file in progress. Links are not followed and are counted in the result ("2 links or unsupported items skipped"). A folder that already exists asks first; "Replace" merges into it. Folders to or from a phone are still refused, with a message.
+- **Host to host**: a file or folder is copied from one SSH host to another through this PC without a temporary copy on it, 256 KiB at a time, with progress and Cancel. The destination is written as `<name>.part` and renamed when the size matches; a failed or cancelled copy removes it. The same host on both sides works for a different folder; copying onto the same place, or a folder into itself, is refused.
+
+### Added — 2026-11-22 (New Tab page and shell menu, not yet released)
+
+Built and unit-tested; not yet tried by hand in the running app (see TAB-NEW-01 and TAB-NEW-02 in `docs/TASKS.md`).
+
+- "+" and Ctrl+Shift+T now open a **New Tab** page instead of a PowerShell tab: a search field over recent connections, all hosts, the shells of this PC, phones and SFTP. Up, Down and Enter choose; Esc clears the search or closes the page. What is picked takes the page's place in the tab strip. Remote Desktop opens in its own window and leaves the page open with a note.
+- A chevron next to "+" lists the local shells (Windows PowerShell, PowerShell 7, Command Prompt, Git Bash, WSL distributions; only the ones installed), then hosts, then phones. Ctrl+Shift+1 to 9 open the first nine entries.
+- New local shells: PowerShell 7, Command Prompt and Git Bash. Shells are looked for in the background at startup and when Home is refreshed, no longer on the UI thread.
+
+### Added — 2026-11-22 (host credentials and Keychain, not yet released)
+
+Built and unit-tested; not yet tried by hand in the running app (see HOST-UI-02, CRED-02 and DESK-IMPL-04 in `docs/TASKS.md`).
+
+- New host form in the inspector, laid out as cards: Address, General (label, parent group, tags), "SSH on [port] port", Credentials and Startup snippet. A host can sign in with a password, a key from the Keychain (with its certificate), a key file as before, or a security key through the Windows OpenSSH agent. A saved password is shown only as "Password saved", with Replace and Remove. Hosts that sign in with a key file keep working and open in the same form.
+- **Connect** in the form saves the host and opens it: for a new SSH host the host-key question comes first, then the terminal.
+- Remote Desktop hosts: choose "Remote Desktop" while adding a host. Its card opens it in Windows' own Remote Desktop client (`mstsc.exe`); the password is kept in Windows Credential Manager. Changing the address or user name of such a host asks for the password again.
+- Hosts on Home are grouped by parent group (hosts without one first), and search also finds a host by its user name, group or tags.
+- Keychain section: add an SSH key by pasting it, importing a key file or dragging the file from Explorer onto the window; add a key with its certificate or a FIDO2 security key by its public key; edit and delete keys. A key that a host still signs in with cannot be deleted. Private keys and passphrases go to Windows Credential Manager and are never shown again.
+- The startup snippet of a host is stored as plain text with the host, not as a secret.
+
 ## [0.2.0] - 2026-11-22 (built, not yet signed off)
 
 Installer `senvakara_0.2.0_x64-setup.exe` (NSIS, per-user) is built but has not been run; install, upgrade from 0.1.0 and uninstall are untested.

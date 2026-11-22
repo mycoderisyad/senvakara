@@ -6,12 +6,17 @@
 
 mod devices;
 mod hosts;
+mod keychain;
 mod recipes;
 mod workflows;
 mod workspaces;
 
 pub use devices::DeviceRouteRecord;
-pub use hosts::{HostRecord, HostUpsert, SshEndpoint, VpnEndpoint, MAX_VPN_ENDPOINTS};
+pub use hosts::{
+    HostRecord, HostUpsert, Protocol, RdpEndpoint, SshAuth, SshEndpoint, VpnEndpoint,
+    MAX_GROUP_LEN, MAX_SNIPPET_LEN, MAX_TAGS, MAX_TAG_LEN, MAX_VPN_ENDPOINTS,
+};
+pub use keychain::{KeyKind, KeyRecord, KeyUpsert, MAX_KEY_LABEL_LEN};
 pub use recipes::{RecipePermissions, RecipeRecord, RecipeSave, RecipeStep};
 pub use workflows::{RunRecord, StepRecord};
 pub use workspaces::{PanelRecord, WorkspaceRecord, WorkspaceSave};
@@ -24,6 +29,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("../migrations/0002_workspaces.sql"),
     include_str!("../migrations/0003_workflows.sql"),
     include_str!("../migrations/0004_recipes.sql"),
+    include_str!("../migrations/0005_credentials.sql"),
 ];
 
 #[derive(Debug, thiserror::Error)]
@@ -104,9 +110,9 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("svk-test-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("t.db");
-        assert_eq!(Db::open(&path).unwrap().schema_version().unwrap(), 4);
+        assert_eq!(Db::open(&path).unwrap().schema_version().unwrap(), 5);
         // Re-opening must not re-run migrations.
-        assert_eq!(Db::open(&path).unwrap().schema_version().unwrap(), 4);
+        assert_eq!(Db::open(&path).unwrap().schema_version().unwrap(), 5);
         let _ = std::fs::remove_dir_all(dir);
     }
 
@@ -118,8 +124,50 @@ mod tests {
             .pragma_query_value(None, "busy_timeout", |r| r.get(0))
             .unwrap();
         assert_eq!(ms, BUSY_TIMEOUT.as_millis() as i64);
-        // Still the v0.1.0 schema: no migration was added.
-        assert_eq!(db.schema_version().unwrap(), 4);
+        assert_eq!(db.schema_version().unwrap(), MIGRATIONS.len() as u32);
+    }
+
+    #[test]
+    fn upgrading_from_v4_keeps_hosts_signing_in_with_their_key_file() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.pragma_update(None, "foreign_keys", "ON").unwrap();
+        for sql in &MIGRATIONS[..4] {
+            conn.execute_batch(sql).unwrap();
+        }
+        conn.pragma_update(None, "user_version", 4).unwrap();
+        conn.execute_batch(
+            "INSERT INTO hosts(id, display_name, os_family, trust_state) VALUES('h1','Fedora','linux','trusted');
+             INSERT INTO host_endpoints(id, host_id, transport, address, port, fingerprint)
+                 VALUES('e1','h1','ssh','192.0.2.10',22,'SHA256:abc');
+             INSERT INTO ssh_settings(endpoint_id, username, private_key_path, passphrase_ref)
+                 VALUES('e1','dev','C:\\keys\\id','secret-p');",
+        )
+        .unwrap();
+
+        let db = Db::init(conn).unwrap();
+        assert_eq!(db.schema_version().unwrap(), 5);
+        let host = db.get_host("h1").unwrap();
+        assert_eq!(host.protocol, Protocol::Ssh);
+        assert_eq!(host.trust_state, "trusted");
+        assert!(host.tags.is_empty() && host.group_name.is_none() && host.rdp.is_none());
+        let ssh = host.ssh.unwrap();
+        assert_eq!(ssh.fingerprint.as_deref(), Some("SHA256:abc"));
+        assert_eq!(ssh.username, "dev");
+        assert_eq!(
+            ssh.auth,
+            SshAuth::KeyFile {
+                path: r"C:\keys\id".into()
+            }
+        );
+        assert_eq!(ssh.passphrase_ref.as_deref(), Some("secret-p"));
+        assert_eq!(ssh.password_ref, None);
+        // The rebuilt table still cascades from its endpoint.
+        db.delete_host("h1").unwrap();
+        let n: i64 = db
+            .conn
+            .query_row("SELECT COUNT(*) FROM ssh_settings", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(n, 0);
     }
 
     #[test]

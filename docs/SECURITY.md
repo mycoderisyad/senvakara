@@ -49,6 +49,8 @@
 
 Store private keys/tokens using OS-backed APIs when possible. Database should hold only opaque references and nonsecret metadata. Never place secrets in frontend source, localStorage, environment examples, session export or verbose logs. Document secure import, rotation, revocation and wipe behavior.
 
+SSH password authentication is supported (TASKS CRED-01), including servers that only take the password through one hidden keyboard-interactive prompt; nothing else a server asks is answered with it. SSH passwords, key passphrases and keychain private keys live only in the OS credential store (Windows Credential Manager, ADR-025) and never in SQLite or logs; the database holds opaque references and non-secret metadata (label, algorithm, public key, certificate). A password is never read back into the UI. RDP credentials are stored as `TERMSRV/<address>` (ADR-026) and removed when the host is deleted. The host key is checked before any credential is sent.
+
 ## 6. Remote execution policy
 
 Use typed commands with executable and arguments; avoid implicit shells, especially on agent. Provide capability- and action-level checks. Operations that mutate host/devices require user initiation or explicitly trusted recipe configuration. Restrict file roots if an agent manages files; avoid path traversal and symlink races. Cap execution duration/output and support cancellation.

@@ -91,7 +91,7 @@ pub async fn first_reachable(
 }
 
 /// Connect through the most preferred working candidate. `base` supplies
-/// user, key, passphrase and host-key policy; its host/port are ignored.
+/// user, sign-in method and host-key policy; its host/port are ignored.
 ///
 /// On failure the error carries a [`CoreError`]: a host-key or login
 /// problem wins over "unreachable", because it is the one the user must act

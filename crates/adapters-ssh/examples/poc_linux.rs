@@ -10,7 +10,7 @@
 //! Env: SVK_ADB = path to adb.exe (default: %LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe)
 
 use anyhow::{Context, Result};
-use senvakara_adapters_ssh::{ConnectParams, HostKeyPolicy, SshConnection};
+use senvakara_adapters_ssh::{Auth, ConnectParams, HostKeyPolicy, SshConnection};
 use std::path::PathBuf;
 use std::process::Command;
 use std::sync::Arc;
@@ -87,10 +87,12 @@ async fn main() -> Result<()> {
         host: host.clone(),
         port: 22,
         user: user.clone(),
-        private_key: key.clone(),
+        auth: Auth::KeyFile {
+            path: key.clone(),
+            passphrase: None,
+        },
         host_key: policy,
         connect_timeout: Duration::from_secs(8),
-        passphrase: None,
     };
 
     // ---------- POC-02: host key pinning ----------

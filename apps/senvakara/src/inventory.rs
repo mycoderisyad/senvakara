@@ -3,6 +3,7 @@
 
 mod device_actions;
 mod devices;
+mod groups;
 mod host_actions;
 mod hosts;
 mod metrics;
@@ -10,7 +11,7 @@ mod refresh;
 mod selection;
 mod text;
 
-pub use hosts::desktop_problem;
+pub use hosts::{desktop_problem, host_subtitle};
 pub use text::{fact, friendly, friendly_with, transport_label};
 
 use std::cell::{Cell, RefCell};
@@ -20,7 +21,7 @@ use std::rc::Rc;
 use senvakara_app::{HostView, Metrics};
 use slint::VecModel;
 
-use crate::{App, DeviceItem, HostItem};
+use crate::{App, DeviceItem, HostGroup, HostItem};
 
 type DeviceView = senvakara_app::android::DeviceView;
 
@@ -42,6 +43,8 @@ pub struct State {
     hues: RefCell<HashMap<String, i32>>,
     query: RefCell<String>,
     host_model: Rc<VecModel<HostItem>>,
+    /// The same cards as `host_model`, filed by parent group for the Hosts page.
+    group_model: Rc<VecModel<HostGroup>>,
     device_model: Rc<VecModel<DeviceItem>>,
     metrics_timer: slint::Timer,
     primed: Cell<bool>,

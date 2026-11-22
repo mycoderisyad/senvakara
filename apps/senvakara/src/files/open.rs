@@ -1,4 +1,4 @@
-//! Opening a Files tab, wiring its callbacks and choosing the place each side shows.
+//! Opening a Files tab, wiring its callbacks and naming the tab after what it shows.
 
 use std::rc::Rc;
 
@@ -6,14 +6,22 @@ use slint::{ComponentHandle, Model, SharedString};
 
 use crate::{App, Files, Pane, TabInfo};
 
-use super::{FilesPane, Kind, Side, Source};
+use super::{FilesPane, Kind, Source};
 
 impl App {
     pub fn init_files(self: &Rc<Self>, ui: &crate::MainWindow) {
         let files = ui.global::<Files>();
-        files.on_pick_source({
+        files.on_pick_show({
             let app = self.clone();
-            move |id, side, index| app.files_pick_source(id, side as usize, index)
+            move |id, side, show| app.files_pick_show(id, side as usize, show)
+        });
+        files.on_pick_search({
+            let app = self.clone();
+            move |id, side, query| app.files_pick_search(id, side as usize, &query)
+        });
+        files.on_pick({
+            let app = self.clone();
+            move |id, side, index| app.files_pick(id, side as usize, index)
         });
         files.on_go({
             let app = self.clone();
@@ -22,6 +30,14 @@ impl App {
         files.on_up({
             let app = self.clone();
             move |id, side| app.files_up(id, side as usize)
+        });
+        files.on_travel({
+            let app = self.clone();
+            move |id, side, back| app.files_travel(id, side as usize, back)
+        });
+        files.on_crumb({
+            let app = self.clone();
+            move |id, side, index| app.files_crumb(id, side as usize, index.max(0) as usize)
         });
         files.on_refresh({
             let app = self.clone();
@@ -47,37 +63,66 @@ impl App {
             let app = self.clone();
             move |id, side| app.files_copy(id, side as usize)
         });
+        files.on_sort({
+            let app = self.clone();
+            move |id, side, column| app.files_sort(id, side as usize, &column)
+        });
+        files.on_filter({
+            let app = self.clone();
+            move |id, side, text| app.files_filter(id, side as usize, &text)
+        });
+        files.on_new_folder({
+            let app = self.clone();
+            move |id, side, name| app.files_new_folder(id, side as usize, &name)
+        });
+        files.on_hovered({
+            let app = self.clone();
+            move |id, side| app.files.hover.set((id, side as usize))
+        });
+        files.on_drag_data(|id, side| {
+            SharedString::from(super::dragdrop::token(id, side as usize)).into()
+        });
+        files.on_can_drop({
+            let app = self.clone();
+            move |id, side, row, data| {
+                let token = data.plain_text().unwrap_or_default();
+                app.files_can_drop(&token, id, side as usize, row)
+            }
+        });
+        files.on_dropped({
+            let app = self.clone();
+            move |id, side, row, data| {
+                let token = data.plain_text().unwrap_or_default();
+                app.files_dropped(&token, id, side as usize, row)
+            }
+        });
     }
 
     /// Open a Files tab with this PC on the left and `source` on the right.
     pub fn open_files(self: &Rc<Self>, source: Source) {
         let id = self.take_id();
-        let title = tab_title(
-            Kind::Local,
-            "This PC",
-            source.kind(),
-            &self.place_name(&source),
-        );
-        let hue = match &source {
-            Source::Local => 0,
-            Source::Host(host) => self.inv.hue(host),
-            Source::Device(route) => self
-                .inv
-                .device(route)
-                .map(|device| self.inv.hue(&device.record.host_id))
-                .unwrap_or(0),
-        };
-        self.sessions
-            .borrow_mut()
-            .push(Pane::Files(FilesPane::new(id, source)));
+        self.open_files_pane(FilesPane::new(id, source));
+    }
+
+    /// Open the SFTP tab: this PC on the left, and on the right the invitation to choose a
+    /// host.
+    pub fn open_sftp(self: &Rc<Self>) {
+        let id = self.take_id();
+        self.open_files_pane(FilesPane::sftp(id));
+    }
+
+    fn open_files_pane(self: &Rc<Self>, pane: FilesPane) {
+        let id = pane.id;
+        self.sessions.borrow_mut().push(Pane::Files(pane));
         self.tabs.push(TabInfo {
             id,
             kind: "files".into(),
-            title: title.into(),
+            title: SharedString::new(),
             detail: SharedString::new(),
-            hue,
+            hue: 0,
             exited: false,
         });
+        self.files_retitle(id);
         self.select(self.tabs.row_count() as i32 - 1);
         self.files_start(id);
     }
@@ -101,38 +146,8 @@ impl App {
         .flatten()
     }
 
-    fn files_pick_source(self: &Rc<Self>, id: i32, side: usize, index: i32) {
-        let Some((id, current, _)) = self.files_side(id, side) else {
-            return;
-        };
-        let picked = self
-            .with_files(id, |pane| {
-                pane.sources.borrow().get(index.max(0) as usize).cloned()
-            })
-            .flatten();
-        let Some(source) = picked else { return };
-        if source == current {
-            return;
-        }
-        self.with_files(id, |pane| {
-            let mut state = pane.sides[side].borrow_mut();
-            let (rows, request) = (state.rows.clone(), state.request);
-            rows.set_vec(Vec::new());
-            let input_rev = state.input_rev.wrapping_add(1);
-            *state = Side {
-                rows,
-                request,
-                input_rev,
-                ..Side::new(source.clone())
-            };
-        });
-        self.files_retitle(id);
-        let path = source.start_path();
-        self.files_load(id, side, source, path);
-    }
-
     /// Name the tab after the places it shows. A pane in a workspace panel has no tab.
-    fn files_retitle(&self, id: i32) {
+    pub(super) fn files_retitle(&self, id: i32) {
         let sessions = self.sessions.borrow();
         let Some(index) = sessions.iter().position(|pane| pane.id() == id) else {
             return;
@@ -144,17 +159,21 @@ impl App {
             pane.sides[0].borrow().source.clone(),
             pane.sides[1].borrow().source.clone(),
         );
-        let title = tab_title(
-            left.kind(),
-            &self.place_name(&left),
-            right.kind(),
-            &self.place_name(&right),
-        );
+        let title = if pane.sftp {
+            "SFTP".to_string()
+        } else {
+            tab_title(
+                left.kind(),
+                &self.place_name(&left),
+                right.kind(),
+                &self.place_name(&right),
+            )
+        };
         // The tab carries the colour of the first machine that is not this PC.
         let hue = [&right, &left]
             .into_iter()
             .find_map(|source| match source {
-                Source::Local => None,
+                Source::None | Source::Local => None,
                 Source::Host(host) => Some(self.inv.hue(host)),
                 Source::Device(route) => self
                     .inv
@@ -175,9 +194,9 @@ impl App {
 /// What a Files tab is called: the places it shows that are not this PC.
 fn tab_title(left: Kind, left_name: &str, right: Kind, right_name: &str) -> String {
     match (left, right) {
-        (Kind::Local, Kind::Local) => "Files, this PC".to_string(),
-        (Kind::Local, _) => format!("Files, {right_name}"),
-        (_, Kind::Local) => format!("Files, {left_name}"),
+        (Kind::Local | Kind::None, Kind::Local | Kind::None) => "Files, this PC".to_string(),
+        (Kind::Local | Kind::None, _) => format!("Files, {right_name}"),
+        (_, Kind::Local | Kind::None) => format!("Files, {left_name}"),
         _ if left_name == right_name => format!("Files, {left_name}"),
         _ => format!("Files, {left_name} and {right_name}"),
     }

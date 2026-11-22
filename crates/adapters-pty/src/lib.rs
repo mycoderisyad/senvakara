@@ -7,6 +7,7 @@
 use anyhow::{Context, Result};
 use portable_pty::{native_pty_system, Child, CommandBuilder, MasterPty, PtySize};
 use std::io::{Read, Write};
+use std::path::PathBuf;
 
 /// Which local shell to start.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -15,6 +16,13 @@ pub enum ShellKind {
     PowerShell,
     /// A WSL distribution; `None` uses the user's default distro.
     Wsl { distro: Option<String> },
+    /// Command Prompt (`cmd.exe`).
+    Cmd,
+    /// PowerShell 7 or later: the full path of its `pwsh.exe`.
+    Pwsh { path: PathBuf },
+    /// Git Bash: the full path of Git for Windows' `bash.exe`, started as an
+    /// interactive login shell.
+    GitBash { path: PathBuf },
 }
 
 impl ShellKind {
@@ -31,6 +39,17 @@ impl ShellKind {
                 if let Some(d) = distro {
                     c.args(["-d", d.as_str()]);
                 }
+                c
+            }
+            ShellKind::Cmd => CommandBuilder::new("cmd.exe"),
+            ShellKind::Pwsh { path } => {
+                let mut c = CommandBuilder::new(path);
+                c.arg("-NoLogo");
+                c
+            }
+            ShellKind::GitBash { path } => {
+                let mut c = CommandBuilder::new(path);
+                c.args(["--login", "-i"]);
                 c
             }
         };
@@ -127,17 +146,38 @@ impl Drop for PtySession {
 mod tests {
     use super::*;
 
-    #[test]
-    fn wsl_command_uses_discrete_args() {
-        let cmd = ShellKind::Wsl {
-            distro: Some("Ubuntu-24.04".into()),
-        }
-        .command(&["--", "uname"]);
-        let argv: Vec<String> = cmd
+    fn argv(kind: ShellKind, extra: &[&str]) -> Vec<String> {
+        kind.command(extra)
             .get_argv()
             .iter()
             .map(|a| a.to_string_lossy().into_owned())
-            .collect();
-        assert_eq!(argv, ["wsl.exe", "-d", "Ubuntu-24.04", "--", "uname"]);
+            .collect()
+    }
+
+    #[test]
+    fn wsl_command_uses_discrete_args() {
+        let kind = ShellKind::Wsl {
+            distro: Some("Ubuntu-24.04".into()),
+        };
+        assert_eq!(
+            argv(kind, &["--", "uname"]),
+            ["wsl.exe", "-d", "Ubuntu-24.04", "--", "uname"]
+        );
+    }
+
+    #[test]
+    fn git_bash_starts_as_an_interactive_login_shell() {
+        let path = r"C:\Program Files\Git\bin\bash.exe";
+        let kind = ShellKind::GitBash { path: path.into() };
+        // A path with a space stays one argument: nothing is joined into a shell string.
+        assert_eq!(argv(kind, &[]), [path, "--login", "-i"]);
+    }
+
+    #[test]
+    fn pwsh_and_cmd_run_their_own_executable() {
+        let path = r"C:\Program Files\PowerShell\7\pwsh.exe";
+        let kind = ShellKind::Pwsh { path: path.into() };
+        assert_eq!(argv(kind, &[]), [path, "-NoLogo"]);
+        assert_eq!(argv(ShellKind::Cmd, &[]), ["cmd.exe"]);
     }
 }

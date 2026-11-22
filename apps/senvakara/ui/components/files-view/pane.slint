@@ -1,0 +1,463 @@
+// One side of the Files tab: what place it shows, the filter and the Actions menu, the path
+// bar, the list, and the Copy button. Or, in place of all that, the invitation to choose a
+// host and the list of places to choose from.
+
+import { Theme } from "../../theme.slint";
+import { Icon, IconButton } from "../controls.slint";
+import { Button, Notice, TextField, MenuRow, ToolButton } from "../widgets.slint";
+import { Files, FileRow, FileSide, FileCrumb, FilePlace } from "data.slint";
+import { EmptySide, PlacePicker } from "picker.slint";
+import { FileTable } from "table.slint";
+
+// The folders down to the one on screen; each can be clicked. A long path keeps its end in
+// view. A click next to the folders asks for the path to be typed instead.
+component PathBar inherits Rectangle {
+    in property <[FileCrumb]> crumbs;
+    in property <string> side-name;
+    callback picked(index: int);
+    callback edit();
+
+    height: Theme.row;
+    clip: true;
+
+    TouchArea {
+        mouse-cursor: text;
+        clicked => {
+            root.edit();
+        }
+    }
+
+    HorizontalLayout {
+        x: Math.min(0px, parent.width - self.preferred-width);
+        width: self.preferred-width;
+        spacing: 2px;
+
+        for crumb[index] in root.crumbs: HorizontalLayout {
+            spacing: 2px;
+
+            if index > 0: VerticalLayout {
+                alignment: center;
+                Icon {
+                    width: 12px;
+                    height: 12px;
+                    source: @image-url("../../icons/right.svg");
+                    tint: Theme.text-faint;
+                }
+            }
+
+            Rectangle {
+                private property <bool> last: index == root.crumbs.length - 1;
+                width: label.preferred-width + 2 * Theme.space-1;
+                border-radius: Theme.radius - 2px;
+                background: touch.has-hover ? Theme.surface-hover : transparent;
+                accessible-role: button;
+                accessible-label: "Go to " + crumb.label + ", " + root.side-name + " side";
+                accessible-action-default => {
+                    root.picked(index);
+                }
+
+                touch := TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => {
+                        root.picked(index);
+                    }
+                }
+
+                label := Text {
+                    vertical-alignment: center;
+                    text: crumb.label;
+                    color: parent.last ? Theme.text : Theme.text-muted;
+                    font-size: Theme.text-body;
+                    font-weight: parent.last ? 600 : 400;
+                }
+            }
+        }
+    }
+}
+
+export component FilePane inherits Rectangle {
+    in property <int> pane;
+    in property <int> side;
+    in property <FileSide> info;
+    in property <[FileRow]> rows;
+    in property <[FileCrumb]> crumbs;
+    in property <[FilePlace]> places;
+    // Only this side is on screen (a narrow workspace panel): nothing can be copied across.
+    in property <bool> alone;
+    // How wide this side is, more or less: columns give way to the name when it is narrow.
+    in property <length> room;
+
+    private property <string> side-name: side == 0 ? "left" : "right";
+    // The path is being typed instead of shown as folders.
+    private property <bool> typing;
+    // The name of a new folder is being typed.
+    private property <bool> naming;
+    // Rust decides what the folder field says: after a listing, and when another pane is shown.
+    private property <string> input-key: pane + "/" + info.input-rev + "/" + info.input;
+    private property <string> filter-key: pane + "/" + info.filter-rev;
+
+    changed input-key => {
+        field.text = info.input;
+        root.typing = false;
+    }
+
+    changed filter-key => {
+        filter.text = "";
+    }
+
+    init => {
+        field.text = info.input;
+    }
+
+    hover := TouchArea {
+        changed has-hover => {
+            if (self.has-hover) {
+                Files.hovered(root.pane, root.side);
+            }
+        }
+
+        if root.info.picking: PlacePicker {
+            pane: root.pane;
+            side: root.side;
+            places: root.places;
+            can-leave: root.info.place-kind != "";
+        }
+
+        if !root.info.picking && root.info.place-kind == "": EmptySide {
+            pane: root.pane;
+            side: root.side;
+        }
+
+        VerticalLayout {
+            visible: !root.info.picking && root.info.place-kind != "";
+            padding: Theme.space-3;
+            spacing: Theme.space-2;
+
+            HorizontalLayout {
+                spacing: Theme.space-2;
+
+                VerticalLayout {
+                    alignment: center;
+                    Rectangle {
+                        width: 26px;
+                        height: 26px;
+                        border-radius: Theme.radius;
+                        background: Theme.host-hue(root.info.hue).with-alpha(0.16);
+                        Icon {
+                            source: root.info.place-kind == "local" ? @image-url("../../icons/windows.svg") : root.info.place-kind == "phone" ? @image-url("../../icons/phone.svg") : @image-url("../../icons/server.svg");
+                            tint: Theme.host-hue(root.info.hue);
+                        }
+                    }
+                }
+
+                Text {
+                    vertical-alignment: center;
+                    text: root.info.place;
+                    color: Theme.text;
+                    font-size: Theme.text-body;
+                    font-weight: 600;
+                    overflow: elide;
+                }
+
+                Button {
+                    text: "Change";
+                    kind: "ghost";
+                    accessible-label: "Show another host, phone or this PC on the " + root.side-name + " side";
+                    clicked => {
+                        Files.pick-show(root.pane, root.side, true);
+                    }
+                }
+
+                Rectangle {
+                    horizontal-stretch: 1;
+                }
+
+                filter := TextField {
+                    width: 150px;
+                    label: "Filter the names on the " + root.side-name + " side";
+                    placeholder: "Filter";
+                    edited(text) => {
+                        Files.filter(root.pane, root.side, text);
+                    }
+                }
+
+                Rectangle {
+                    width: actions.min-width;
+                    height: Theme.row;
+
+                    actions := ToolButton {
+                        width: parent.width;
+                        icon: @image-url("../../icons/chevron-down.svg");
+                        text: "Actions";
+                        filled: true;
+                        label: "Actions for the " + root.side-name + " side";
+                        clicked => {
+                            menu.show();
+                        }
+                    }
+
+                    // Closes on any click, also on one of its own rows.
+                    menu := PopupWindow {
+                        x: parent.width - self.width;
+                        y: parent.height + Theme.space-1;
+                        width: 230px;
+
+                        Rectangle {
+                            border-radius: Theme.radius;
+                            border-width: 1px;
+                            border-color: Theme.hairline-strong;
+                            background: Theme.surface;
+                            drop-shadow-blur: 16px;
+                            drop-shadow-offset-y: 4px;
+                            drop-shadow-color: Theme.shell;
+
+                            VerticalLayout {
+                                padding: Theme.space-1;
+                                spacing: 2px;
+
+                                MenuRow {
+                                    icon: @image-url("../../icons/refresh.svg");
+                                    title: "Refresh";
+                                    activated => {
+                                        Files.refresh(root.pane, root.side);
+                                    }
+                                }
+
+                                MenuRow {
+                                    icon: @image-url("../../icons/folder.svg");
+                                    title: "New folder...";
+                                    detail: root.info.new-folder-reason;
+                                    activated => {
+                                        if (root.info.new-folder-reason == "") {
+                                            root.naming = true;
+                                        }
+                                    }
+                                }
+
+                                if !root.alone: MenuRow {
+                                    icon: @image-url("../../icons/import.svg");
+                                    title: "Copy to other side";
+                                    detail: root.info.copy-reason;
+                                    activated => {
+                                        if (root.info.copy-reason == "") {
+                                            Files.copy(root.pane, root.side);
+                                        }
+                                    }
+                                }
+
+                                MenuRow {
+                                    icon: @image-url("../../icons/search.svg");
+                                    title: "Type a path...";
+                                    activated => {
+                                        root.typing = true;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                spacing: Theme.space-1;
+
+                VerticalLayout {
+                    alignment: center;
+                    IconButton {
+                        icon: @image-url("../../icons/left.svg");
+                        label: "Back, " + root.side-name + " side";
+                        enabled: root.info.can-back;
+                        clicked => {
+                            Files.travel(root.pane, root.side, true);
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+                    IconButton {
+                        icon: @image-url("../../icons/right.svg");
+                        label: "Forward, " + root.side-name + " side";
+                        enabled: root.info.can-forward;
+                        clicked => {
+                            Files.travel(root.pane, root.side, false);
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+                    IconButton {
+                        icon: @image-url("../../icons/up.svg");
+                        label: "Up one folder, " + root.side-name + " side";
+                        enabled: root.info.can-up;
+                        clicked => {
+                            Files.up(root.pane, root.side);
+                        }
+                    }
+                }
+
+                if !root.typing: PathBar {
+                    horizontal-stretch: 1;
+                    crumbs: root.crumbs;
+                    side-name: root.side-name;
+                    picked(index) => {
+                        Files.crumb(root.pane, root.side, index);
+                    }
+                    edit => {
+                        root.typing = true;
+                    }
+                }
+
+                field := TextField {
+                    visible: root.typing;
+                    horizontal-stretch: root.typing ? 1 : 0;
+                    width: root.typing ? self.preferred-width : 0px;
+                    mono: true;
+                    label: "Folder on the " + root.side-name + " side";
+                    placeholder: root.info.loaded ? root.info.path : "Folder path";
+                    accepted => {
+                        root.typing = false;
+                        Files.go(root.pane, root.side, self.text);
+                    }
+                }
+
+                if root.typing: Button {
+                    text: "Go";
+                    accessible-label: "Go to the typed folder, " + root.side-name + " side";
+                    clicked => {
+                        root.typing = false;
+                        Files.go(root.pane, root.side, field.text);
+                    }
+                }
+
+                if root.typing: Button {
+                    text: "Cancel";
+                    kind: "ghost";
+                    accessible-label: "Show the folders again, " + root.side-name + " side";
+                    clicked => {
+                        field.text = root.info.input;
+                        root.typing = false;
+                    }
+                }
+            }
+
+            if root.naming: HorizontalLayout {
+                spacing: Theme.space-2;
+
+                name := TextField {
+                    horizontal-stretch: 1;
+                    label: "Name of the new folder on the " + root.side-name + " side";
+                    placeholder: "Name of the new folder";
+                    init => {
+                        self.focus-input();
+                    }
+                    accepted => {
+                        root.naming = false;
+                        Files.new-folder(root.pane, root.side, self.text);
+                    }
+                }
+
+                Button {
+                    text: "Create";
+                    kind: "primary";
+                    accessible-label: "Create the folder, " + root.side-name + " side";
+                    clicked => {
+                        root.naming = false;
+                        Files.new-folder(root.pane, root.side, name.text);
+                    }
+                }
+
+                Button {
+                    text: "Cancel";
+                    kind: "ghost";
+                    accessible-label: "Do not create a folder, " + root.side-name + " side";
+                    clicked => {
+                        root.naming = false;
+                    }
+                }
+            }
+
+            if root.info.error != "": Notice {
+                kind: "danger";
+                text: root.info.error;
+            }
+
+            if root.info.note != "": Notice {
+                kind: "info";
+                text: root.info.note;
+            }
+
+            table := FileTable {
+                vertical-stretch: 1;
+                pane: root.pane;
+                side: root.side;
+                info: root.info;
+                rows: root.rows;
+                show-time: root.room >= 380px;
+                show-kind: root.room >= 480px;
+            }
+
+            if root.alone: Text {
+                text: root.info.loading && root.rows.length > 0 ? "Reading " + root.info.place : root.info.summary == "" ? "Widen the panel to see this PC next to it and copy files across." : root.info.summary + ". Widen the panel to copy files to or from this PC.";
+                color: Theme.text-muted;
+                font-size: Theme.text-small;
+                overflow: elide;
+            }
+
+            if !root.alone: HorizontalLayout {
+                spacing: Theme.space-2;
+
+                VerticalLayout {
+                    horizontal-stretch: 1;
+                    alignment: center;
+                    spacing: 2px;
+
+                    Text {
+                        text: root.info.loading && root.rows.length > 0 ? "Reading " + root.info.place : root.info.summary;
+                        color: Theme.text-muted;
+                        font-size: Theme.text-small;
+                        overflow: elide;
+                    }
+
+                    Text {
+                        text: root.info.copy-target;
+                        color: Theme.text-faint;
+                        font-size: Theme.text-small;
+                        font-family: Theme.mono;
+                        overflow: elide;
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+                    Button {
+                        text: "Copy to other side";
+                        kind: root.info.copy-reason == "" ? "primary" : "secondary";
+                        enabled: root.info.copy-reason == "";
+                        reason: root.info.copy-reason;
+                        accessible-label: root.info.copy-reason == "" ? "Copy to other side, from the " + root.side-name : "Copy to other side, from the " + root.side-name + ". Unavailable: " + root.info.copy-reason;
+                        clicked => {
+                            Files.copy(root.pane, root.side);
+                        }
+                    }
+                }
+            }
+
+            // Always one line high at least, so both lists keep the same height.
+            if !root.alone: Rectangle {
+                height: Math.max(16px, reason.preferred-height);
+                reason := Text {
+                    x: 0;
+                    y: 0;
+                    width: parent.width;
+                    horizontal-alignment: right;
+                    text: root.info.copy-reason;
+                    color: Theme.text-faint;
+                    font-size: Theme.text-small;
+                    wrap: word-wrap;
+                }
+            }
+        }
+    }
+}

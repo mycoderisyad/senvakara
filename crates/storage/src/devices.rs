@@ -190,7 +190,7 @@ impl Db {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Db, HostUpsert};
+    use crate::{Db, HostUpsert, Protocol, SshAuth};
 
     fn setup() -> (Db, String, String) {
         let mut db = Db::open_in_memory().unwrap();
@@ -202,7 +202,11 @@ mod tests {
                 address: "192.0.2.10".into(),
                 port: 22,
                 username: "u".into(),
-                private_key_path: "k".into(),
+                protocol: Protocol::Ssh,
+                auth: SshAuth::KeyFile { path: "k".into() },
+                group_name: None,
+                tags: Vec::new(),
+                startup_snippet: None,
             })
             .unwrap()
             .id;

@@ -1,0 +1,516 @@
+// Form pieces shared by the host form and the keychain form: IconField, TextArea, Chip, ChipRows,
+// MenuRow, LinkRow and ToolButton.
+
+import { TextEdit } from "std-widgets.slint";
+import { Theme } from "../../theme.slint";
+import { Icon } from "../controls.slint";
+
+// One chip of a wrapped list. `index` is its position in the list the chips were made from.
+export struct ChipItem {
+    text: string,
+    index: int,
+}
+
+// Chips that fit on one line. Rust packs them: a wrapped layout cannot be measured here.
+export struct ChipRow {
+    chips: [ChipItem],
+}
+
+// A one-line text field with an icon in front and, optionally, an icon button at its end
+// (show or hide a password, add a tag). `label` is its accessible name.
+export component IconField inherits Rectangle {
+    in-out property <string> text;
+    in property <string> placeholder;
+    in property <string> label;
+    in property <image> icon;
+    in property <bool> mono;
+    in property <bool> secret;
+    // The button at the end; drawn when `trail-label` is set.
+    in property <image> trail-icon;
+    in property <string> trail-label;
+    callback edited(string);
+    callback accepted();
+    callback trail-clicked();
+
+    public function focus-input() {
+        input.focus();
+    }
+
+    height: Theme.row;
+    min-width: 64px;
+    border-radius: Theme.radius;
+    border-width: 1px;
+    border-color: input.has-focus ? Theme.accent : Theme.hairline-strong;
+    background: Theme.ground;
+
+    HorizontalLayout {
+        padding-left: Theme.space-2;
+        padding-right: root.trail-label == "" ? Theme.space-2 : 3px;
+        spacing: Theme.space-2;
+
+        if root.icon.width > 0: VerticalLayout {
+            alignment: center;
+            Icon {
+                source: root.icon;
+                tint: input.has-focus ? Theme.text : Theme.text-faint;
+            }
+        }
+
+        Rectangle {
+            horizontal-stretch: 1;
+            clip: true;
+            if root.text == "": Text {
+                x: 0;
+                width: parent.width;
+                vertical-alignment: center;
+                text: root.placeholder;
+                color: Theme.text-faint;
+                font-size: Theme.text-body;
+                overflow: elide;
+            }
+            input := TextInput {
+                x: 0;
+                width: parent.width;
+                vertical-alignment: center;
+                single-line: true;
+                input-type: root.secret ? InputType.password : InputType.text;
+                text <=> root.text;
+                color: Theme.text;
+                font-size: Theme.text-body;
+                font-family: root.mono ? Theme.mono : Theme.sans;
+                selection-background-color: Theme.accent.with-alpha(0.35);
+                selection-foreground-color: Theme.text;
+                accessible-label: root.label == "" ? root.placeholder : root.label;
+                edited => {
+                    root.edited(self.text);
+                }
+                accepted => {
+                    root.accepted();
+                }
+            }
+        }
+
+        if root.trail-label != "": VerticalLayout {
+            alignment: center;
+            Rectangle {
+                width: 26px;
+                height: 26px;
+                border-radius: Theme.radius - 2px;
+                border-width: trail-focus.has-focus ? 1px : 0px;
+                border-color: Theme.accent;
+                background: trail-touch.has-hover ? Theme.surface-hover : transparent;
+                accessible-role: button;
+                accessible-label: root.trail-label;
+                accessible-action-default => {
+                    root.trail-clicked();
+                }
+
+                trail-focus := FocusScope {
+                    key-pressed(event) => {
+                        if (event.text == Key.Return || event.text == " ") {
+                            root.trail-clicked();
+                            return accept;
+                        }
+                        return reject;
+                    }
+                }
+
+                trail-touch := TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => {
+                        root.trail-clicked();
+                    }
+                }
+
+                Icon {
+                    source: root.trail-icon;
+                    tint: trail-touch.has-hover ? Theme.text : Theme.text-muted;
+                }
+            }
+        }
+    }
+}
+
+// A text field of several lines that scrolls (a key, a certificate, a startup snippet).
+export component TextArea inherits Rectangle {
+    in-out property <string> text <=> edit.text;
+    in property <string> placeholder;
+    in property <string> label;
+    in property <bool> read-only;
+    in property <bool> mono: true;
+    callback edited(string);
+
+    public function focus-input() {
+        edit.focus();
+    }
+
+    height: 96px;
+
+    edit := TextEdit {
+        width: 100%;
+        height: 100%;
+        placeholder-text: root.placeholder;
+        read-only: root.read-only;
+        wrap: char-wrap;
+        font-size: Theme.text-small;
+        font-family: root.mono ? Theme.mono : Theme.sans;
+        accessible-label: root.label == "" ? root.placeholder : root.label;
+        edited(text) => {
+            root.edited(text);
+        }
+    }
+}
+
+// A small label with, when `removable`, a button that takes it away. `clickable` makes the
+// label itself a button (a suggestion to pick).
+export component Chip inherits Rectangle {
+    in property <string> text;
+    in property <image> icon;
+    in property <bool> removable;
+    in property <bool> clickable;
+    // What the remove button does, for screen readers: "Remove tag prod".
+    in property <string> remove-label: "Remove " + text;
+    callback clicked();
+    callback removed();
+
+    height: 24px;
+    min-width: row.min-width;
+    horizontal-stretch: 0;
+    border-radius: 12px;
+    border-width: 1px;
+    border-color: pick-focus.has-focus ? Theme.accent : Theme.hairline-strong;
+    background: root.clickable && pick.has-hover ? Theme.surface-hover : Theme.surface-selected;
+
+    // A suggestion is a button; a plain chip is read as its text.
+    if root.clickable: Rectangle {
+        accessible-role: button;
+        accessible-label: root.text;
+        accessible-action-default => {
+            root.clicked();
+        }
+    }
+
+    pick-focus := FocusScope {
+        enabled: root.clickable;
+        key-pressed(event) => {
+            if (event.text == Key.Return || event.text == " ") {
+                root.clicked();
+                return accept;
+            }
+            return reject;
+        }
+    }
+
+    pick := TouchArea {
+        enabled: root.clickable;
+        mouse-cursor: root.clickable ? MouseCursor.pointer : MouseCursor.default;
+        clicked => {
+            root.clicked();
+        }
+    }
+
+    row := HorizontalLayout {
+        padding-left: Theme.space-2;
+        padding-right: root.removable ? 3px : Theme.space-2;
+        spacing: Theme.space-1;
+
+        if root.icon.width > 0: VerticalLayout {
+            alignment: center;
+            Icon {
+                width: 12px;
+                height: 12px;
+                source: root.icon;
+            }
+        }
+
+        Text {
+            vertical-alignment: center;
+            text: root.text;
+            color: Theme.text;
+            font-size: Theme.text-small;
+            overflow: elide;
+        }
+
+        if root.removable: VerticalLayout {
+            alignment: center;
+            Rectangle {
+                width: 18px;
+                height: 18px;
+                border-radius: 9px;
+                border-width: remove-focus.has-focus ? 1px : 0px;
+                border-color: Theme.accent;
+                background: remove-touch.has-hover ? Theme.hairline-strong : transparent;
+                accessible-role: button;
+                accessible-label: root.remove-label;
+                accessible-action-default => {
+                    root.removed();
+                }
+
+                remove-focus := FocusScope {
+                    key-pressed(event) => {
+                        if (event.text == Key.Return || event.text == " " || event.text == Key.Delete) {
+                            root.removed();
+                            return accept;
+                        }
+                        return reject;
+                    }
+                }
+
+                remove-touch := TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => {
+                        root.removed();
+                    }
+                }
+
+                Icon {
+                    width: 10px;
+                    height: 10px;
+                    source: @image-url("../../icons/close.svg");
+                    tint: remove-touch.has-hover ? Theme.text : Theme.text-muted;
+                }
+            }
+        }
+    }
+}
+
+// Chips over as many lines as Rust packed them into.
+export component ChipRows inherits VerticalLayout {
+    in property <[ChipRow]> rows;
+    in property <bool> removable;
+    in property <bool> clickable;
+    // "tag" | "group": the word the remove button reads out.
+    in property <string> noun: "tag";
+    callback clicked(index: int, text: string);
+    callback removed(index: int);
+
+    spacing: Theme.space-1;
+
+    for line in root.rows: HorizontalLayout {
+        alignment: start;
+        spacing: Theme.space-1;
+
+        for chip in line.chips: Chip {
+            text: chip.text;
+            removable: root.removable;
+            clickable: root.clickable;
+            remove-label: "Remove " + root.noun + " " + chip.text;
+            clicked => {
+                root.clicked(chip.index, chip.text);
+            }
+            removed => {
+                root.removed(chip.index);
+            }
+        }
+    }
+}
+
+// One entry of a pop-up list: icon, title, a line of detail and an optional mark at the end.
+export component MenuRow inherits Rectangle {
+    in property <image> icon;
+    in property <string> title;
+    in property <string> detail;
+    // A word in a small frame at the end of the row ("certificate").
+    in property <string> mark;
+    callback activated();
+
+    height: root.detail == "" ? Theme.row : 42px;
+    border-radius: Theme.radius - 2px;
+    border-width: focus.has-focus ? 1px : 0px;
+    border-color: Theme.accent;
+    background: touch.pressed ? Theme.surface-selected : touch.has-hover || focus.has-focus ? Theme.surface-hover : transparent;
+    accessible-role: button;
+    accessible-label: root.mark == "" ? root.title + " " + root.detail : root.title + " " + root.detail + ", " + root.mark;
+    accessible-action-default => {
+        root.activated();
+    }
+
+    focus := FocusScope {
+        key-pressed(event) => {
+            if (event.text == Key.Return || event.text == " ") {
+                root.activated();
+                return accept;
+            }
+            return reject;
+        }
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.activated();
+        }
+    }
+
+    HorizontalLayout {
+        padding-left: Theme.space-2;
+        padding-right: Theme.space-2;
+        spacing: Theme.space-2;
+
+        VerticalLayout {
+            alignment: center;
+            Icon {
+                source: root.icon;
+                tint: touch.has-hover ? Theme.text : Theme.text-muted;
+            }
+        }
+
+        VerticalLayout {
+            alignment: center;
+            horizontal-stretch: 1;
+            Text {
+                text: root.title;
+                color: Theme.text;
+                font-size: Theme.text-body;
+                overflow: elide;
+            }
+
+            if root.detail != "": Text {
+                text: root.detail;
+                color: Theme.text-muted;
+                font-size: Theme.text-small;
+                overflow: elide;
+            }
+        }
+
+        if root.mark != "": VerticalLayout {
+            alignment: center;
+            Rectangle {
+                height: 18px;
+                width: mark-text.preferred-width + 2 * Theme.space-2;
+                border-radius: 9px;
+                border-width: 1px;
+                border-color: Theme.info.with-alpha(0.5);
+                mark-text := Text {
+                    text: root.mark;
+                    color: Theme.info;
+                    font-size: Theme.text-small;
+                }
+            }
+        }
+    }
+}
+
+// A quiet row that opens something: an icon and a line of text, no frame until hovered.
+export component LinkRow inherits Rectangle {
+    in property <image> icon;
+    in property <string> text;
+    callback clicked();
+
+    height: Theme.row;
+    border-radius: Theme.radius;
+    border-width: focus.has-focus ? 1px : 0px;
+    border-color: Theme.accent;
+    background: touch.pressed ? Theme.surface-selected : touch.has-hover ? Theme.surface-hover : transparent;
+    accessible-role: button;
+    accessible-label: text;
+    accessible-action-default => {
+        root.clicked();
+    }
+    animate background { duration: Theme.quick; }
+
+    focus := FocusScope {
+        key-pressed(event) => {
+            if (event.text == Key.Return || event.text == " ") {
+                root.clicked();
+                return accept;
+            }
+            return reject;
+        }
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+    }
+
+    HorizontalLayout {
+        padding-left: Theme.space-2;
+        padding-right: Theme.space-2;
+        spacing: Theme.space-2;
+
+        VerticalLayout {
+            alignment: center;
+            Icon {
+                source: root.icon;
+                tint: touch.has-hover ? Theme.text : Theme.text-muted;
+            }
+        }
+
+        Text {
+            horizontal-stretch: 1;
+            vertical-alignment: center;
+            text: root.text;
+            color: touch.has-hover ? Theme.text : Theme.text-muted;
+            font-size: Theme.text-body;
+            overflow: elide;
+        }
+    }
+}
+
+// A toolbar button: an icon and a word. `filled` draws it as a button; otherwise it is quiet.
+export component ToolButton inherits Rectangle {
+    in property <image> icon;
+    in property <string> text;
+    in property <bool> filled;
+    // Read out instead of `text` when the button shows no word (a chevron).
+    in property <string> label: text;
+    callback clicked();
+
+    private property <color> fill: filled ? Theme.surface : transparent;
+
+    height: Theme.row;
+    min-width: row.min-width;
+    horizontal-stretch: 0;
+    border-radius: Theme.radius;
+    border-width: 1px;
+    border-color: focus.has-focus ? Theme.accent : filled ? Theme.hairline-strong : transparent;
+    background: touch.pressed ? Theme.surface-selected : touch.has-hover ? Theme.surface-hover : fill;
+    accessible-role: button;
+    accessible-label: label;
+    accessible-action-default => {
+        root.clicked();
+    }
+    animate background { duration: Theme.quick; }
+
+    focus := FocusScope {
+        key-pressed(event) => {
+            if (event.text == Key.Return || event.text == " ") {
+                root.clicked();
+                return accept;
+            }
+            return reject;
+        }
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+    }
+
+    row := HorizontalLayout {
+        padding-left: Theme.space-2;
+        padding-right: root.text == "" ? Theme.space-2 : Theme.space-3;
+        spacing: Theme.space-2;
+
+        VerticalLayout {
+            alignment: center;
+            Icon {
+                source: root.icon;
+                tint: Theme.text;
+            }
+        }
+
+        if root.text != "": Text {
+            vertical-alignment: center;
+            text: root.text;
+            color: Theme.text;
+            font-size: Theme.text-body;
+            font-weight: 500;
+        }
+    }
+}

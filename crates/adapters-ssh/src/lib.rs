@@ -7,24 +7,30 @@
 //! - The server host key is always checked. Unknown keys are rejected unless
 //!   the caller explicitly opts in to trust-on-first-use for this connection
 //!   (the UI must show the fingerprint and get user approval first).
-//! - Public-key auth only in this adapter; no password handling.
+//! - The host key is accepted before any credential is offered, whatever the
+//!   sign-in method ([`Auth`]: key file, keychain key with an optional
+//!   certificate, password, OpenSSH agent).
+//! - A password, passphrase, private key or key path never appears in an
+//!   error or a log line.
 //! - Forwarded ports bind to 127.0.0.1 only.
 
+pub mod auth;
+pub mod keys;
 pub mod paths;
 pub mod pty;
 pub mod sftp;
 
+pub use auth::{Auth, Secret};
 pub use paths::{connect_any, first_reachable, Candidate, Connected};
 pub use pty::{SshPtyEvent, SshPtyReader, SshPtyWriter};
 
 use anyhow::{Context, Result};
 use russh::client::{self, Handle};
-use russh::keys::{load_secret_key, HashAlg, PrivateKeyWithHashAlg, PublicKeyOrCertificate};
+use russh::keys::{HashAlg, PublicKeyOrCertificate};
 use russh::{ChannelMsg, Disconnect};
 use russh_sftp::client::SftpSession;
 use senvakara_core::{CoreError, ErrorCode};
 use std::net::SocketAddr;
-use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::net::TcpListener;
@@ -45,11 +51,10 @@ pub struct ConnectParams {
     pub host: String,
     pub port: u16,
     pub user: String,
-    pub private_key: PathBuf,
+    /// How to sign in; its `Debug` output shows the method only.
+    pub auth: Auth,
     pub host_key: HostKeyPolicy,
     pub connect_timeout: Duration,
-    /// Passphrase for an encrypted private key (from the OS credential store).
-    pub passphrase: Option<String>,
 }
 
 /// Errors from this adapter carry a [`CoreError`] so callers can
@@ -130,35 +135,8 @@ impl SshConnection {
             .clone()
             .context("server presented no host key")?;
 
-        let key = match load_secret_key(&p.private_key, p.passphrase.as_deref()) {
-            Ok(k) => k,
-            Err(russh::keys::Error::KeyIsEncrypted) => {
-                return Err(core_err(
-                    ErrorCode::Unauthenticated,
-                    "private key is encrypted: save its passphrase for this host",
-                ))
-            }
-            // Do not echo the key path or key material back to the UI/logs.
-            Err(e) => {
-                return Err(core_err(
-                    ErrorCode::Unauthenticated,
-                    format!("cannot load private key: {e}"),
-                ))
-            }
-        };
-        let hash = handle.best_supported_rsa_hash().await?.flatten();
-        let auth = handle
-            .authenticate_publickey(
-                p.user.clone(),
-                PrivateKeyWithHashAlg::new(Arc::new(key), hash),
-            )
-            .await?;
-        if !auth.success() {
-            return Err(core_err(
-                ErrorCode::Unauthenticated,
-                format!("public key rejected for user {}", p.user),
-            ));
-        }
+        // Only now, with the host key accepted, is a credential offered.
+        auth::authenticate(&mut handle, &p.user, &p.auth).await?;
         Ok(Arc::new(Self {
             handle,
             host_key_fingerprint,

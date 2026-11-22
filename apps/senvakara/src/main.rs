@@ -10,11 +10,14 @@ mod automation;
 mod confirm;
 mod desktop;
 mod device;
+mod drops;
 mod files;
 mod hostform;
 mod input;
 mod inventory;
 mod jobs;
+mod keychain;
+mod launcher;
 mod logcat;
 mod mirror;
 mod palette;
@@ -36,7 +39,7 @@ use slint::{ComponentHandle, VecModel};
 
 pub use crate::confirm::{Pending, Question};
 pub use crate::pane::{Pane, Place};
-use crate::platform::{select_backend, wsl_distros};
+use crate::platform::select_backend;
 use crate::state::{app, notifier, App, APP};
 
 slint::include_modules!();
@@ -64,6 +67,9 @@ fn main() -> anyhow::Result<()> {
         backend,
         inv: inventory::State::default(),
         hosts: hostform::State::default(),
+        keys: keychain::State::default(),
+        drops: platform::FileDrops::default(),
+        files: files::State::default(),
         dev: device::State::default(),
         jobs: jobs::State::default(),
         wifi: wireless::State::default(),
@@ -71,6 +77,7 @@ fn main() -> anyhow::Result<()> {
         auto: automation::State::default(),
         settings: settings::State::default(),
         palette: palette::State::default(),
+        launcher: launcher::State::default(),
         ui: ui.as_weak(),
         tabs: Rc::new(VecModel::default()),
         sessions: RefCell::new(Vec::new()),
@@ -86,7 +93,7 @@ fn main() -> anyhow::Result<()> {
     shell.set_tabs(app.tabs.clone().into());
     shell.on_new_session({
         let app = app.clone();
-        move || app.open_shell("powershell", "")
+        move || app.launcher_open()
     });
 
     app.init_inventory(&ui);
@@ -94,12 +101,15 @@ fn main() -> anyhow::Result<()> {
     app.init_jobs(&ui);
     app.init_wireless(&ui);
     app.init_host_form(&ui);
+    app.init_keychain(&ui);
+    app.init_file_drops(&ui);
     app.init_files(&ui);
     app.init_workspaces(&ui);
     app.init_automations(&ui);
     app.init_run(&ui);
     app.init_settings(&ui);
     app.init_palette(&ui);
+    app.init_launcher(&ui);
     ui.global::<Nav>().on_opened({
         let app = app.clone();
         move |section| app.section_opened(&section)

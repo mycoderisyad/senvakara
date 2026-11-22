@@ -1,0 +1,113 @@
+// What the host form shows and what the user did in it. Rust fills these in and does all the
+// checking and saving.
+
+import { ChipRow } from "../widgets.slint";
+
+// A key of the Keychain, as the form's key menu lists it.
+export struct KeyChoice {
+    id: string,
+    label: string,
+    // "Type ED25519"
+    detail: string,
+    // The key carries an OpenSSH certificate.
+    certificate: bool,
+    // A FIDO2 security key: signing happens through the Windows OpenSSH agent.
+    fido: bool,
+}
+
+// Add or edit a remote host. Shown in the inspector instead of the details while open.
+export global HostForm {
+    in property <bool> open;
+    // "New host" | "Edit Fedora laptop"
+    in property <string> title;
+    in property <bool> editing;
+    // "ssh" | "rdp". Chosen when the host is added; it cannot change afterwards.
+    in property <string> protocol: "ssh";
+    in-out property <string> address;
+    in-out property <string> name;
+    in-out property <string> group;
+    // Existing groups that match what is typed, packed into lines.
+    in property <[ChipRow]> group-suggestions;
+    in property <[ChipRow]> tags;
+    in-out property <string> tag-draft;
+    // "linux" | "unknown"
+    in property <string> os: "linux";
+    in-out property <string> port;
+    in-out property <string> username;
+
+    // The password is never read back: a saved one is only known to exist.
+    in-out property <string> password;
+    in property <bool> show-password;
+    // "empty": none saved, the field is shown. "saved": one is saved and kept.
+    // "replace": one is saved, the field is shown for a new one. "remove": the saved one goes.
+    in property <string> password-mode: "empty";
+    // Why the password is asked for (again), when there is something to say.
+    in property <string> password-note;
+
+    // How an SSH host signs in: "password" | "key_file" | "keychain" | "agent".
+    in property <string> auth: "password";
+    // The chosen Keychain key, as its chip shows it.
+    in property <string> key-label;
+    in property <bool> key-certificate;
+    in property <[KeyChoice]> keys;
+    in-out property <string> key-path;
+    in-out property <string> passphrase;
+    // A passphrase is stored for this host's key file already.
+    in property <bool> has-passphrase;
+    in property <bool> remove-passphrase;
+    in-out property <string> snippet;
+
+    // What is wrong with a field, in words ("" when it is fine).
+    in property <string> address-error;
+    in property <string> group-error;
+    in property <string> tag-error;
+    in property <string> port-error;
+    in property <string> username-error;
+    in property <string> password-error;
+    in property <string> key-error;
+    in property <string> snippet-error;
+    // Why saving failed.
+    in property <string> error;
+    in property <bool> saving;
+    // Bumped whenever the form is (re)opened: the first field takes the cursor.
+    in property <int> revision;
+
+    callback edited();
+    callback set-protocol(protocol: string);
+    callback set-os(os: string);
+    callback pick-group(name: string);
+    callback add-tag();
+    callback remove-tag(index: int);
+    callback toggle-password();
+    callback set-password-mode(mode: string);
+    // Sign in with this Keychain key.
+    callback pick-key(id: string);
+    // Sign in with a key file on this PC: asks which one.
+    callback pick-key-file();
+    // Sign in through the Windows OpenSSH agent (a FIDO2 security key).
+    callback pick-agent();
+    // Go to the Keychain and start a new key; it is chosen here once saved.
+    callback new-key();
+    // Back to signing in with a password.
+    callback clear-key();
+    callback set-remove-passphrase(on: bool);
+    callback browse();
+    callback save();
+    // Save, then open the host.
+    callback connect();
+    callback cancel();
+}
+
+// Adding a VPN address to the host selected on Home. The addresses themselves are in HostItem.
+export global NetPaths {
+    in-out property <string> address;
+    in-out property <string> port;
+    // Why Add cannot be pressed ("" when it can).
+    in property <string> add-reason;
+    in property <string> error;
+
+    callback edited();
+    callback add();
+    callback add-hint(address: string);
+    callback remove(endpoint-id: string);
+}

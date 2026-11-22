@@ -1,0 +1,156 @@
+// Choosing what a side of the Files tab shows: the invitation of an empty side, and the list
+// of hosts and phones with its search field.
+
+import { ScrollView } from "std-widgets.slint";
+import { Theme } from "../../theme.slint";
+import { Icon, IconButton, LaunchRow } from "../controls.slint";
+import { Button, SearchField, GroupTitle } from "../widgets.slint";
+import { Files, FilePlace } from "data.slint";
+
+// A side that shows nothing yet.
+export component EmptySide inherits Rectangle {
+    in property <int> pane;
+    in property <int> side;
+
+    VerticalLayout {
+        alignment: center;
+        spacing: Theme.space-3;
+        padding: Theme.space-6;
+
+        HorizontalLayout {
+            alignment: center;
+            Rectangle {
+                width: 44px;
+                height: 44px;
+                border-radius: Theme.radius;
+                background: Theme.surface-selected;
+                Icon {
+                    source: @image-url("../../icons/folder.svg");
+                    tint: Theme.text;
+                }
+            }
+        }
+
+        Text {
+            horizontal-alignment: center;
+            text: "Connect to host";
+            color: Theme.text;
+            font-size: Theme.text-title;
+            font-weight: 600;
+        }
+
+        Text {
+            horizontal-alignment: center;
+            text: "Start by connecting to a saved host to manage your files with SFTP.";
+            color: Theme.text-muted;
+            font-size: Theme.text-body;
+            wrap: word-wrap;
+        }
+
+        HorizontalLayout {
+            alignment: center;
+            Button {
+                text: "Select host";
+                kind: "primary";
+                clicked => {
+                    Files.pick-show(root.pane, root.side, true);
+                }
+            }
+        }
+    }
+}
+
+// The list of places a side can show.
+export component PlacePicker inherits Rectangle {
+    in property <int> pane;
+    in property <int> side;
+    in property <[FilePlace]> places;
+    // The side shows a place already: the list can be left without choosing.
+    in property <bool> can-leave;
+    private property <string> side-name: side == 0 ? "left" : "right";
+
+    init => {
+        search.focus-input();
+    }
+
+    VerticalLayout {
+        padding: Theme.space-3;
+        spacing: Theme.space-3;
+
+        HorizontalLayout {
+            spacing: Theme.space-2;
+
+            VerticalLayout {
+                alignment: center;
+                IconButton {
+                    icon: @image-url("../../icons/left.svg");
+                    label: root.can-leave ? "Back to the files, " + root.side-name + " side" : "Close the list of hosts, " + root.side-name + " side";
+                    clicked => {
+                        Files.pick-show(root.pane, root.side, false);
+                    }
+                }
+            }
+
+            Text {
+                horizontal-stretch: 1;
+                vertical-alignment: center;
+                text: "Select host";
+                color: Theme.text;
+                font-size: Theme.text-title;
+                font-weight: 600;
+                overflow: elide;
+            }
+
+            Button {
+                text: "Local";
+                accessible-label: "Show this PC on the " + root.side-name + " side";
+                clicked => {
+                    Files.pick(root.pane, root.side, -1);
+                }
+            }
+        }
+
+        search := SearchField {
+            placeholder: "Search hosts and phones";
+            edited(text) => {
+                Files.pick-search(root.pane, root.side, text);
+            }
+        }
+
+        ScrollView {
+            vertical-stretch: 1;
+
+            VerticalLayout {
+                alignment: start;
+                spacing: Theme.space-2;
+                padding-right: Theme.space-2;
+
+                for place[index] in root.places: VerticalLayout {
+                    spacing: Theme.space-2;
+
+                    if place.heading != "": GroupTitle {
+                        text: place.heading;
+                    }
+
+                    LaunchRow {
+                        icon: place.kind == "phone" ? @image-url("../../icons/phone.svg") : @image-url("../../icons/server.svg");
+                        hue: Theme.host-hue(place.hue);
+                        title: place.title;
+                        detail: place.connected ? place.detail + "  ·  connected" : place.detail;
+                        activated => {
+                            Files.pick(root.pane, root.side, index);
+                        }
+                    }
+                }
+
+                if root.places.length == 0: Text {
+                    horizontal-alignment: center;
+                    text: search.text == "" ? "No host is saved yet and no phone is connected. Add a host on Home." : "No host or phone matches the search.";
+                    color: Theme.text-muted;
+                    font-size: Theme.text-small;
+                    wrap: word-wrap;
+                }
+            }
+        }
+    }
+}

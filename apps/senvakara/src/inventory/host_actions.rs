@@ -94,10 +94,30 @@ impl App {
                         app.ask_with(question, facts, warning, Pending::TrustKey(host.id.clone(), check.presented));
                     }
                     Err(error) => {
+                        // Nothing to accept: a terminal waiting for the key is not opened.
+                        app.hosts.take_connect_after_trust(&host.id);
                         app.inv.errors.borrow_mut().insert(host.id.clone(), friendly(&error));
                         app.rebuild();
                     }
                 });
+            }
+            "rdp" => {
+                self.inv.errors.borrow_mut().remove(&host.id);
+                let backend = self.backend.clone();
+                let id = host.id.clone();
+                self.run(
+                    async move { backend.rdp_launch(id).await },
+                    move |app, result| {
+                        if let Err(error) = result {
+                            app.inv
+                                .errors
+                                .borrow_mut()
+                                .insert(host.id.clone(), friendly(&error));
+                        }
+                        // The host was seen just now, or has an error to show.
+                        app.reload();
+                    },
+                );
             }
             "files" if host.connected => self.open_files(crate::files::Source::Host(host.id)),
             "desktop" => self.open_desktop(&host),
@@ -119,13 +139,19 @@ impl App {
         self.run(
             async move { backend.host_trust_key(id, fingerprint).await },
             move |app, result| {
+                // The host form's Connect waits for this key: go on to the terminal.
+                let connect = app.hosts.take_connect_after_trust(&host_id);
+                let trusted = result.is_ok();
                 if let Err(error) = result {
                     app.inv
                         .errors
                         .borrow_mut()
-                        .insert(host_id, friendly(&error));
+                        .insert(host_id.clone(), friendly(&error));
                 }
                 app.reload();
+                if connect && trusted {
+                    app.host_action(&host_id, "terminal");
+                }
             },
         );
     }

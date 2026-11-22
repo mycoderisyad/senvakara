@@ -1,0 +1,162 @@
+// The Keychain section of Home: the SSH keys Senvakara keeps, as cards, and the toolbar that
+// adds one. The form itself is in the inspector (keychain/key-form.slint).
+
+import { ScrollView } from "std-widgets.slint";
+import { Theme } from "../theme.slint";
+import { CardGrid, GroupTitle, ItemCard, MenuRow, Notice, ToolButton } from "../components/widgets.slint";
+import { Keychain, KeyItem } from "keychain/model.slint";
+import { KeyFormPanel } from "keychain/key-form.slint";
+
+export { Keychain, KeyItem }
+
+export component KeychainPage inherits VerticalLayout {
+    HorizontalLayout {
+        padding: Theme.space-4;
+        padding-bottom: Theme.space-2;
+        spacing: Theme.space-2;
+        alignment: start;
+
+        // "New key" and, behind the chevron, starting from a file.
+        HorizontalLayout {
+            spacing: 2px;
+
+            ToolButton {
+                icon: @image-url("../icons/plus.svg");
+                text: "New key";
+                filled: true;
+                clicked => {
+                    Keychain.new-key("key");
+                }
+            }
+
+            Rectangle {
+                width: Theme.row;
+                height: Theme.row;
+
+                more := ToolButton {
+                    width: parent.width;
+                    icon: @image-url("../icons/chevron-down.svg");
+                    label: "More ways to add a key";
+                    filled: true;
+                    clicked => {
+                        ways.show();
+                    }
+                }
+
+                // Closes on any click, also on its own row.
+                ways := PopupWindow {
+                    x: 0;
+                    y: parent.height + Theme.space-1;
+                    width: 220px;
+
+                    Rectangle {
+                        border-radius: Theme.radius;
+                        border-width: 1px;
+                        border-color: Theme.hairline-strong;
+                        background: Theme.surface;
+                        drop-shadow-blur: 16px;
+                        drop-shadow-offset-y: 4px;
+                        drop-shadow-color: Theme.shell;
+
+                        VerticalLayout {
+                            padding: Theme.space-1;
+                            MenuRow {
+                                icon: @image-url("../icons/import.svg");
+                                title: "Import from file...";
+                                activated => {
+                                    Keychain.import-file();
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        ToolButton {
+            icon: @image-url("../icons/certificate.svg");
+            text: "Certificate";
+            clicked => {
+                Keychain.new-key("certificate");
+            }
+        }
+
+        ToolButton {
+            icon: @image-url("../icons/usb-key.svg");
+            text: "FIDO2";
+            clicked => {
+                Keychain.new-key("fido2");
+            }
+        }
+    }
+
+    ScrollView {
+        VerticalLayout {
+            alignment: start;
+            padding: Theme.space-4;
+            padding-top: Theme.space-2;
+            spacing: Theme.space-2;
+
+            if Keychain.error != "": Notice {
+                kind: "danger";
+                text: Keychain.error;
+            }
+
+            GroupTitle {
+                text: "Keys";
+            }
+
+            if Keychain.keys.length == 0 && Keychain.error == "": Text {
+                text: "No keys yet. Add one with New key, or drag a private key file from Explorer onto this window. A host can then sign in with it.";
+                color: Theme.text-muted;
+                font-size: Theme.text-small;
+                wrap: word-wrap;
+            }
+
+            grid := CardGrid {
+                count: Keychain.keys.length;
+                for key[index] in Keychain.keys: ItemCard {
+                    x: grid.card-x(index);
+                    y: grid.card-y(index);
+                    width: grid.card-width;
+                    icon: key.kind == "fido2" ? @image-url("../icons/usb-key.svg") : @image-url("../icons/key.svg");
+                    hue: Theme.info;
+                    title: key.label;
+                    subtitle: key.type-text;
+                    tone: key.certificate ? "live" : "idle";
+                    state-text: key.certificate ? "Certificate" : key.used;
+                    selected: Keychain.form-open && Keychain.editing-id == key.id;
+                    select => {
+                        Keychain.select(key.id);
+                    }
+                    open => {
+                        Keychain.select(key.id);
+                    }
+                }
+            }
+        }
+    }
+}
+
+// The inspector of the Keychain section. Shown only while the form is open.
+export component KeyInspector inherits Rectangle {
+    width: 340px;
+    background: Theme.shell;
+
+    Rectangle {
+        x: 0;
+        width: 1px;
+        background: Theme.hairline;
+    }
+
+    ScrollView {
+        VerticalLayout {
+            // Keep the content as wide as the panel: long values wrap instead of widening it.
+            width: root.width;
+            alignment: start;
+            padding: Theme.space-4;
+
+            KeyFormPanel { }
+        }
+    }
+}

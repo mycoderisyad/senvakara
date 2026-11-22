@@ -1,11 +1,12 @@
-//! Listing a folder into a side and moving from one folder to another.
+//! Listing a folder into a side and moving from one folder to another: by opening a row, the
+//! path bar, the typed path, Up, Back and Forward.
 
 use std::rc::Rc;
 
 use crate::inventory::friendly;
 use crate::App;
 
-use super::entries::{list_local, sort_entries, Entry};
+use super::entries::{list_local, Column, Entry};
 use super::paths::{join, parent, tidy_local, tidy_posix};
 use super::{Kind, Source};
 
@@ -18,6 +19,9 @@ impl App {
 
     /// List `path` of `source` into a side. The rows on screen stay until the answer is in.
     pub(super) fn files_load(self: &Rc<Self>, id: i32, side: usize, source: Source, path: String) {
+        if source == Source::None {
+            return;
+        }
         let request = self.with_files(id, |pane| {
             let mut state = pane.sides[side].borrow_mut();
             state.loading = true;
@@ -33,6 +37,7 @@ impl App {
         self.run(
             async move {
                 match place {
+                    Source::None => Err(String::new()),
                     Source::Local => tokio::task::spawn_blocking(move || list_local(&path))
                         .await
                         .unwrap_or_else(|_| Err("The folder could not be read.".into())),
@@ -40,7 +45,7 @@ impl App {
                         .sftp_list(host, path)
                         .await
                         .map(|listing| {
-                            let mut entries: Vec<Entry> = listing
+                            let entries: Vec<Entry> = listing
                                 .entries
                                 .into_iter()
                                 .filter(|entry| entry.name != "." && entry.name != "..")
@@ -51,9 +56,9 @@ impl App {
                                     is_drive: false,
                                     size: entry.size,
                                     modified: entry.modified.map(i64::from),
+                                    permissions: entry.permissions.unwrap_or_default(),
                                 })
                                 .collect();
-                            sort_entries(&mut entries);
                             (listing.path, entries)
                         })
                         .map_err(|error| friendly(&error)),
@@ -63,7 +68,7 @@ impl App {
                             .device_files_list(route, path)
                             .await
                             .map(|list| {
-                                let mut entries: Vec<Entry> = list
+                                let entries: Vec<Entry> = list
                                     .into_iter()
                                     .filter(|entry| entry.name != "." && entry.name != "..")
                                     .map(|entry| Entry {
@@ -73,9 +78,9 @@ impl App {
                                         is_drive: false,
                                         size: entry.size as u64,
                                         modified: Some(entry.mtime as i64),
+                                        permissions: String::new(),
                                     })
                                     .collect();
-                                sort_entries(&mut entries);
                                 (shown, entries)
                             })
                             .map_err(|error| friendly(&error))
@@ -95,6 +100,7 @@ impl App {
                             Some(state.path.clone())
                         }
                         Err(message) => {
+                            state.travelling = false;
                             state.error = message;
                             None
                         }
@@ -145,6 +151,41 @@ impl App {
         }
     }
 
+    /// Go to the folder shown before this one (`back`), or return from there.
+    pub(super) fn files_travel(self: &Rc<Self>, id: i32, side: usize, back: bool) {
+        let target = self
+            .with_files(id, |pane| {
+                let mut state = pane.sides.get(side)?.borrow_mut();
+                let state = &mut *state;
+                let (from, to) = if back {
+                    (&mut state.back, &mut state.forward)
+                } else {
+                    (&mut state.forward, &mut state.back)
+                };
+                let target = from.pop()?;
+                to.push(state.path.clone());
+                state.travelling = true;
+                Some((state.source.clone(), target))
+            })
+            .flatten();
+        if let Some((source, target)) = target {
+            self.files_load(id, side, source, target);
+        }
+    }
+
+    /// A folder of the path bar was clicked.
+    pub(super) fn files_crumb(self: &Rc<Self>, id: i32, side: usize, index: usize) {
+        let target = self
+            .with_files(id, |pane| {
+                let state = pane.sides.get(side)?.borrow();
+                Some((state.source.clone(), state.crumb_paths.get(index)?.clone()))
+            })
+            .flatten();
+        if let Some((source, path)) = target {
+            self.files_load(id, side, source, path);
+        }
+    }
+
     pub(super) fn files_refresh(self: &Rc<Self>, id: i32, side: usize) {
         let Some((id, source, path)) = self.files_side(id, side) else {
             return;
@@ -174,5 +215,36 @@ impl App {
             let target = join(source.kind(), &path, &name);
             self.files_load(id, side, source, target);
         }
+    }
+
+    /// A column header was clicked: order by it, or turn the order around.
+    pub(super) fn files_sort(&self, id: i32, side: usize, column: &str) {
+        let Some(column) = Column::from_id(column) else {
+            return;
+        };
+        self.with_files(id, |pane| {
+            let Some(state) = pane.sides.get(side) else {
+                return;
+            };
+            let mut state = state.borrow_mut();
+            state.sort = state.sort.clicked(column);
+            state.arrange(true);
+        });
+        self.files_publish(id);
+    }
+
+    /// The filter field changed: show the entries whose name contains `text`.
+    pub(super) fn files_filter(&self, id: i32, side: usize, text: &str) {
+        self.with_files(id, |pane| {
+            let Some(state) = pane.sides.get(side) else {
+                return;
+            };
+            let mut state = state.borrow_mut();
+            if state.filter != text {
+                state.filter = text.to_string();
+                state.arrange(true);
+            }
+        });
+        self.files_publish(id);
     }
 }

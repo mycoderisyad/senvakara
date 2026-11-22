@@ -185,6 +185,24 @@ impl App {
                             )
                             .await
                     }
+                    JobSpec::HostToHost {
+                        from_host,
+                        remote_path,
+                        to_host,
+                        remote_dir,
+                        overwrite,
+                    } => {
+                        backend
+                            .xfer_host_to_host(
+                                from_host,
+                                remote_path,
+                                to_host,
+                                remote_dir,
+                                overwrite,
+                                sink,
+                            )
+                            .await
+                    }
                 };
                 started
             },
@@ -261,7 +279,7 @@ impl App {
             self.ask_with(
                 Question {
                     title: "Replace existing file?".into(),
-                    body: "A file with this name is already there. Replacing it cannot be undone."
+                    body: "A file or folder with this name is already there. Replacing a file cannot be undone; a folder is merged with the one that is there, replacing files of the same name."
                         .into(),
                     confirm: "Replace".into(),
                     danger: true,

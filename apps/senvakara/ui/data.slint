@@ -49,7 +49,7 @@ export struct HostItem {
     id: string,
     name: string,
     subtitle: string,
-    // "windows" | "linux"
+    // "windows" | "linux" | "rdp" (a Remote Desktop host): which icon the card shows.
     os: string,
     hue: int,
     // "live" | "idle" | "busy" | "attention"
@@ -65,6 +65,13 @@ export struct HostItem {
     path-note: string,
     vpn-hints: [VpnHint],
     error: string,
+}
+
+// The hosts filed under one parent group, in the order Home shows them.
+export struct HostGroup {
+    // "Hosts" for the hosts without a group.
+    name: string,
+    hosts: [HostItem],
 }
 
 export struct DeviceItem {
@@ -83,6 +90,8 @@ export struct DeviceItem {
 
 export global Inventory {
     in property <[HostItem]> hosts;
+    // The same hosts by parent group: ungrouped ones first, then the groups by name.
+    in property <[HostGroup]> host-groups;
     in property <[DeviceItem]> devices;
     in property <[KeyValue]> adb-sources;
     in property <string> summary;

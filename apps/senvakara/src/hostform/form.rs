@@ -1,58 +1,153 @@
-//! The add/edit host form: opening it, following the typing, saving, and leaving it.
+//! The add/edit host form: opening it, following the typing, and leaving it.
 
 use std::rc::Rc;
 
-use senvakara_app::{CoreError, HostUpsert, HostView};
-use slint::{ComponentHandle, SharedString};
+use senvakara_app::{HostView, Protocol, SshAuth};
+use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
 
-use crate::inventory::friendly_with;
-use crate::{App, HostForm, Pending, Question};
+use crate::{App, ChipItem, ChipRow, HostForm, Pending, Question};
 
-use super::validation::{check, Fields, Problems};
+use super::chips;
+use super::secrets::{password_state, Saved, Typed};
+use super::validation::{rdp_password_lost, Fields, Method, Password, Problems};
 use super::Next;
 
-fn fields_of(form: &HostForm) -> Fields {
-    Fields {
-        name: form.get_name().into(),
-        address: form.get_address().into(),
-        port: form.get_port().into(),
-        username: form.get_username().into(),
-        os: form.get_os().into(),
-        key_path: form.get_key_path().into(),
+/// The note under the password of a Remote Desktop host whose saved one no longer fits.
+const RDP_PASSWORD_MOVED: &str = "The saved password belongs to the old address or user name. Enter it again, or leave it empty and Remote Desktop asks for it.";
+
+/// Labels as chip lines for the view.
+pub(super) fn chip_rows(labels: &[String], removable: bool) -> ModelRc<ChipRow> {
+    let rows: Vec<ChipRow> = chips::lines(labels, removable)
+        .into_iter()
+        .map(|line| {
+            let line: Vec<ChipItem> = line
+                .into_iter()
+                .map(|index| ChipItem {
+                    text: labels[index].as_str().into(),
+                    index: index as i32,
+                })
+                .collect();
+            ChipRow {
+                chips: ModelRc::new(VecModel::from(line)),
+            }
+        })
+        .collect();
+    ModelRc::new(VecModel::from(rows))
+}
+
+fn method_of(name: &str) -> Method {
+    match name {
+        "key_file" => Method::KeyFile,
+        "keychain" => Method::Keychain,
+        "agent" => Method::Agent,
+        _ => Method::Password,
     }
 }
 
-fn show_problems(form: &HostForm, problems: &Problems) {
-    form.set_name_error(problems.name.into());
+/// The fields of a saved host, as the form shows them.
+fn fields_from(host: &HostView) -> Fields {
+    let mut fields = Fields {
+        protocol: host.protocol,
+        name: host.display_name.clone(),
+        os: match host.os_family.as_str() {
+            "linux" => "linux",
+            _ => "unknown",
+        }
+        .to_string(),
+        group: host.group_name.clone().unwrap_or_default(),
+        tags: host.tags.clone(),
+        ..Fields::default()
+    };
+    if let Some(rdp) = &host.rdp {
+        fields.address = rdp.address.clone();
+        fields.port = rdp.port.to_string();
+        fields.username = rdp.username.clone();
+    }
+    if let Some(ssh) = &host.ssh {
+        fields.address = ssh.address.clone();
+        fields.port = ssh.port.to_string();
+        fields.username = ssh.username.clone();
+        fields.snippet = ssh.startup_snippet.clone().unwrap_or_default();
+        match &ssh.auth {
+            SshAuth::KeyFile { path } => {
+                fields.method = Method::KeyFile;
+                fields.key_path = path.clone();
+            }
+            SshAuth::Keychain { key_id } => {
+                fields.method = Method::Keychain;
+                fields.key_id = key_id.clone();
+            }
+            SshAuth::Password => fields.method = Method::Password,
+            SshAuth::Agent => fields.method = Method::Agent,
+        }
+    }
+    fields
+}
+
+pub(super) fn show_problems(form: &HostForm, problems: &Problems) {
     form.set_address_error(problems.address.into());
+    form.set_group_error(problems.group.into());
     form.set_port_error(problems.port.into());
     form.set_username_error(problems.username.into());
+    form.set_password_error(problems.password.into());
     form.set_key_error(problems.key.into());
-}
-
-/// The form check plus what only this computer can tell: whether the key file is there.
-fn check_here(fields: &Fields) -> Result<HostUpsert, Problems> {
-    let checked = check(fields);
-    let key = fields.key_path.trim();
-    if !key.is_empty() && !std::path::Path::new(key).is_file() {
-        let mut problems = checked.err().unwrap_or_default();
-        problems.key = "There is no file at this path.";
-        return Err(problems);
-    }
-    checked
+    form.set_snippet_error(problems.snippet.into());
 }
 
 impl App {
+    /// What the form holds right now, without its secrets.
+    pub(super) fn host_form_fields(&self, form: &HostForm) -> Fields {
+        Fields {
+            protocol: if form.get_protocol() == "rdp" {
+                Protocol::Rdp
+            } else {
+                Protocol::Ssh
+            },
+            name: form.get_name().into(),
+            address: form.get_address().into(),
+            port: form.get_port().into(),
+            username: form.get_username().into(),
+            os: form.get_os().into(),
+            group: form.get_group().into(),
+            tags: self.hosts.tags.borrow().clone(),
+            method: method_of(&form.get_auth()),
+            key_path: form.get_key_path().into(),
+            key_id: self.hosts.key_id.borrow().clone(),
+            snippet: form.get_snippet().into(),
+        }
+    }
+
+    /// What the secret fields hold right now.
+    pub(super) fn host_form_typed(&self, form: &HostForm) -> Typed {
+        Typed {
+            password_mode: form.get_password_mode().into(),
+            password: form.get_password().into(),
+            passphrase: form.get_passphrase().into(),
+            remove_passphrase: form.get_remove_passphrase(),
+        }
+    }
+
+    /// Whether the host will have a password once the form is saved.
+    pub(super) fn host_form_password(&self, form: &HostForm) -> Password {
+        password_state(&form.get_password_mode(), &form.get_password())
+    }
+
     /// Whether the user changed anything since the form opened.
     fn host_form_dirty(&self) -> bool {
         let Some(ui) = self.ui.upgrade() else {
             return false;
         };
         let form = ui.global::<HostForm>();
-        form.get_open()
-            && (fields_of(&form) != *self.hosts.initial.borrow()
-                || !form.get_passphrase().is_empty()
-                || form.get_remove_passphrase())
+        if !form.get_open() {
+            return false;
+        }
+        let typed = self.host_form_typed(&form);
+        self.host_form_fields(&form) != *self.hosts.initial.borrow()
+            || !typed.password.is_empty()
+            || typed.password_mode == "remove"
+            || !typed.passphrase.is_empty()
+            || typed.remove_passphrase
+            || !form.get_tag_draft().trim().is_empty()
     }
 
     /// Something else wants the inspector. Returns true when the form is not in the way (it is
@@ -105,8 +200,10 @@ impl App {
         if let Some(ui) = self.ui.upgrade() {
             let form = ui.global::<HostForm>();
             form.set_open(false);
-            // Do not keep a passphrase in a hidden field.
+            // Do not keep a secret in a hidden field.
+            form.set_password(SharedString::new());
             form.set_passphrase(SharedString::new());
+            form.set_show_password(false);
         }
     }
 
@@ -114,23 +211,23 @@ impl App {
     pub fn host_form_open(&self, host_id: Option<&str>) {
         let Some(ui) = self.ui.upgrade() else { return };
         let host = host_id.and_then(|id| self.inv.host(id));
-        let ssh = host.as_ref().and_then(|host| host.ssh.as_ref());
-        let fields = Fields {
-            name: host
+        let fields = match &host {
+            Some(host) => fields_from(host),
+            None => Fields {
+                port: "22".into(),
+                os: "linux".into(),
+                ..Fields::default()
+            },
+        };
+        let saved = Saved {
+            password: host.as_ref().is_some_and(|host| {
+                host.ssh.as_ref().is_some_and(|ssh| ssh.has_password)
+                    || host.rdp.as_ref().is_some_and(|rdp| rdp.has_credential)
+            }),
+            passphrase: host
                 .as_ref()
-                .map(|host| host.display_name.clone())
-                .unwrap_or_default(),
-            address: ssh.map(|ssh| ssh.address.clone()).unwrap_or_default(),
-            port: ssh.map(|ssh| ssh.port).unwrap_or(22).to_string(),
-            username: ssh.map(|ssh| ssh.username.clone()).unwrap_or_default(),
-            os: match host.as_ref().map(|host| host.os_family.as_str()) {
-                Some("linux") | None => "linux",
-                _ => "unknown",
-            }
-            .to_string(),
-            key_path: ssh
-                .map(|ssh| ssh.private_key_path.clone())
-                .unwrap_or_default(),
+                .and_then(|host| host.ssh.as_ref())
+                .is_some_and(|ssh| ssh.has_passphrase),
         };
         let form = ui.global::<HostForm>();
         form.set_title(
@@ -141,24 +238,81 @@ impl App {
             .into(),
         );
         form.set_editing(host.is_some());
+        form.set_protocol(fields.protocol.as_str().into());
         form.set_name(fields.name.as_str().into());
         form.set_address(fields.address.as_str().into());
         form.set_port(fields.port.as_str().into());
         form.set_username(fields.username.as_str().into());
         form.set_os(fields.os.as_str().into());
+        form.set_group(fields.group.as_str().into());
+        form.set_tag_draft(SharedString::new());
+        form.set_tag_error(SharedString::new());
+        form.set_snippet(fields.snippet.as_str().into());
         form.set_key_path(fields.key_path.as_str().into());
+        form.set_password(SharedString::new());
+        form.set_show_password(false);
+        form.set_password_mode(if saved.password { "saved" } else { "empty" }.into());
+        form.set_password_note(SharedString::new());
         form.set_passphrase(SharedString::new());
-        form.set_has_passphrase(ssh.is_some_and(|ssh| ssh.has_passphrase));
+        form.set_has_passphrase(saved.passphrase);
         form.set_remove_passphrase(false);
         form.set_error(SharedString::new());
         form.set_saving(false);
         show_problems(&form, &Problems::default());
         *self.hosts.editing.borrow_mut() = host.map(|host| host.id);
-        *self.hosts.initial.borrow_mut() = fields;
+        *self.hosts.tags.borrow_mut() = fields.tags.clone();
+        *self.hosts.key_id.borrow_mut() = fields.key_id.clone();
+        self.hosts.saved.set(saved);
         self.hosts.submitted.set(false);
+        self.keychain_reload();
+        self.host_form_show_method(&form, fields.method);
+        self.host_form_show_tags(&form);
+        self.host_form_suggest_groups(&form);
+        *self.hosts.initial.borrow_mut() = fields;
         form.set_open(true);
         // A new form starts with the cursor in its first field.
         form.set_revision(form.get_revision().wrapping_add(1));
+    }
+
+    /// Offer the existing groups that match what is typed.
+    pub(super) fn host_form_suggest_groups(&self, form: &HostForm) {
+        let hosts = self.inv.hosts();
+        let known = chips::known_groups(hosts.iter().filter_map(|host| host.group_name.as_deref()));
+        let offered = chips::group_suggestions(&known, &form.get_group());
+        form.set_group_suggestions(chip_rows(&offered, false));
+    }
+
+    /// SSH or Remote Desktop, chosen while adding a host. The usual port follows the choice
+    /// unless the user typed another one.
+    pub(super) fn host_form_set_protocol(&self, protocol: &str) {
+        let Some(ui) = self.ui.upgrade() else { return };
+        let form = ui.global::<HostForm>();
+        if form.get_editing() || form.get_protocol() == protocol {
+            return;
+        }
+        let (usual_before, usual_now) = if protocol == "rdp" {
+            ("22", "3389")
+        } else {
+            ("3389", "22")
+        };
+        form.set_protocol(protocol.into());
+        {
+            // Choosing the kind is not typing: an otherwise untouched form stays untouched.
+            let mut initial = self.hosts.initial.borrow_mut();
+            initial.protocol = if protocol == "rdp" {
+                Protocol::Rdp
+            } else {
+                Protocol::Ssh
+            };
+            let port = form.get_port();
+            if port.trim().is_empty() || port.trim() == usual_before {
+                form.set_port(usual_now.into());
+                if initial.port == usual_before {
+                    initial.port = usual_now.into();
+                }
+            }
+        }
+        self.host_form_edited();
     }
 
     pub(super) fn host_form_edited(&self) {
@@ -168,110 +322,26 @@ impl App {
         if !form.get_passphrase().is_empty() && form.get_remove_passphrase() {
             form.set_remove_passphrase(false);
         }
+        self.host_form_suggest_groups(&form);
+        let fields = self.host_form_fields(&form);
+        // Windows files a Remote Desktop password under the address and the user: once either
+        // changes, the saved one is gone and the form says so instead of claiming "saved".
+        let moved = self.hosts.editing.borrow().is_some()
+            && self.hosts.saved.get().password
+            && rdp_password_lost(&self.hosts.initial.borrow(), &fields);
+        let mode = form.get_password_mode();
+        if moved && mode != "empty" {
+            form.set_password_mode("empty".into());
+            form.set_password_note(RDP_PASSWORD_MOVED.into());
+        } else if !moved && form.get_password_note() == RDP_PASSWORD_MOVED {
+            form.set_password_note(SharedString::new());
+            if form.get_password().is_empty() {
+                form.set_password_mode("saved".into());
+            }
+        }
         if self.hosts.submitted.get() {
-            let problems = check_here(&fields_of(&form)).err().unwrap_or_default();
+            let problems = self.host_form_check(&form).err().unwrap_or_default();
             show_problems(&form, &problems);
-        }
-    }
-
-    pub(super) fn host_form_browse(self: &Rc<Self>) {
-        let mut dialog = rfd::FileDialog::new().set_title("Choose the SSH private key");
-        if let Ok(home) = std::env::var("USERPROFILE") {
-            let keys = std::path::Path::new(&home).join(".ssh");
-            if keys.is_dir() {
-                dialog = dialog.set_directory(keys);
-            }
-        }
-        self.pick_path(dialog, false, |app, path| {
-            let Some(ui) = app.ui.upgrade() else { return };
-            let form = ui.global::<HostForm>();
-            if form.get_open() {
-                form.set_key_path(path.display().to_string().into());
-                app.host_form_edited();
-            }
-        });
-    }
-
-    pub(super) fn host_form_save(self: &Rc<Self>) {
-        let Some(ui) = self.ui.upgrade() else { return };
-        let form = ui.global::<HostForm>();
-        if form.get_saving() {
-            return;
-        }
-        self.hosts.submitted.set(true);
-        form.set_error(SharedString::new());
-        let input = match check_here(&fields_of(&form)) {
-            Ok(input) => {
-                show_problems(&form, &Problems::default());
-                input
-            }
-            Err(problems) => {
-                show_problems(&form, &problems);
-                return;
-            }
-        };
-        let editing = self.hosts.editing.borrow().clone();
-        let passphrase = form.get_passphrase().to_string();
-        let remove = form.get_remove_passphrase();
-        form.set_saving(true);
-        let backend = self.backend.clone();
-        self.run(
-            async move {
-                // (the host as saved, what went wrong with the passphrase afterwards)
-                let saved = match editing {
-                    Some(id) => backend.host_update(id, input).await,
-                    None => backend.host_create(input),
-                }?;
-                let secret = if !passphrase.is_empty() {
-                    Some(Some(passphrase))
-                } else if remove {
-                    Some(None)
-                } else {
-                    None
-                };
-                let Some(secret) = secret else {
-                    return Ok((saved, None));
-                };
-                match backend.host_set_passphrase(saved.id.clone(), secret).await {
-                    Ok(view) => Ok((view, None)),
-                    Err(error) => Ok((saved, Some(error))),
-                }
-            },
-            |app, result: Result<(HostView, Option<CoreError>), CoreError>| {
-                app.host_form_saved(result)
-            },
-        );
-    }
-
-    fn host_form_saved(self: &Rc<Self>, result: Result<(HostView, Option<CoreError>), CoreError>) {
-        let Some(ui) = self.ui.upgrade() else { return };
-        let form = ui.global::<HostForm>();
-        form.set_saving(false);
-        match result {
-            Err(error) => form.set_error(
-                friendly_with(&error, "A host with these details already exists.").into(),
-            ),
-            Ok((host, Some(error))) => {
-                // The host exists now: keep the form on it so the passphrase can be tried again.
-                self.reload();
-                self.host_form_open(Some(&host.id));
-                ui.global::<HostForm>().set_error(
-                    format!(
-                        "The host was saved, but the passphrase was not. {}",
-                        friendly_with(&error, "The passphrase could not be stored.")
-                    )
-                    .into(),
-                );
-            }
-            Ok((host, None)) => {
-                self.host_form_close();
-                self.reload();
-                self.select_item("host", &host.id);
-                // A host is of no use until its key is trusted: ask right away.
-                if host.trust_state != "trusted" {
-                    self.host_action(&host.id, "trust");
-                }
-            }
         }
     }
 }

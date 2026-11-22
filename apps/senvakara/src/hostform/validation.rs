@@ -1,37 +1,99 @@
 //! Checking what the host form and the VPN address fields hold, without touching the UI.
 
-use senvakara_app::HostUpsert;
+use senvakara_app::{HostUpsert, Protocol, SshAuth};
 
 /// A host may have this many VPN addresses (the storage layer's limit).
 const MAX_VPN: usize = 4;
+/// A host may carry this many tags, each this long, and a group name this long (the storage
+/// layer's limits).
+const MAX_TAGS: usize = 16;
+const MAX_TAG_CHARS: usize = 32;
+const MAX_GROUP_CHARS: usize = 64;
+/// The longest startup snippet, in bytes.
+const MAX_SNIPPET_BYTES: usize = 4096;
 
-/// What the form holds, as typed.
+/// What an SSH host signs in with.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Method {
+    #[default]
+    Password,
+    /// A private key file on this PC.
+    KeyFile,
+    /// A key of the Keychain.
+    Keychain,
+    /// The Windows OpenSSH agent (a FIDO2 security key).
+    Agent,
+}
+
+impl Method {
+    /// The name the form uses for it.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Method::Password => "password",
+            Method::KeyFile => "key_file",
+            Method::Keychain => "keychain",
+            Method::Agent => "agent",
+        }
+    }
+}
+
+/// What the form holds, as typed. No secret is part of it: a password or passphrase stays in
+/// its field until it is saved.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Fields {
+    pub protocol: Protocol,
     pub name: String,
     pub address: String,
     pub port: String,
     pub username: String,
     /// "linux" or "unknown".
     pub os: String,
+    pub group: String,
+    pub tags: Vec<String>,
+    pub method: Method,
     pub key_path: String,
+    /// The Keychain key, when `method` is [`Method::Keychain`].
+    pub key_id: String,
+    pub snippet: String,
+}
+
+/// What the form knows about the host's password without ever holding a saved one.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Password {
+    /// None is saved and none is typed, or the saved one is being removed.
+    #[default]
+    Missing,
+    /// One is saved and stays.
+    Saved,
+    /// One is typed and will be saved.
+    Typed,
 }
 
 /// What is wrong with each field, in words. An empty string means the field is fine.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Problems {
-    pub name: &'static str,
     pub address: &'static str,
+    pub group: &'static str,
     pub port: &'static str,
     pub username: &'static str,
+    pub password: &'static str,
     pub key: &'static str,
+    pub snippet: &'static str,
 }
 
 impl Problems {
     pub fn any(&self) -> bool {
-        [self.name, self.address, self.port, self.username, self.key]
-            .iter()
-            .any(|problem| !problem.is_empty())
+        [
+            self.address,
+            self.group,
+            self.port,
+            self.username,
+            self.password,
+            self.key,
+            self.snippet,
+        ]
+        .iter()
+        .any(|problem| !problem.is_empty())
     }
 }
 
@@ -65,41 +127,123 @@ pub fn parse_port(text: &str) -> Result<u16, &'static str> {
     }
 }
 
-/// Check the form. Ok carries what the backend stores.
-pub fn check(fields: &Fields) -> Result<HostUpsert, Problems> {
-    let mut problems = Problems::default();
-    let name = fields.name.trim();
-    if name.is_empty() {
-        problems.name = "Give the host a name.";
+/// Why `tag` cannot be added to `tags`, or "" when it can.
+pub fn tag_problem(tag: &str, tags: &[String]) -> &'static str {
+    let tag = tag.trim();
+    if tag.is_empty() {
+        "Type the tag first."
+    } else if tag.contains(',') {
+        "A tag cannot contain a comma. Add tags one at a time."
+    } else if tag.chars().count() > MAX_TAG_CHARS {
+        "A tag can be at most 32 characters."
+    } else if tags.iter().any(|have| have.eq_ignore_ascii_case(tag)) {
+        "This host already has that tag."
+    } else if tags.len() >= MAX_TAGS {
+        "A host can have at most 16 tags. Remove one first."
+    } else {
+        ""
     }
+}
+
+/// A Remote Desktop host keeps its saved password only while its address and user name stay
+/// the same: Windows files the credential under both. True when an edit would lose it.
+pub fn rdp_password_lost(before: &Fields, now: &Fields) -> bool {
+    now.protocol == Protocol::Rdp
+        && (!before
+            .address
+            .trim()
+            .eq_ignore_ascii_case(now.address.trim())
+            || before.username.trim() != now.username.trim())
+}
+
+/// How the host signs in, or the problem with what was chosen.
+fn sign_in(fields: &Fields, password: Password, problems: &mut Problems) -> SshAuth {
+    if fields.protocol == Protocol::Rdp {
+        return SshAuth::Password;
+    }
+    match fields.method {
+        Method::Password => {
+            if password == Password::Missing {
+                problems.password = "Enter the password, or choose a key to sign in with.";
+            }
+            SshAuth::Password
+        }
+        Method::KeyFile => {
+            let path = fields.key_path.trim();
+            if path.is_empty() {
+                problems.key = "Choose the private key file to sign in with.";
+            }
+            SshAuth::KeyFile {
+                path: path.to_string(),
+            }
+        }
+        Method::Keychain => {
+            if fields.key_id.is_empty() {
+                problems.key = "Choose a key from the Keychain.";
+            }
+            SshAuth::Keychain {
+                key_id: fields.key_id.clone(),
+            }
+        }
+        Method::Agent => SshAuth::Agent,
+    }
+}
+
+/// Check the form. `password` says whether the host will have a password once saved. Ok
+/// carries what the backend stores.
+pub fn check(fields: &Fields, password: Password) -> Result<HostUpsert, Problems> {
+    let mut problems = Problems::default();
+    let ssh = fields.protocol == Protocol::Ssh;
     problems.address = address_problem(&fields.address);
+    // A host without a label is listed by its address.
+    let name = match fields.name.trim() {
+        "" => fields.address.trim(),
+        name => name,
+    };
     let port = parse_port(&fields.port);
     if let Err(problem) = port {
-        problems.port = problem;
+        problems.port = if !ssh && fields.port.trim().is_empty() {
+            "Enter the Remote Desktop port. The usual one is 3389."
+        } else {
+            problem
+        };
     }
     let username = fields.username.trim();
-    if username.is_empty() {
-        problems.username = "Enter the user name to sign in with.";
-    } else if username.chars().any(char::is_whitespace) {
+    if username.chars().any(char::is_whitespace) {
         problems.username = "A user name cannot contain spaces.";
+    } else if username.is_empty() && ssh {
+        problems.username = "Enter the user name to sign in with.";
+    } else if username.is_empty() && password == Password::Typed {
+        problems.username = "Enter the user name the password belongs to.";
     }
-    let key = fields.key_path.trim();
-    if key.is_empty() {
-        problems.key = "Choose the private key file to sign in with.";
+    let group = fields.group.trim();
+    if group.chars().count() > MAX_GROUP_CHARS {
+        problems.group = "A group name can be at most 64 characters.";
+    }
+    let auth = sign_in(fields, password, &mut problems);
+    let snippet = fields.snippet.trim_end();
+    if ssh && snippet.len() > MAX_SNIPPET_BYTES {
+        problems.snippet = "The startup snippet is too long. Keep it under 4096 bytes.";
     }
     match port {
         Ok(port) if !problems.any() => Ok(HostUpsert {
             display_name: name.to_string(),
-            os_family: if fields.os == "unknown" {
+            os_family: if !ssh {
+                "windows"
+            } else if fields.os == "unknown" {
                 "unknown"
             } else {
                 "linux"
             }
             .to_string(),
+            protocol: fields.protocol,
             address: fields.address.trim().to_string(),
             port,
             username: username.to_string(),
-            private_key_path: key.to_string(),
+            auth,
+            group_name: (!group.is_empty()).then(|| group.to_string()),
+            tags: fields.tags.clone(),
+            startup_snippet: (ssh && !snippet.trim().is_empty()).then(|| snippet.to_string()),
         }),
         _ => Err(problems),
     }
@@ -129,114 +273,4 @@ pub fn vpn_problem(address: &str, port: &str, known: &[String], vpn_count: usize
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn filled() -> Fields {
-        Fields {
-            name: " Fedora laptop ".into(),
-            address: "192.0.2.10".into(),
-            port: "22".into(),
-            username: "alice".into(),
-            os: "linux".into(),
-            key_path: "C:\\Users\\alice\\.ssh\\id_ed25519".into(),
-        }
-    }
-
-    #[test]
-    fn a_complete_form_is_accepted_and_trimmed() {
-        let input = check(&filled()).expect("valid");
-        assert_eq!(input.display_name, "Fedora laptop");
-        assert_eq!((input.address.as_str(), input.port), ("192.0.2.10", 22));
-        assert_eq!(input.os_family, "linux");
-        let other = check(&Fields {
-            os: "unknown".into(),
-            port: " 2222 ".into(),
-            ..filled()
-        })
-        .expect("valid");
-        assert_eq!((other.os_family.as_str(), other.port), ("unknown", 2222));
-    }
-
-    #[test]
-    fn an_empty_form_names_every_field() {
-        let problems = check(&Fields::default()).expect_err("invalid");
-        assert!(problems.name.starts_with("Give the host"));
-        assert!(problems.address.starts_with("Enter the host name"));
-        assert!(problems.port.starts_with("Enter the SSH port"));
-        assert!(problems.username.starts_with("Enter the user name"));
-        assert!(problems.key.starts_with("Choose the private key"));
-    }
-
-    #[test]
-    fn each_field_is_checked_on_its_own() {
-        let only = |fields: Fields| check(&fields).expect_err("invalid");
-        let port = only(Fields {
-            port: "0".into(),
-            ..filled()
-        });
-        assert_eq!(port.port, "The port must be a number between 1 and 65535.");
-        assert_eq!(
-            port,
-            Problems {
-                port: port.port,
-                ..Problems::default()
-            }
-        );
-        for bad in ["65536", "ssh", "-1", "22.5"] {
-            assert!(parse_port(bad).is_err(), "{bad}");
-        }
-        assert_eq!(parse_port("65535"), Ok(65535));
-        assert_eq!(parse_port("1"), Ok(1));
-
-        assert_eq!(
-            only(Fields {
-                address: "my host".into(),
-                ..filled()
-            })
-            .address,
-            "An address cannot contain spaces."
-        );
-        assert!(only(Fields {
-            address: "alice@host".into(),
-            ..filled()
-        })
-        .address
-        .starts_with("Enter only the address"));
-        assert!(only(Fields {
-            address: "ssh://host".into(),
-            ..filled()
-        })
-        .address
-        .contains("not a link"));
-        assert_eq!(
-            only(Fields {
-                username: "al ice".into(),
-                ..filled()
-            })
-            .username,
-            "A user name cannot contain spaces."
-        );
-    }
-
-    #[test]
-    fn vpn_addresses() {
-        let known = vec!["192.0.2.10".to_string(), "10.8.0.3".to_string()];
-        assert_eq!(vpn_problem("100.64.0.7", "22", &known, 1), "");
-        assert_eq!(vpn_problem("my-host.tailnet", " 2222 ", &known, 1), "");
-        assert!(vpn_problem("", "22", &known, 1).starts_with("Type the VPN address"));
-        assert_eq!(
-            vpn_problem("10.8.0.3", "22", &known, 1),
-            "This host already has that address."
-        );
-        assert_eq!(
-            vpn_problem("10.8.0.9", "70000", &known, 1),
-            "The port must be a number between 1 and 65535."
-        );
-        assert!(vpn_problem("10.8.0.9", "22", &known, 4).starts_with("A host can have at most"));
-        assert_eq!(
-            vpn_problem("10.8 .0.9", "22", &known, 1),
-            "An address cannot contain spaces."
-        );
-    }
-}
+mod tests;

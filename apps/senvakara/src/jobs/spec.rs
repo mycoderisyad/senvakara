@@ -56,6 +56,15 @@ pub enum JobSpec {
         remote_dir: String,
         overwrite: bool,
     },
+    /// Copy a file or a folder from one host straight to another (or to another folder of
+    /// the same host), without a copy on this computer.
+    HostToHost {
+        from_host: String,
+        remote_path: String,
+        to_host: String,
+        remote_dir: String,
+        overwrite: bool,
+    },
 }
 
 impl JobSpec {
@@ -70,6 +79,7 @@ impl JobSpec {
             | JobSpec::SftpDownload { overwrite, .. }
             | JobSpec::HostToDevice { overwrite, .. }
             | JobSpec::DeviceToHost { overwrite, .. }
+            | JobSpec::HostToHost { overwrite, .. }
                 if !*overwrite =>
             {
                 *overwrite = true;
@@ -113,6 +123,11 @@ impl JobSpec {
                 remote_dir,
                 ..
             } => (file_name(device_path), remote_dir.clone()),
+            JobSpec::HostToHost {
+                remote_path,
+                remote_dir,
+                ..
+            } => (file_name(remote_path), remote_dir.clone()),
         }
     }
 
@@ -143,6 +158,11 @@ impl JobSpec {
                 remote_dir,
                 ..
             } => Some((Source::Host(host_id.clone()), remote_dir.clone())),
+            JobSpec::HostToHost {
+                to_host,
+                remote_dir,
+                ..
+            } => Some((Source::Host(to_host.clone()), remote_dir.clone())),
         }
     }
 
@@ -150,7 +170,7 @@ impl JobSpec {
     pub(super) fn conflict_wording(&self) -> &'static str {
         match self {
             JobSpec::InstallApk { .. } => "The phone did not accept the app.",
-            _ => "A file with that name already exists.",
+            _ => "A file or folder with that name already exists.",
         }
     }
 }
@@ -231,6 +251,29 @@ mod tests {
             local_path: "C:\\apps\\demo.apk".into(),
         };
         assert_eq!(install.destination(), None);
+    }
+
+    #[test]
+    fn a_copy_between_hosts_writes_to_the_second_host_and_can_replace() {
+        let across = JobSpec::HostToHost {
+            from_host: "a".into(),
+            remote_path: "/srv/site".into(),
+            to_host: "b".into(),
+            remote_dir: "/tmp".into(),
+            overwrite: false,
+        };
+        assert_eq!(
+            across.destination(),
+            Some((Source::Host("b".into()), "/tmp".to_string()))
+        );
+        assert_eq!(across.target(), ("site".to_string(), "/tmp".to_string()));
+        assert!(matches!(
+            across.replacing(),
+            Some(JobSpec::HostToHost {
+                overwrite: true,
+                ..
+            })
+        ));
     }
 
     #[test]

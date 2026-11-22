@@ -5,8 +5,9 @@ use std::rc::Rc;
 use senvakara_app::AppEvent;
 use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
 
-use crate::{App, DeviceItem, HostItem, Inventory, KeyValue};
+use crate::{App, DeviceItem, HostGroup, HostItem, Inventory, KeyValue};
 
+use super::groups::{grouped, host_matches};
 use super::text::{fact, friendly};
 
 impl App {
@@ -14,8 +15,8 @@ impl App {
     pub fn init_inventory(self: &Rc<Self>, ui: &crate::MainWindow) {
         let inventory = ui.global::<Inventory>();
         inventory.set_hosts(self.inv.host_model.clone().into());
+        inventory.set_host_groups(self.inv.group_model.clone().into());
         inventory.set_devices(self.inv.device_model.clone().into());
-        *self.inv.wsl.borrow_mut() = crate::wsl_distros();
 
         inventory.on_select({
             let app = self.clone();
@@ -36,7 +37,11 @@ impl App {
         });
         inventory.on_refresh({
             let app = self.clone();
-            move || app.reload()
+            move || {
+                app.reload();
+                // A shell installed since startup shows up too.
+                app.launcher_detect();
+            }
         });
         inventory.on_host_action({
             let app = self.clone();
@@ -127,13 +132,22 @@ impl App {
                     .iter()
                     .any(|field| field.to_lowercase().contains(&query))
         };
-        let host_items: Vec<HostItem> = hosts
+        let shown: Vec<_> = hosts
             .iter()
-            .filter(|host| {
-                let address = host.ssh.as_ref().map(|s| s.address.as_str()).unwrap_or("");
-                matches(&[&host.display_name, address])
+            .filter(|host| host_matches(host, &query))
+            .collect();
+        let host_items: Vec<HostItem> = shown.iter().map(|host| self.inv.host_item(host)).collect();
+        let filed = shown
+            .iter()
+            .zip(&host_items)
+            .map(|(host, item)| (host.group_name.clone(), item.clone()))
+            .collect();
+        let groups: Vec<HostGroup> = grouped(filed)
+            .into_iter()
+            .map(|(name, members)| HostGroup {
+                name: name.into(),
+                hosts: ModelRc::new(VecModel::from(members)),
             })
-            .map(|host| self.inv.host_item(host))
             .collect();
         let device_items: Vec<DeviceItem> = devices
             .iter()
@@ -147,6 +161,7 @@ impl App {
             .map(|device| self.inv.device_item(device))
             .collect();
         self.inv.host_model.set_vec(host_items);
+        self.inv.group_model.set_vec(groups);
         self.inv.device_model.set_vec(device_items);
 
         let count = |state: &str| {
@@ -201,6 +216,7 @@ impl App {
         drop((hosts, devices, watching));
         self.publish_selection();
         self.files_inventory_changed();
+        self.launcher_refresh();
         self.workspaces_inventory_changed();
         self.automations_inventory_changed();
     }
@@ -231,6 +247,12 @@ impl App {
         let inventory = ui.global::<Inventory>();
         if inventory.get_selected_kind() == "host" && inventory.get_selected_id() == host_id {
             inventory.set_selected_host(item.clone());
+        }
+        // The same card on the Hosts page, under its group.
+        for group in self.inv.group_model.iter() {
+            if let Some(row) = group.hosts.iter().position(|host| host.id == host_id) {
+                group.hosts.set_row_data(row, item.clone());
+            }
         }
         self.inv.host_model.set_row_data(index, item);
     }

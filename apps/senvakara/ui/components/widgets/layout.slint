@@ -1,4 +1,4 @@
-// Page layout: GroupTitle, Labeled, PageTitle and Card.
+// Page layout: GroupTitle, Labeled, PageTitle, Card and CardGrid.
 
 import { Theme } from "../../theme.slint";
 import { Hint } from "status.slint";
@@ -52,6 +52,7 @@ export component PageTitle inherits VerticalLayout {
 // A bordered block that groups one topic on a page.
 export component Card inherits Rectangle {
     in property <length> pad: Theme.space-4;
+    in property <length> gap: Theme.space-3;
     border-radius: Theme.radius;
     border-width: 1px;
     border-color: Theme.hairline;
@@ -60,7 +61,28 @@ export component Card inherits Rectangle {
 
     content := VerticalLayout {
         padding: root.pad;
-        spacing: Theme.space-3;
+        spacing: root.gap;
         @children
     }
+}
+
+// Cards laid out in as many equal columns as fit.
+export component CardGrid inherits Rectangle {
+    in property <int> count;
+    in property <length> min-card: 300px;
+    out property <int> columns: Math.max(1, Math.floor((self.width + gap) / (min-card + gap)));
+    out property <length> card-width: (self.width - (columns - 1) * gap) / columns;
+    out property <length> gap: Theme.space-2;
+    out property <length> row-height: 56px;
+
+    pure public function card-x(index: int) -> length {
+        return Math.mod(index, columns) * (card-width + gap);
+    }
+
+    pure public function card-y(index: int) -> length {
+        return Math.floor(index / columns) * (row-height + gap);
+    }
+
+    height: count == 0 ? 0px : Math.ceil(count / columns) * (row-height + gap) - gap;
+    @children
 }

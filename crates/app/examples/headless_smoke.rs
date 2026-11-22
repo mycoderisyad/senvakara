@@ -1,6 +1,7 @@
 //! Headless smoke test of the service layer, for use where no window can be
 //! opened: starts an [`App`] on a throw-away data folder and exercises the
-//! parts that need no remote host or phone (lists, local metrics, a local
+//! parts that need no remote host or phone (lists, the empty keychain, the
+//! Remote Desktop refusal for a non-RDP host, local metrics, a local
 //! PowerShell terminal with ordered input, resize, exit and "viewer gone").
 //!
 //! Every call is awaited from a second runtime that has no timer and no I/O
@@ -43,6 +44,14 @@ fn main() -> Result<()> {
         app.devices_list()?.len()
     );
     println!("adb: {:?}", app.adb_status().local_adb_path);
+    ensure!(
+        app.keychain_list()?.is_empty(),
+        "a fresh data folder has no keys"
+    );
+    ensure!(
+        ui.block_on(app.rdp_launch(local.clone())).is_err(),
+        "only a Remote Desktop host opens in mstsc"
+    );
 
     let first = ui.block_on(app.host_metrics(local.clone()))?;
     std::thread::sleep(Duration::from_millis(300));

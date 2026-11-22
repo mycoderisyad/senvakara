@@ -7,8 +7,8 @@ use std::sync::Arc;
 use slint::VecModel;
 
 use crate::{
-    automation, device, hostform, inventory, jobs, palette, settings, wireless, workspace,
-    MainWindow, Pane, Pending, TabInfo,
+    automation, device, files, hostform, inventory, jobs, keychain, launcher, palette, platform,
+    settings, wireless, workspace, MainWindow, Pane, Pending, TabInfo,
 };
 
 thread_local! {
@@ -37,6 +37,10 @@ pub(crate) struct App {
     pub(crate) backend: Arc<senvakara_app::App>,
     pub(crate) inv: inventory::State,
     pub(crate) hosts: hostform::State,
+    pub(crate) keys: keychain::State,
+    /// Files dragged in from Explorer (`platform::FileDrops`).
+    pub(crate) drops: platform::FileDrops,
+    pub(crate) files: files::State,
     pub(crate) dev: device::State,
     pub(crate) jobs: jobs::State,
     pub(crate) wifi: wireless::State,
@@ -44,6 +48,7 @@ pub(crate) struct App {
     pub(crate) auto: automation::State,
     pub(crate) settings: settings::State,
     pub(crate) palette: palette::State,
+    pub(crate) launcher: launcher::State,
     pub(crate) pending: RefCell<Option<Pending>>,
     pub(crate) ui: slint::Weak<MainWindow>,
     pub(crate) tabs: Rc<VecModel<TabInfo>>,

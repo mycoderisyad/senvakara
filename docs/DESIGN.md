@@ -18,7 +18,7 @@ Direction, pinned by the owner: in the manner of Termius but more minimal; dark 
 +--------------------------------------------------------------------------+
 | native Windows title bar                                                 |
 +--------------------------------------------------------------------------+
-| [Home] [session tab] [session tab] ... [+]                    tab strip  |
+| [Home] [session tab] [session tab] ... [+][v]                 tab strip  |
 +-----------+------------------------------------------+-------------------+
 | Hosts     | search and quick filter       [New host] | inspector         |
 | Devices   | summary line                             | (selected item:   |
@@ -29,10 +29,10 @@ Direction, pinned by the owner: in the manner of Termius but more minimal; dark 
 +-----------+------------------------------------------+-------------------+
 ```
 
-- **Tab strip (38 px):** pinned Home, then one tab per session with an icon for its kind (terminal, screen, logcat, files, desktop, workspace, run). The active tab carries a 2 px underline in the colour of the host it runs on. Closing a running session asks first.
-- **Sidebar (208 px):** Hosts, Devices, Workspaces, Automations; Settings at the bottom.
+- **Tab strip (38 px):** pinned Home, then one tab per session with an icon for its kind (terminal, screen, logcat, files, desktop, workspace, run). The active tab carries a 2 px underline in the colour of the host it runs on. Closing a running session asks first. "+" opens the New Tab page (search over recent connections, hosts, local shells, phones and SFTP; the pick takes the page's place in the strip); the chevron next to it is a menu of local shells, then hosts, then phones, whose first nine entries answer to Ctrl+Shift+1 to 9.
+- **Sidebar (208 px):** Hosts, Devices, Keychain, Workspaces, Automations; Settings at the bottom.
 - **Inspector (340 px):** opens for the selected host or device. A form that has been typed into is never discarded without asking.
-- **Command palette:** Ctrl+Shift+K. Window shortcuts use Ctrl+Shift (T new terminal, W close tab, C copy, V paste) so plain Ctrl keys reach the shell.
+- **Command palette:** Ctrl+Shift+K. Window shortcuts use Ctrl+Shift (T New Tab page, 1 to 9 the nth entry of the "+" menu, W close tab, C copy, V paste) so plain Ctrl keys reach the shell.
 
 ## 3. Tokens
 
@@ -66,8 +66,10 @@ All in `apps/senvakara/ui/components`. Every interactive one reacts to hover, pr
 
 - **Controls** (`controls.slint`; `widgets.slint`, which re-exports the files in `widgets/`): `Button` (primary, secondary, danger, ghost), `IconButton`, `TextField` (with error text and a masked variant), `BoundField`, `Select`, `CheckBox`, `Segmented`, `SearchField`, `ProgressBar`.
 - **Status and text:** `StatusMark` (live = filled dot, idle = ring, busy = half-filled ring, attention = filled square, each with a word), `Notice` (danger, warning, info, success), `Reason` (why a control is unavailable), `DetailRow`, `MeterRow`, `GroupTitle`, `PageTitle`, `Hint`.
+- **Forms** (`widgets/form.slint`): `IconField` (a field with a leading icon and an optional icon button at its end), `TextArea`, `Chip` and `ChipRows` (lines packed in Rust), `MenuRow` for pop-up lists, `LinkRow`, `ToolButton`. The host form and the key form group their fields in `Card`s. A pop-up list (`PopupWindow`) is used for the key menu of the host form, the "New key" chevron and the menu next to "+" in the tab strip.
 - **Lists:** `ItemCard` (icon tile, name, route or address, state in a fixed right-hand cell, context menu), `SidebarItem`, `ActionList`, `JobList`.
 - **Overlays:** `DialogFrame`, `ConfirmDialog` (lists exactly what is affected), `WirelessDialog`, `PaletteOverlay`.
+- **New Tab page** (`new-tab.slint`): `NewTabView` draws the `Launcher` global (search field, sections of 40 px rows with a `LaunchIcon` tile in the host's colour); it is hosted by `PanelHost` as kind `new-tab`.
 - **Session views:** `TermView`, `MirrorView`, `LogcatView`, `FilesView`, `DesktopView`, `RunView`, `WorkspaceView`, hosted by `PanelHost` so the same view works as a tab or as a workspace panel.
 - **Icons:** monochrome 16 px stroke SVGs in `ui/icons`, tinted from `Theme` with `colorize`. No emoji or glyph characters.
 

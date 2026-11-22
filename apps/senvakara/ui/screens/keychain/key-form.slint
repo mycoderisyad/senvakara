@@ -1,0 +1,305 @@
+// The Keychain half of the inspector: the form to add a key, a key with a certificate or a
+// FIDO2 security key, and to edit or delete one. Checking and saving happen in Rust.
+
+import { Theme } from "../../theme.slint";
+import { Icon, IconButton } from "../../components/controls.slint";
+import { Button, Card, Hint, IconField, Notice, Reason, TextArea } from "../../components/widgets.slint";
+import { Keychain } from "model.slint";
+
+// The fields of a key whose private text Senvakara keeps.
+component KeyFields inherits VerticalLayout {
+    spacing: Theme.space-2;
+
+    if Keychain.private-saved && !Keychain.replace-private: HorizontalLayout {
+        spacing: Theme.space-2;
+
+        VerticalLayout {
+            alignment: center;
+            Icon {
+                source: @image-url("../../icons/lock.svg");
+                tint: Theme.success;
+            }
+        }
+
+        Text {
+            horizontal-stretch: 1;
+            vertical-alignment: center;
+            text: "Private key saved";
+            color: Theme.text;
+            font-size: Theme.text-body;
+            overflow: elide;
+        }
+
+        Button {
+            text: "Replace";
+            accessible-label: "Replace the saved private key";
+            clicked => {
+                Keychain.set-replace-private(true);
+            }
+        }
+    }
+
+    if !Keychain.private-saved || Keychain.replace-private: TextArea {
+        height: 104px;
+        text <=> Keychain.private-key;
+        label: "Private key";
+        placeholder: "Private key *";
+        edited => {
+            Keychain.edited();
+        }
+    }
+
+    if Keychain.private-saved && Keychain.replace-private: HorizontalLayout {
+        alignment: start;
+        Button {
+            text: "Keep saved";
+            accessible-label: "Keep the saved private key";
+            clicked => {
+                Keychain.set-replace-private(false);
+            }
+        }
+    }
+
+    if Keychain.private-error != "": Hint {
+        text: Keychain.private-error;
+        ink: Theme.danger;
+    }
+
+    TextArea {
+        height: 68px;
+        text <=> Keychain.public-key;
+        label: "Public key";
+        placeholder: "Public key";
+        // The public key of a saved key follows its private key.
+        read-only: Keychain.editing-id != "";
+        edited => {
+            Keychain.edited();
+        }
+    }
+
+    if Keychain.public-error != "": Hint {
+        text: Keychain.public-error;
+        ink: Theme.danger;
+    }
+
+    TextArea {
+        height: 68px;
+        text <=> Keychain.certificate;
+        label: "Certificate";
+        placeholder: "Certificate";
+        edited => {
+            Keychain.edited();
+        }
+    }
+
+    if Keychain.certificate-error != "": Hint {
+        text: Keychain.certificate-error;
+        ink: Theme.danger;
+    }
+
+    IconField {
+        icon: @image-url("../../icons/lock.svg");
+        secret: true;
+        text <=> Keychain.passphrase;
+        label: "Passphrase";
+        placeholder: Keychain.has-passphrase ? "New passphrase (one is saved)" : "Passphrase, if the key has one";
+        edited => {
+            Keychain.edited();
+        }
+        accepted => {
+            Keychain.save();
+        }
+    }
+
+    Hint {
+        text: "The private key and its passphrase are kept in Windows Credential Manager and are never shown again. The public key and the certificate are not secret.";
+    }
+}
+
+// A FIDO2 security key is known by its public key only: the key itself never leaves the token.
+component FidoFields inherits VerticalLayout {
+    spacing: Theme.space-2;
+
+    TextArea {
+        height: 68px;
+        text <=> Keychain.public-key;
+        label: "Public key";
+        placeholder: "Public key line *";
+        read-only: Keychain.editing-id != "";
+        edited => {
+            Keychain.edited();
+        }
+    }
+
+    if Keychain.public-error != "": Hint {
+        text: Keychain.public-error;
+        ink: Theme.danger;
+    }
+
+    Hint {
+        text: "Paste the .pub file that ssh-keygen -t ed25519-sk wrote. Signing in asks the Windows OpenSSH agent, which must hold the key; touch the security key when it blinks.";
+    }
+}
+
+export component KeyFormPanel inherits VerticalLayout {
+    private property <int> revision: Keychain.revision;
+    private property <string> wait: Keychain.saving ? "The key is being saved." : "";
+    private property <bool> adding: Keychain.editing-id == "";
+
+    spacing: Theme.space-3;
+
+    changed revision => {
+        label.focus-input();
+    }
+
+    init => {
+        label.focus-input();
+    }
+
+    HorizontalLayout {
+        spacing: Theme.space-2;
+        Text {
+            horizontal-stretch: 1;
+            vertical-alignment: center;
+            text: Keychain.form-title;
+            color: Theme.text;
+            font-size: Theme.text-title;
+            font-weight: 600;
+            overflow: elide;
+        }
+
+        IconButton {
+            icon: @image-url("../../icons/close.svg");
+            label: "Close the form";
+            clicked => {
+                Keychain.cancel();
+            }
+        }
+    }
+
+    Card {
+        pad: Theme.space-3;
+        gap: Theme.space-2;
+
+        label := IconField {
+            text <=> Keychain.label;
+            label: "Label";
+            placeholder: "Label";
+            edited => {
+                Keychain.edited();
+            }
+            accepted => {
+                Keychain.save();
+            }
+        }
+
+        if Keychain.label-error != "": Hint {
+            text: Keychain.label-error;
+            ink: Theme.danger;
+        }
+
+        if Keychain.form-kind == "key": KeyFields { }
+
+        if Keychain.form-kind == "fido2": FidoFields { }
+    }
+
+    if root.adding && Keychain.form-kind == "key": Card {
+        pad: Theme.space-3;
+        gap: Theme.space-3;
+
+        // Files dragged from Explorer land on the window; Rust tells this zone about them.
+        Rectangle {
+            height: 96px;
+            border-radius: Theme.radius;
+            border-width: 1px;
+            border-color: Keychain.drop-hover ? Theme.accent : Theme.hairline-strong;
+            background: Keychain.drop-hover ? Theme.accent.with-alpha(0.1) : Theme.ground;
+            animate background { duration: Theme.quick; }
+
+            VerticalLayout {
+                alignment: center;
+                spacing: Theme.space-2;
+                padding: Theme.space-2;
+
+                HorizontalLayout {
+                    alignment: center;
+                    Icon {
+                        width: 24px;
+                        height: 24px;
+                        source: @image-url("../../icons/import.svg");
+                        tint: Keychain.drop-hover ? Theme.accent : Theme.text-faint;
+                    }
+                }
+
+                Text {
+                    horizontal-alignment: center;
+                    text: Keychain.drop-hover ? "Drop the key file to import it" : "Drag and drop a private key file to import";
+                    color: Keychain.drop-hover ? Theme.text : Theme.text-muted;
+                    font-size: Theme.text-small;
+                    wrap: word-wrap;
+                }
+            }
+        }
+
+        Button {
+            text: "Import from key file";
+            enabled: !Keychain.saving;
+            clicked => {
+                Keychain.import-file();
+            }
+        }
+    }
+
+    if !root.adding && Keychain.type-text != "": Hint {
+        text: "Type " + Keychain.type-text + (Keychain.used-by == "" ? ". No host signs in with this key." : ". Used by " + Keychain.used-by + ".");
+    }
+
+    if Keychain.form-error != "": Notice {
+        kind: "danger";
+        text: Keychain.form-error;
+    }
+
+    HorizontalLayout {
+        spacing: Theme.space-2;
+
+        Button {
+            text: Keychain.saving ? "Saving" : "Save";
+            kind: "primary";
+            enabled: !Keychain.saving;
+            reason: root.wait;
+            accessible-label: "Save key";
+            clicked => {
+                Keychain.save();
+            }
+        }
+
+        Button {
+            text: "Cancel";
+            enabled: !Keychain.saving;
+            reason: root.wait;
+            accessible-label: "Cancel the key form";
+            clicked => {
+                Keychain.cancel();
+            }
+        }
+
+        Rectangle {
+            horizontal-stretch: 1;
+        }
+
+        if !root.adding: Button {
+            text: "Delete";
+            kind: "danger";
+            enabled: !Keychain.saving;
+            reason: root.wait;
+            accessible-label: "Delete this key";
+            clicked => {
+                Keychain.delete();
+            }
+        }
+    }
+
+    Reason {
+        text: root.wait;
+    }
+}

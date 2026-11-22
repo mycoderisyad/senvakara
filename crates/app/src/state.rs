@@ -2,10 +2,12 @@
 //! structured `CoreError` the UI understands (task CORE-08).
 
 use crate::logging;
-use senvakara_adapters_ssh::{connect_any, Candidate, ConnectParams, HostKeyPolicy, SshConnection};
+use senvakara_adapters_ssh::{
+    connect_any, Auth, Candidate, ConnectParams, HostKeyPolicy, Secret, SshConnection,
+};
 use senvakara_core::{CoreError, ErrorCode};
 use senvakara_secrets::{redact, SecretStore};
-use senvakara_storage::{Db, HostRecord, StorageError};
+use senvakara_storage::{Db, HostRecord, KeyKind, SshAuth, SshEndpoint, StorageError};
 use serde::Serialize;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -149,6 +151,57 @@ impl AppState {
             .collect()
     }
 
+    /// A secret from the OS store by reference; `None` when there is no
+    /// reference, no store, or the entry is gone.
+    fn secret(&self, reference: Option<&str>, what: &str) -> CmdResult<Option<Secret>> {
+        let (Some(reference), Some(store)) = (reference, &self.secrets) else {
+            return Ok(None);
+        };
+        Ok(store
+            .get(reference)
+            .map_err(|e| to_core(what, e.into()))?
+            .map(Secret::new))
+    }
+
+    /// Collect what the host's sign-in method needs (CRED-01..04). Secrets
+    /// come from the OS store and go nowhere but the SSH adapter.
+    fn sign_in(&self, ssh: &SshEndpoint) -> CmdResult<Auth> {
+        let missing = |message: &str| CoreError::new(ErrorCode::Unauthenticated, message);
+        match &ssh.auth {
+            SshAuth::KeyFile { path } => Ok(Auth::KeyFile {
+                path: PathBuf::from(path),
+                passphrase: self.secret(ssh.passphrase_ref.as_deref(), "passphrase")?,
+            }),
+            SshAuth::Password => self
+                .secret(ssh.password_ref.as_deref(), "password")?
+                .map(Auth::Password)
+                .ok_or_else(|| missing("no password is saved: save the password for this host")),
+            SshAuth::Agent => Ok(Auth::Agent),
+            SshAuth::Keychain { key_id } => {
+                let key = self.db.lock().unwrap().get_key(key_id).map_err(|_| {
+                    missing("the key this host signs in with is no longer in the keychain")
+                })?;
+                if key.kind == KeyKind::Fido2 {
+                    // The security key signs through the agent (ADR-027).
+                    return Ok(Auth::Agent);
+                }
+                let gone = "the private key is missing from the credential store: add the key to the keychain again";
+                let store = self.secrets.as_ref().ok_or_else(|| missing(gone))?;
+                let private_key = match key.private_ref.as_deref() {
+                    Some(reference) => store
+                        .get_large(reference)
+                        .map_err(|e| to_core("private key", e.into()))?,
+                    None => None,
+                };
+                Ok(Auth::KeyText {
+                    private_key: Secret::new(private_key.ok_or_else(|| missing(gone))?),
+                    passphrase: self.secret(key.passphrase_ref.as_deref(), "passphrase")?,
+                    certificate: key.certificate,
+                })
+            }
+        }
+    }
+
     /// Get a live connection to `host_id`, connecting with the pinned host key.
     /// Concurrent callers for the same host share one connect attempt; other
     /// hosts are not held up.
@@ -178,10 +231,7 @@ impl AppState {
                 "host key not trusted yet: verify and trust it first",
             )
         })?;
-        let passphrase = match (&ssh.passphrase_ref, &self.secrets) {
-            (Some(r), Some(store)) => store.get(r).map_err(|e| to_core("passphrase", e.into()))?,
-            _ => None,
-        };
+        let auth = self.sign_in(&ssh)?;
         // Route fallback (NET-03): LAN first, then VPN addresses; every
         // address must present the same pinned key (checked before any
         // credential is sent), so a different machine at an old LAN address
@@ -191,10 +241,9 @@ impl AppState {
             host: String::new(),
             port: 0,
             user: ssh.username.clone(),
-            private_key: PathBuf::from(&ssh.private_key_path),
+            auth,
             host_key: HostKeyPolicy::Pinned(fingerprint),
             connect_timeout: Duration::from_secs(10),
-            passphrase,
         };
         let done = connect_any(&cands, &base, Duration::from_secs(3))
             .await
@@ -235,5 +284,134 @@ impl AppState {
             let _ = c.close().await;
             logging::info(&format!("disconnected from host {host_id}"));
         }
+    }
+}
+
+#[cfg(all(test, windows))]
+mod tests {
+    use super::*;
+    use russh::keys::ssh_key::LineEnding;
+    use russh::keys::{Algorithm, PrivateKey};
+    use senvakara_storage::{HostUpsert, KeyUpsert, Protocol};
+
+    fn state() -> (PathBuf, AppState) {
+        let dir = std::env::temp_dir().join(format!("svk-state-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let state = AppState::open(dir.join("test.db")).unwrap();
+        (dir, state)
+    }
+
+    fn host(state: &mut AppState, auth: SshAuth) -> SshEndpoint {
+        let input = HostUpsert {
+            display_name: "Build box".into(),
+            os_family: "linux".into(),
+            protocol: Protocol::Ssh,
+            address: "192.0.2.10".into(),
+            port: 22,
+            username: "dev".into(),
+            auth,
+            group_name: None,
+            tags: Vec::new(),
+            startup_snippet: None,
+        };
+        let db = state.db.get_mut().unwrap();
+        db.create_host(&input).unwrap().ssh.unwrap()
+    }
+
+    #[test]
+    fn a_password_host_without_a_saved_password_says_so() {
+        let (dir, mut state) = state();
+        let mut ssh = host(&mut state, SshAuth::Password);
+        let error = state.sign_in(&ssh).err().unwrap();
+        assert_eq!(error.code, ErrorCode::Unauthenticated);
+        assert!(error.message.contains("save the password"), "{error}");
+
+        let store = state.secrets.as_ref().unwrap();
+        let reference = store.put("not-a-real-password").unwrap();
+        ssh.password_ref = Some(reference.clone());
+        let auth = state.sign_in(&ssh).unwrap();
+        store.delete(&reference).unwrap();
+        let Auth::Password(password) = &auth else {
+            panic!("expected a password sign-in, got {auth:?}");
+        };
+        assert_eq!(password.as_str(), "not-a-real-password");
+        // Even the debug form of the sign-in keeps the password out.
+        assert!(!format!("{auth:?}").contains("not-a-real"));
+
+        // The entry is gone from the OS store: same answer as never saved.
+        assert!(state.sign_in(&ssh).is_err());
+        drop(state);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_keychain_host_signs_in_with_the_stored_key_text_and_certificate() {
+        let (dir, mut state) = state();
+        let key = PrivateKey::random(&mut rand::rng(), Algorithm::Ed25519).unwrap();
+        let text = key.to_openssh(LineEnding::LF).unwrap().to_string();
+        let private_ref = state.secrets.as_ref().unwrap().put_large(&text).unwrap();
+        let entry = KeyUpsert {
+            label: "deploy".into(),
+            algorithm: "ssh-ed25519".into(),
+            public_key: key.public_key().to_openssh().unwrap(),
+            certificate: Some("ssh-ed25519-cert-v01@openssh.com AAAA".into()),
+            kind: KeyKind::Key,
+        };
+        let db = state.db.get_mut().unwrap();
+        let record = db.create_key(&entry, Some(&private_ref)).unwrap();
+        let ssh = host(
+            &mut state,
+            SshAuth::Keychain {
+                key_id: record.id.clone(),
+            },
+        );
+
+        let auth = state.sign_in(&ssh).unwrap();
+        let store = state.secrets.as_ref().unwrap();
+        store.delete_large(&private_ref).unwrap();
+        let Auth::KeyText {
+            private_key,
+            passphrase,
+            certificate,
+        } = &auth
+        else {
+            panic!("expected key text, got {auth:?}");
+        };
+        assert_eq!(private_key.as_str(), text);
+        assert!(passphrase.is_none());
+        assert_eq!(certificate, &entry.certificate);
+
+        // With the private key gone from the OS store the user is told.
+        let error = state.sign_in(&ssh).err().unwrap();
+        assert_eq!(error.code, ErrorCode::Unauthenticated);
+        assert!(error.message.contains("keychain again"), "{error}");
+        drop(state);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn agent_and_fido2_hosts_sign_in_through_the_agent() {
+        let (dir, mut state) = state();
+        let ssh = host(&mut state, SshAuth::Agent);
+        assert!(matches!(state.sign_in(&ssh), Ok(Auth::Agent)));
+
+        let entry = KeyUpsert {
+            label: "YubiKey".into(),
+            algorithm: "sk-ssh-ed25519@openssh.com".into(),
+            public_key: "sk-ssh-ed25519@openssh.com AAAA".into(),
+            certificate: None,
+            kind: KeyKind::Fido2,
+        };
+        let key = state
+            .db
+            .get_mut()
+            .unwrap()
+            .create_key(&entry, None)
+            .unwrap();
+        let mut fido = ssh.clone();
+        fido.auth = SshAuth::Keychain { key_id: key.id };
+        assert!(matches!(state.sign_in(&fido), Ok(Auth::Agent)));
+        drop(state);
+        let _ = std::fs::remove_dir_all(dir);
     }
 }

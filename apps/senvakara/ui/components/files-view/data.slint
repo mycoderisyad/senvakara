@@ -1,0 +1,137 @@
+// What a Files pane shows and what the user can ask of it. Rust fills these and answers the
+// callbacks; the views in this folder only draw them.
+
+export struct FileRow {
+    name: string,
+    // Under the name on a host: type and permissions ("drwxr-xr-x"). Empty elsewhere.
+    detail: string,
+    // "folder" | "file" | "drive": which icon the row gets, and whether files can be dropped
+    // into it.
+    kind: string,
+    // The Kind column: "folder", "drive", "link" or the file's extension.
+    kind-text: string,
+    // A symbolic link: marked with the word "link" after the name.
+    link: bool,
+    // "1.5 MB"; empty for folders.
+    size: string,
+    // "2026-11-21 14:05" in local time; empty when the place does not say.
+    modified: string,
+    selected: bool,
+}
+
+export struct FileSide {
+    // "This PC", the host's name or the phone's name.
+    place: string,
+    // "" (nothing chosen yet) | "local" | "host" | "phone"
+    place-kind: string,
+    // The colour of the machine, as an index of the host hues.
+    hue: int,
+    // The folder on screen.
+    path: string,
+    can-up: bool,
+    can-back: bool,
+    can-forward: bool,
+    loading: bool,
+    // A listing has been shown for this place.
+    loaded: bool,
+    error: string,
+    // Something to know that is not an error, such as why a drop did nothing.
+    note: string,
+    // "12 items, 2 selected (3.4 MB)"
+    summary: string,
+    // Why the selection cannot be copied to the other side ("" when it can).
+    copy-reason: string,
+    // "To Fedora laptop: /tmp"
+    copy-target: string,
+    // The row the keyboard is on, -1 for none.
+    cursor: int,
+    // Exactly one row is selected and it can be opened.
+    can-open: bool,
+    // What the folder field should say; applied whenever it or `input-rev` changes.
+    input: string,
+    input-rev: int,
+    // Bumped when the filter field must be emptied.
+    filter-rev: int,
+    // The filter hides some entries.
+    filtered: bool,
+    // "name" | "modified" | "size" | "kind"
+    sort-column: string,
+    sort-descending: bool,
+    // Rows are two lines high: `detail` goes under the name.
+    tall: bool,
+    // The list of places is shown instead of the files.
+    picking: bool,
+    // Why a folder cannot be made here ("" when it can).
+    new-folder-reason: string,
+}
+
+// One folder of the path bar.
+export struct FileCrumb {
+    label: string,
+}
+
+// One place of the "Select host" list.
+export struct FilePlace {
+    // "Hosts" or "Phones" on the first place of a group, else "".
+    heading: string,
+    title: string,
+    // "ssh, bob"
+    detail: string,
+    // "host" | "phone"
+    kind: string,
+    hue: int,
+    // A host with a live connection.
+    connected: bool,
+}
+
+// What one Files pane shows; `id` names the pane in every callback.
+//
+// This struct is only set when the view starts showing a pane; what changes afterwards arrives
+// through its models. Setting it again would mark the row bindings dirty, and a row change
+// (a selection) that arrives while they are dirty is not drawn.
+export struct FilesData {
+    id: int,
+    // Two rows: left, right.
+    sides: [FileSide],
+    left-rows: [FileRow],
+    right-rows: [FileRow],
+    left-crumbs: [FileCrumb],
+    right-crumbs: [FileCrumb],
+    left-places: [FilePlace],
+    right-places: [FilePlace],
+}
+
+export global Files {
+    // side: 0 left, 1 right.
+    // Show the list of places on a side, or the files again.
+    callback pick-show(id: int, side: int, show: bool);
+    callback pick-search(id: int, side: int, query: string);
+    // A place of the list; -1 is this PC.
+    callback pick(id: int, side: int, index: int);
+    callback go(id: int, side: int, path: string);
+    callback up(id: int, side: int);
+    // Back (true) or forward through the folders shown before.
+    callback travel(id: int, side: int, back: bool);
+    // A folder of the path bar.
+    callback crumb(id: int, side: int, index: int);
+    callback refresh(id: int, side: int);
+    callback open(id: int, side: int, row: int);
+    callback select(id: int, side: int, row: int, control: bool, shift: bool);
+    callback key(id: int, side: int, text: string, control: bool, shift: bool) -> bool;
+    callback copy(id: int, side: int);
+    // A column header: "name" | "modified" | "size" | "kind".
+    callback sort(id: int, side: int, column: string);
+    callback filter(id: int, side: int, text: string);
+    callback new-folder(id: int, side: int, name: string);
+    // The pointer is over a side: files dropped from Explorer go to the side it was over last.
+    callback hovered(id: int, side: int);
+    // What a drag of rows of a side carries.
+    pure callback drag-data(id: int, side: int) -> data-transfer;
+    // Whether a drag may be dropped on a side (row -1) or on the folder on a row of it.
+    pure callback can-drop(id: int, side: int, row: int, data: data-transfer) -> bool;
+    // Rows were dropped. True when the copy was started.
+    callback dropped(id: int, side: int, row: int, data: data-transfer) -> bool;
+    // The pane and side that would take files held over the window from Explorer; -1 for none.
+    in property <int> explorer-pane: -1;
+    in property <int> explorer-side: -1;
+}

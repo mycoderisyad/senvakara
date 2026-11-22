@@ -66,6 +66,10 @@ impl App {
             Pane::Logcat(pane) => self.present_logcat(ui, pane, place, full),
             Pane::Files(pane) => self.present_files(ui, pane, place, full),
             Pane::Desktop(pane) => self.present_desktop(ui, pane, place, full),
+            // The page draws the `Launcher` global: the panel only names its view.
+            Pane::Launcher(_) => self.panel_update(ui, place, true, |panel| {
+                panel.kind = "new-tab".into();
+            }),
             Pane::Workspace(_) | Pane::Run(_) => {}
         });
     }
@@ -237,7 +241,7 @@ impl App {
                     }
                 }
                 // A file pane redraws itself when a listing arrives.
-                Pane::Files(_) | Pane::Workspace(_) => {}
+                Pane::Files(_) | Pane::Workspace(_) | Pane::Launcher(_) => {}
                 Pane::Desktop(pane) => {
                     if visible {
                         self.present_desktop(&ui, pane, place, false);

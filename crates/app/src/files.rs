@@ -1,6 +1,7 @@
 //! SFTP file commands (FILE-01, task CORE-06): browse, upload and download
 //! with progress and cancellation. Transfers run in the background; the UI
-//! gets `TransferEvent`s through a [`Sink`].
+//! gets `TransferEvent`s through a [`Sink`]. A folder is copied with
+//! everything in it (FILE-DIR-01); host to host is in `hostcopy`.
 
 use crate::logging;
 use crate::sink::Sink;
@@ -97,26 +98,35 @@ async fn start(
             }
         };
         let result = match dir {
-            Direction::Download => sftp::download(
-                &session,
-                &source,
-                &PathBuf::from(&destination),
-                overwrite,
-                &cancel,
-                progress,
-            )
-            .await
-            .map(|p| p.display().to_string()),
+            Direction::Download => {
+                let local_dir = PathBuf::from(&destination);
+                // A link to a folder is not a folder here: links are not followed.
+                let is_dir = session
+                    .symlink_metadata(source.clone())
+                    .await
+                    .is_ok_and(|meta| meta.file_type().is_dir());
+                if is_dir {
+                    sftp::download_dir(&session, &source, &local_dir, overwrite, &cancel, progress)
+                        .await
+                        .map(|copied| copied.describe())
+                } else {
+                    sftp::download(&session, &source, &local_dir, overwrite, &cancel, progress)
+                        .await
+                        .map(|p| p.display().to_string())
+                }
+            }
             Direction::Upload => {
-                sftp::upload(
-                    &session,
-                    &PathBuf::from(&source),
-                    &destination,
-                    overwrite,
-                    &cancel,
-                    progress,
-                )
-                .await
+                let local = PathBuf::from(&source);
+                let is_dir = tokio::fs::symlink_metadata(&local)
+                    .await
+                    .is_ok_and(|meta| meta.is_dir());
+                if is_dir {
+                    sftp::upload_dir(&session, &local, &destination, overwrite, &cancel, progress)
+                        .await
+                        .map(|copied| copied.describe())
+                } else {
+                    sftp::upload(&session, &local, &destination, overwrite, &cancel, progress).await
+                }
             }
         };
         let event = match result {
@@ -190,6 +200,20 @@ pub(crate) async fn sftp_upload(
         on_event,
     )
     .await
+}
+
+/// Create the folder `name` in `dir` on a host. Returns its path.
+pub(crate) async fn sftp_mkdir(
+    app: &Arc<App>,
+    host_id: String,
+    dir: String,
+    name: String,
+) -> CmdResult<String> {
+    let conn = app.state.connection(&host_id).await?;
+    let session = conn.sftp().await.map_err(|e| to_core("sftp", e))?;
+    sftp::mkdir(&session, &dir, name.trim())
+        .await
+        .map_err(|e| to_core("create folder", e))
 }
 
 pub(crate) fn transfer_cancel(app: &App, id: u32) {

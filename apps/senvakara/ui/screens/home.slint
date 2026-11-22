@@ -3,7 +3,7 @@
 import { ScrollView } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
 import { Icon, IconButton } from "../components/controls.slint";
-import { Button, SearchField, SidebarItem, ItemCard, GroupTitle, Notice, StatusMark, MeterRow, DetailRow, ActionList } from "../components/widgets.slint";
+import { Button, SearchField, SidebarItem, ItemCard, GroupTitle, Notice, StatusMark, MeterRow, DetailRow, ActionList, CardGrid } from "../components/widgets.slint";
 import { DevicePanel } from "../components/device-panel.slint";
 import { HostFormPanel, NetworkPaths, HostForm } from "../components/host-form.slint";
 import { JobList, Jobs } from "../components/jobs.slint";
@@ -11,9 +11,10 @@ import { Inventory, HostItem, DeviceItem, Action } from "../data.slint";
 import { WorkspacesPage } from "workspaces.slint";
 import { AutomationsPage } from "automations.slint";
 import { SettingsPage } from "settings.slint";
+import { KeychainPage, KeyInspector, Keychain } from "keychain.slint";
 
 export global Nav {
-    // "hosts" | "devices" | "workspaces" | "automations" | "settings"
+    // "hosts" | "devices" | "keychain" | "workspaces" | "automations" | "settings"
     in-out property <string> section: "hosts";
     // The user went to a section: Rust refreshes what it shows.
     callback opened(section: string);
@@ -21,56 +22,40 @@ export global Nav {
     in property <string> workspace-count;
 }
 
-// Cards laid out in as many equal columns as fit.
-component CardGrid inherits Rectangle {
-    in property <int> count;
-    in property <length> min-card: 300px;
-    out property <int> columns: Math.max(1, Math.floor((self.width + gap) / (min-card + gap)));
-    out property <length> card-width: (self.width - (columns - 1) * gap) / columns;
-    out property <length> gap: Theme.space-2;
-    out property <length> row-height: 56px;
-
-    pure public function card-x(index: int) -> length {
-        return Math.mod(index, columns) * (card-width + gap);
-    }
-
-    pure public function card-y(index: int) -> length {
-        return Math.floor(index / columns) * (row-height + gap);
-    }
-
-    height: count == 0 ? 0px : Math.ceil(count / columns) * (row-height + gap) - gap;
-    @children
-}
-
+// The hosts, one grid per parent group.
 component HostGrid inherits VerticalLayout {
-    spacing: Theme.space-2;
+    spacing: Theme.space-4;
 
-    GroupTitle {
-        text: "Hosts";
-    }
+    for group in Inventory.host-groups: VerticalLayout {
+        spacing: Theme.space-2;
 
-    grid := CardGrid {
-        count: Inventory.hosts.length;
-        for host[index] in Inventory.hosts: ItemCard {
-            x: grid.card-x(index);
-            y: grid.card-y(index);
-            width: grid.card-width;
-            icon: host.os == "windows" ? @image-url("../icons/windows.svg") : @image-url("../icons/server.svg");
-            hue: Theme.host-hue(host.hue);
-            title: host.name;
-            subtitle: host.subtitle;
-            tone: host.tone;
-            state-text: host.state-text;
-            selected: Inventory.selected-kind == "host" && Inventory.selected-id == host.id;
-            actions: host.actions;
-            select => {
-                Inventory.select("host", host.id);
-            }
-            open => {
-                Inventory.host-action(host.id, host.primary.id);
-            }
-            action(id) => {
-                Inventory.host-action(host.id, id);
+        GroupTitle {
+            text: group.name;
+        }
+
+        grid := CardGrid {
+            count: group.hosts.length;
+            for host[index] in group.hosts: ItemCard {
+                x: grid.card-x(index);
+                y: grid.card-y(index);
+                width: grid.card-width;
+                icon: host.os == "windows" ? @image-url("../icons/windows.svg") : host.os == "rdp" ? @image-url("../icons/monitor.svg") : @image-url("../icons/server.svg");
+                hue: Theme.host-hue(host.hue);
+                title: host.name;
+                subtitle: host.subtitle;
+                tone: host.tone;
+                state-text: host.state-text;
+                selected: Inventory.selected-kind == "host" && Inventory.selected-id == host.id;
+                actions: host.actions;
+                select => {
+                    Inventory.select("host", host.id);
+                }
+                open => {
+                    Inventory.host-action(host.id, host.primary.id);
+                }
+                action(id) => {
+                    Inventory.host-action(host.id, id);
+                }
             }
         }
     }
@@ -274,6 +259,17 @@ export component HomeScreen inherits Rectangle {
                 }
 
                 SidebarItem {
+                    icon: @image-url("../icons/key.svg");
+                    text: "Keychain";
+                    badge: Keychain.keys.length;
+                    active: Nav.section == "keychain";
+                    clicked => {
+                        Nav.section = "keychain";
+                        Nav.opened("keychain");
+                    }
+                }
+
+                SidebarItem {
                     icon: @image-url("../icons/layout.svg");
                     text: "Workspaces";
                     badge: Nav.workspace-count;
@@ -390,6 +386,8 @@ export component HomeScreen inherits Rectangle {
                 if Jobs.items.length > 0: JobList { }
             }
 
+            if Nav.section == "keychain": KeychainPage { }
+
             if Nav.section == "workspaces": WorkspacesPage { }
 
             if Nav.section == "automations": AutomationsPage { }
@@ -398,5 +396,7 @@ export component HomeScreen inherits Rectangle {
         }
 
         if (Inventory.selected-kind != "" || HostForm.open) && (Nav.section == "hosts" || Nav.section == "devices"): Inspector { }
+
+        if Nav.section == "keychain" && Keychain.form-open: KeyInspector { }
     }
 }

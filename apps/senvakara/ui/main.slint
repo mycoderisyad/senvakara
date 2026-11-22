@@ -6,34 +6,38 @@ import { Term, TermRun, TermRow, TermData } from "components/term-view.slint";
 import { Mirror, MirrorData } from "components/mirror-view.slint";
 import { Logcat, LogLine, LogcatData } from "components/logcat-view.slint";
 import { WirelessDialog, Wireless, WirelessService, WirelessNote } from "components/wireless-dialog.slint";
-import { Files, FileRow, FileSide, FilesData } from "components/files-view.slint";
+import { Files, FileRow, FileSide, FileCrumb, FilePlace, FilesData } from "components/files-view.slint";
 import { Desktop, DesktopData } from "components/desktop-view.slint";
 import { PanelHost, PanelView } from "components/panel.slint";
 import { WorkspaceView, Workspaces, WorkspaceItem, SlotView } from "components/workspace-view.slint";
 import { RunView, Run, RunStep } from "components/run-view.slint";
 import { PaletteOverlay, Palette, PaletteItem } from "components/palette.slint";
+import { Launcher, LaunchItem } from "components/new-tab.slint";
 import { Deploy, Recipes, RecipeItem, StepItem, RunRow } from "screens/automations.slint";
 import { Settings } from "screens/settings.slint";
 import { HomeScreen, Nav } from "screens/home.slint";
 import { Confirm, ConfirmDialog } from "components/dialogs.slint";
 import { DeviceTools } from "components/device-panel.slint";
-import { HostForm, NetPaths } from "components/host-form.slint";
+import { HostForm, NetPaths, KeyChoice } from "components/host-form.slint";
+import { Keychain, KeyItem } from "screens/keychain.slint";
+import { ChipItem, ChipRow } from "components/widgets.slint";
 import { Jobs, JobItem } from "components/jobs.slint";
-import { Inventory, HostItem, DeviceItem, Action, KeyValue, Meter, PathItem, VpnHint } from "data.slint";
+import { Inventory, HostItem, HostGroup, DeviceItem, Action, KeyValue, Meter, PathItem, VpnHint } from "data.slint";
 
-export { Mirror, MirrorData, Logcat, LogLine, LogcatData, Confirm, Theme, Term, TermRun, TermRow, TermData, TabInfo, Nav, Inventory, HostItem, DeviceItem, Action, KeyValue, Meter, DeviceTools, Jobs, JobItem, Wireless, WirelessService, WirelessNote, HostForm, NetPaths, PathItem, VpnHint, Files, FileRow, FileSide, FilesData, Desktop, DesktopData, PanelView, Workspaces, WorkspaceItem, SlotView, Run, RunStep, Palette, PaletteItem, Deploy, Recipes, RecipeItem, StepItem, RunRow, Settings }
+export { Mirror, MirrorData, Logcat, LogLine, LogcatData, Confirm, Theme, Term, TermRun, TermRow, TermData, TabInfo, Nav, Inventory, HostItem, DeviceItem, Action, KeyValue, Meter, DeviceTools, Jobs, JobItem, Wireless, WirelessService, WirelessNote, HostForm, NetPaths, PathItem, VpnHint, Files, FileRow, FileSide, FileCrumb, FilePlace, FilesData, Desktop, DesktopData, PanelView, Workspaces, WorkspaceItem, SlotView, Run, RunStep, Palette, PaletteItem, Deploy, Recipes, RecipeItem, StepItem, RunRow, Settings, HostGroup, KeyChoice, Keychain, KeyItem, ChipItem, ChipRow, Launcher, LaunchItem }
 
 export global Shell {
     in property <[TabInfo]> tabs;
     // -1 is Home.
     in property <int> active-tab: -1;
-    // "terminal" | "mirror" | "logcat" | "files" | "desktop" | "workspace" | "run"
+    // "terminal" | "mirror" | "logcat" | "files" | "desktop" | "workspace" | "run" | "new-tab"
     in property <string> active-kind;
     // The session of the active tab, when it is a single session.
     in property <PanelView> panel;
 
     callback select-tab(index: int);
     callback close-tab(index: int);
+    // "+" and Ctrl+Shift+T: show the New Tab page.
     callback new-session();
     // Returns true when the key was a window shortcut.
     callback shortcut(text: string, control: bool, shift: bool) -> bool;
@@ -86,6 +90,13 @@ export component MainWindow inherits Window {
                 }
                 new-session => {
                     Shell.new-session();
+                }
+                quick: Launcher.quick;
+                quick-opening => {
+                    Launcher.quick-opening();
+                }
+                quick-run(index) => {
+                    Launcher.quick-run(index);
                 }
             }
 

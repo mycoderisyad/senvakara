@@ -24,13 +24,17 @@ pub mod desktop;
 pub mod events;
 pub mod files;
 pub mod flow;
+pub mod hostcopy;
 pub mod hosts;
 pub mod instance;
+pub mod keychain;
 pub mod logging;
 pub mod mirror;
 pub mod monitor;
 pub mod paths;
+pub mod rdp;
 pub mod recipes;
+pub mod shells;
 pub mod sink;
 pub mod state;
 pub mod terminal;
@@ -41,10 +45,12 @@ pub use desktop::{DesktopInfo, VncTarget};
 pub use events::{AppEvent, LogcatEvent, MirrorEvent, TermEvent};
 pub use files::{TransferEvent, TransferState};
 pub use flow::{FlowEvent, FlowSpec, FlutterInfo};
-pub use hosts::{HostKeyCheck, HostView, SshView};
+pub use hosts::{HostKeyCheck, HostView, RdpView, SshView};
 pub use instance::{single_instance, InstanceError, InstanceGuard};
+pub use keychain::{KeyCreate, KeyImport, KeyUpdate, KeyView};
 pub use mirror::MirrorStarted;
 pub use paths::AppPaths;
+pub use shells::LocalShell;
 pub use sink::Sink;
 pub use state::{ActivePath, AppState, CmdResult};
 pub use terminal::ShellRequest;
@@ -58,8 +64,9 @@ pub use senvakara_adapters_ssh::SshConnection;
 pub use senvakara_core::{CoreError, ErrorCode};
 pub use senvakara_metrics::Metrics;
 pub use senvakara_storage::{
-    DeviceRouteRecord, HostUpsert, PanelRecord, RecipePermissions, RecipeRecord, RecipeSave,
-    RecipeStep, RunRecord, StepRecord, VpnEndpoint, WorkspaceRecord, WorkspaceSave,
+    DeviceRouteRecord, HostUpsert, KeyKind, PanelRecord, Protocol, RecipePermissions, RecipeRecord,
+    RecipeSave, RecipeStep, RunRecord, SshAuth, StepRecord, VpnEndpoint, WorkspaceRecord,
+    WorkspaceSave,
 };
 
 use anyhow::Context;
@@ -144,6 +151,21 @@ impl App {
     }
 }
 
+impl App {
+    /// Run blocking `work` (credential store, key decryption, file reads) on
+    /// the runtime's blocking pool and wait for it, from any executor.
+    async fn blocking<T, F>(&self, work: F) -> CmdResult<T>
+    where
+        T: Send + 'static,
+        F: FnOnce() -> CmdResult<T> + Send + 'static,
+    {
+        match self.rt.spawn_blocking(work).await {
+            Ok(result) => result,
+            Err(e) => Err(CoreError::internal(format!("background task failed: {e}"))),
+        }
+    }
+}
+
 /// `self.run(...)` over a module function that takes `&Arc<App>` first.
 macro_rules! on_rt {
     ($self:ident, $($path:ident)::+ ( $($arg:expr),* )) => {{
@@ -198,6 +220,33 @@ impl App {
         on_rt!(self, hosts::host_set_passphrase(id, passphrase))
     }
 
+    /// Save (`Some`) or clear (`None` / empty) the SSH login password, then
+    /// drop the host's connection so the next one signs in with it.
+    pub async fn host_set_password(
+        self: &Arc<Self>,
+        id: String,
+        password: Option<String>,
+    ) -> CmdResult<HostView> {
+        on_rt!(self, hosts::host_set_password(id, password))
+    }
+
+    /// Save (`Some`) or clear (`None` / empty) the password Remote Desktop
+    /// signs in with, under `TERMSRV/<address>` in the OS store.
+    pub async fn host_set_rdp_password(
+        self: &Arc<Self>,
+        id: String,
+        password: Option<String>,
+    ) -> CmdResult<HostView> {
+        let app = self.clone();
+        self.blocking(move || hosts::host_set_rdp_password(&app.state, &id, password))
+            .await
+    }
+
+    /// Open a Remote Desktop host in `mstsc.exe`; returns once it started.
+    pub async fn rdp_launch(self: &Arc<Self>, host_id: String) -> CmdResult<()> {
+        on_rt!(self, rdp::rdp_launch(host_id))
+    }
+
     /// Connect (or reuse the connection), refresh capabilities, watch devices.
     pub async fn host_connect(self: &Arc<Self>, id: String) -> CmdResult<HostView> {
         on_rt!(self, hosts::host_connect(id))
@@ -214,6 +263,44 @@ impl App {
 
     pub fn host_remove_vpn(&self, id: String, endpoint_id: String) -> CmdResult<HostView> {
         hosts::host_remove_vpn(self, id, endpoint_id)
+    }
+}
+
+// ---------------------------------------------------------------- keychain
+impl App {
+    pub fn keychain_list(&self) -> CmdResult<Vec<KeyView>> {
+        keychain::keychain_list(&self.state)
+    }
+
+    /// Add a key. The private key is unlocked once to prove the passphrase
+    /// fits; its text and passphrase go to the OS store only.
+    pub async fn keychain_create(self: &Arc<Self>, input: KeyCreate) -> CmdResult<KeyView> {
+        let app = self.clone();
+        self.blocking(move || keychain::keychain_create(&app.state, input))
+            .await
+    }
+
+    pub async fn keychain_update(
+        self: &Arc<Self>,
+        id: String,
+        input: KeyUpdate,
+    ) -> CmdResult<KeyView> {
+        let app = self.clone();
+        self.blocking(move || keychain::keychain_update(&app.state, &id, input))
+            .await
+    }
+
+    /// Refused while a host still signs in with the key.
+    pub async fn keychain_delete(self: &Arc<Self>, id: String) -> CmdResult<()> {
+        let app = self.clone();
+        self.blocking(move || keychain::keychain_delete(&app.state, &id))
+            .await
+    }
+
+    /// Read a key file for the "new key" form; nothing is stored.
+    pub async fn keychain_import_file(&self, path: std::path::PathBuf) -> CmdResult<KeyImport> {
+        self.blocking(move || keychain::keychain_import_file(&path))
+            .await
     }
 }
 
@@ -248,6 +335,14 @@ impl App {
     /// Installed WSL distributions.
     pub async fn wsl_distros(&self) -> CmdResult<Vec<String>> {
         self.run(terminal::wsl_distros()).await
+    }
+
+    /// The shells a local terminal can start: Windows PowerShell, PowerShell
+    /// 7, Command Prompt, Git Bash and the WSL distributions, leaving out
+    /// what is not installed. Looks every time it is called; the caller
+    /// keeps the list.
+    pub async fn local_shells(&self) -> CmdResult<Vec<LocalShell>> {
+        self.run(terminal::local_shells()).await
     }
 }
 

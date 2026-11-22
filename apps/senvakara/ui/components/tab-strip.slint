@@ -1,11 +1,14 @@
-// The session tab strip: a pinned Home tab, one tab per open session, and a new-session button.
+// The session tab strip: a pinned Home tab, one tab per open session, a button for the New Tab
+// page and, next to it, a menu of local shells and hosts to open at once.
 
 import { Theme } from "../theme.slint";
+import { ListView } from "std-widgets.slint";
 import { Icon, IconButton } from "controls.slint";
+import { LaunchItem, LaunchIcon } from "new-tab.slint";
 
 export struct TabInfo {
     id: int,
-    // "terminal" | "mirror" | "logcat" | "files" | "desktop" | "workspace" | "run"
+    // "terminal" | "mirror" | "logcat" | "files" | "desktop" | "workspace" | "run" | "new-tab"
     kind: string,
     title: string,
     detail: string,
@@ -107,6 +110,13 @@ export component TabStrip inherits Rectangle {
     callback select(int);
     callback close(int);
     callback new-session();
+    // The menu next to "+": local shells, then hosts, then phones.
+    in property <[LaunchItem]> quick;
+    // The menu is about to open.
+    callback quick-opening();
+    callback quick-run(int);
+
+    private property <length> menu-row: Theme.row;
 
     height: Theme.tab-strip;
     background: Theme.shell;
@@ -129,7 +139,7 @@ export component TabStrip inherits Rectangle {
         }
 
         for tab[index] in root.tabs: TabButton {
-            icon: tab.kind == "mirror" ? @image-url("../icons/phone.svg") : tab.kind == "logcat" ? @image-url("../icons/list.svg") : tab.kind == "files" ? @image-url("../icons/folder.svg") : tab.kind == "desktop" ? @image-url("../icons/monitor.svg") : tab.kind == "workspace" ? @image-url("../icons/layout.svg") : tab.kind == "run" ? @image-url("../icons/play.svg") : @image-url("../icons/terminal.svg");
+            icon: tab.kind == "mirror" ? @image-url("../icons/phone.svg") : tab.kind == "logcat" ? @image-url("../icons/list.svg") : tab.kind == "files" ? @image-url("../icons/folder.svg") : tab.kind == "desktop" ? @image-url("../icons/monitor.svg") : tab.kind == "workspace" ? @image-url("../icons/layout.svg") : tab.kind == "run" ? @image-url("../icons/play.svg") : tab.kind == "new-tab" ? @image-url("../icons/plus.svg") : @image-url("../icons/terminal.svg");
             title: tab.title;
             hue: Theme.host-hue(tab.hue);
             exited: tab.exited;
@@ -145,12 +155,129 @@ export component TabStrip inherits Rectangle {
         VerticalLayout {
             alignment: center;
             padding-left: Theme.space-1;
-            IconButton {
-                icon: @image-url("../icons/plus.svg");
-                label: "New PowerShell session";
-                clicked => {
-                    root.new-session();
+            HorizontalLayout {
+                spacing: 2px;
+
+                IconButton {
+                    icon: @image-url("../icons/plus.svg");
+                    label: "New tab";
+                    clicked => {
+                        root.new-session();
+                    }
                 }
+
+                chevron := IconButton {
+                    icon: @image-url("../icons/chevron-down.svg");
+                    label: "Open a shell or a host in a new tab";
+                    clicked => {
+                        root.quick-opening();
+                        menu.show();
+                    }
+                }
+            }
+        }
+    }
+
+    menu := PopupWindow {
+        // Under the chevron, pulled left when the window is too narrow for it there.
+        x: Math.max(Theme.space-2, Math.min(chevron.absolute-position.x - root.absolute-position.x, root.width - self.width - Theme.space-2));
+        y: root.height - 2px;
+        width: 340px;
+        height: Math.min(12, Math.max(1, root.quick.length)) * root.menu-row + 2 * Theme.space-1;
+        close-policy: close-on-click-outside;
+
+        Rectangle {
+            border-radius: Theme.radius;
+            border-width: 1px;
+            border-color: Theme.hairline-strong;
+            background: Theme.surface;
+            drop-shadow-blur: 16px;
+            drop-shadow-offset-y: 4px;
+            drop-shadow-color: Theme.shell;
+
+            ListView {
+                x: Theme.space-1;
+                y: Theme.space-1;
+                width: parent.width - 2 * Theme.space-1;
+                height: parent.height - 2 * Theme.space-1;
+                accessible-label: "Shells and hosts to open";
+
+                for item[index] in root.quick: Rectangle {
+                    height: root.menu-row;
+                    border-radius: Theme.radius - 2px;
+                    border-width: row-focus.has-focus ? 1px : 0px;
+                    border-color: Theme.accent;
+                    background: row-touch.pressed ? Theme.surface-selected : row-touch.has-hover || row-focus.has-focus ? Theme.surface-hover : transparent;
+                    accessible-role: button;
+                    accessible-label: item.label == "" ? item.title + ", " + item.detail : item.title + ", " + item.detail + ", " + item.label;
+                    accessible-action-default => {
+                        menu.close();
+                        root.quick-run(index);
+                    }
+
+                    row-focus := FocusScope {
+                        key-pressed(event) => {
+                            if (event.text == Key.Return || event.text == " ") {
+                                menu.close();
+                                root.quick-run(index);
+                                return accept;
+                            }
+                            return reject;
+                        }
+                    }
+
+                    row-touch := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => {
+                            menu.close();
+                            root.quick-run(index);
+                        }
+                    }
+
+                    if item.divider: Rectangle {
+                        x: 0;
+                        y: 0;
+                        height: 1px;
+                        background: Theme.hairline;
+                    }
+
+                    HorizontalLayout {
+                        padding-left: Theme.space-2;
+                        padding-right: Theme.space-2;
+                        spacing: Theme.space-2;
+
+                        VerticalLayout {
+                            alignment: center;
+                            LaunchIcon {
+                                kind: item.kind;
+                                hue: item.hue;
+                            }
+                        }
+
+                        Text {
+                            horizontal-stretch: 1;
+                            min-width: 0px;
+                            vertical-alignment: center;
+                            text: item.title;
+                            color: Theme.text;
+                            font-size: Theme.text-body;
+                            overflow: elide;
+                        }
+
+                        Text {
+                            vertical-alignment: center;
+                            text: item.label;
+                            color: Theme.text-faint;
+                            font-size: Theme.text-small;
+                        }
+                    }
+                }
+            }
+
+            if root.quick.length == 0: Text {
+                text: "Looking for shells on this PC.";
+                color: Theme.text-muted;
+                font-size: Theme.text-small;
             }
         }
     }

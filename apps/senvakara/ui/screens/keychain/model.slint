@@ -1,0 +1,69 @@
+// What the Keychain screen shows and what the user did on it. Rust fills these in; a private
+// key or passphrase only ever travels from a field to Rust, never back.
+
+// One key of the Keychain, as its card shows it.
+export struct KeyItem {
+    id: string,
+    label: string,
+    // "Type ED25519"
+    type-text: string,
+    // "key" | "fido2"
+    kind: string,
+    // The key carries an OpenSSH certificate.
+    certificate: bool,
+    // "Used by 2 hosts" or "Not used".
+    used: string,
+}
+
+export global Keychain {
+    in property <[KeyItem]> keys;
+    // Why the list could not be read.
+    in property <string> error;
+
+    // The form in the inspector: a new entry or the selected one.
+    in property <bool> form-open;
+    // "New Key" | "Edit lightsail_ed25519"
+    in property <string> form-title;
+    // "key" | "fido2"
+    in property <string> form-kind: "key";
+    // The id of the key being edited, or "" while adding one.
+    in property <string> editing-id;
+    in-out property <string> label;
+    in-out property <string> private-key;
+    in-out property <string> public-key;
+    in-out property <string> certificate;
+    in-out property <string> passphrase;
+    // Editing a key whose private text is in Windows Credential Manager: it is not shown, and
+    // the field appears only to replace it.
+    in property <bool> private-saved;
+    in property <bool> replace-private;
+    in property <bool> has-passphrase;
+    // "ED25519", for the key being edited.
+    in property <string> type-text;
+    // "Fedora laptop, build server" or "".
+    in property <string> used-by;
+    // A file from Explorer is held over the window.
+    in property <bool> drop-hover;
+
+    in property <string> label-error;
+    in property <string> private-error;
+    in property <string> public-error;
+    in property <string> certificate-error;
+    // Why saving, importing or deleting failed.
+    in property <string> form-error;
+    in property <bool> saving;
+    // Bumped whenever the form is (re)opened: the first field takes the cursor.
+    in property <int> revision;
+
+    // Start a new entry: "key" | "certificate" | "fido2".
+    callback new-key(kind: string);
+    // Ask for a key file, then start a new entry from it.
+    callback import-file();
+    // Open the form for a key of the list.
+    callback select(id: string);
+    callback edited();
+    callback set-replace-private(on: bool);
+    callback save();
+    callback cancel();
+    callback delete();
+}

@@ -41,7 +41,7 @@ pub fn join(kind: Kind, dir: &str, name: &str) -> String {
                 format!("{dir}\\{name}")
             }
         }
-        Kind::Host | Kind::Device => {
+        Kind::Host | Kind::Device | Kind::None => {
             let dir = tidy_posix(dir);
             if dir.ends_with('/') {
                 format!("{dir}{name}")
@@ -77,7 +77,7 @@ pub fn parent(kind: Kind, path: &str) -> Option<String> {
                 None => Some(String::new()),
             }
         }
-        Kind::Host | Kind::Device => {
+        Kind::Host | Kind::Device | Kind::None => {
             let path = tidy_posix(path);
             if path == "/" || path.is_empty() {
                 return None;
@@ -95,8 +95,81 @@ pub fn parent(kind: Kind, path: &str) -> Option<String> {
 pub(super) fn same_dir(kind: Kind, a: &str, b: &str) -> bool {
     match kind {
         Kind::Local => tidy_local(a).eq_ignore_ascii_case(&tidy_local(b)),
-        Kind::Host | Kind::Device => tidy_posix(a) == tidy_posix(b),
+        Kind::Host | Kind::Device | Kind::None => tidy_posix(a) == tidy_posix(b),
     }
+}
+
+/// The folders from the top of a place down to `path`, as (label, folder): what the path bar
+/// shows, each one a place to jump to.
+pub(super) fn crumbs(kind: Kind, path: &str) -> Vec<(String, String)> {
+    match kind {
+        Kind::None => Vec::new(),
+        Kind::Local => {
+            let path = tidy_local(path);
+            let mut crumbs = vec![("This PC".to_string(), String::new())];
+            // A network share (\\server\share) is one step, like a drive.
+            let (root, rest) = match path.strip_prefix("\\\\") {
+                Some(share) => {
+                    let mut parts = share.splitn(3, '\\');
+                    let root = format!(
+                        "\\\\{}\\{}",
+                        parts.next().unwrap_or_default(),
+                        parts.next().unwrap_or_default()
+                    );
+                    (root, parts.next().unwrap_or_default().to_string())
+                }
+                None => match path.split_once('\\') {
+                    Some((drive, rest)) => (format!("{drive}\\"), rest.to_string()),
+                    None => (path.clone(), String::new()),
+                },
+            };
+            if root.is_empty() {
+                return crumbs;
+            }
+            crumbs.push((root.trim_end_matches('\\').to_string(), root.clone()));
+            let mut folder = root;
+            for part in rest.split('\\').filter(|part| !part.is_empty()) {
+                folder = join(Kind::Local, &folder, part);
+                crumbs.push((part.to_string(), folder.clone()));
+            }
+            crumbs
+        }
+        Kind::Host | Kind::Device => {
+            let path = tidy_posix(path);
+            let mut crumbs = vec![("/".to_string(), "/".to_string())];
+            let mut folder = String::new();
+            for part in path.split('/').filter(|part| !part.is_empty()) {
+                folder = format!("{folder}/{part}");
+                crumbs.push((part.to_string(), folder.clone()));
+            }
+            crumbs
+        }
+    }
+}
+
+/// Why `name` cannot be the name of a new folder, or "" when it can.
+pub(super) fn folder_name_problem(kind: Kind, name: &str) -> &'static str {
+    let name = name.trim();
+    if name.is_empty() {
+        return "Type a name for the folder.";
+    }
+    if name == "." || name == ".." {
+        return "This name is taken by the folder itself.";
+    }
+    let forbidden: &[char] = match kind {
+        Kind::Local => &['\\', '/', ':', '*', '?', '"', '<', '>', '|'],
+        _ => &['/'],
+    };
+    if name.contains(forbidden) || name.contains('\0') {
+        return match kind {
+            Kind::Local => "A folder name cannot contain \\ / : * ? \" < > or |.",
+            _ => "A folder name cannot contain a slash.",
+        };
+    }
+    if kind == Kind::Local && name.ends_with('.') {
+        return "A folder name cannot end with a dot on Windows.";
+    }
+    ""
 }
 
 #[cfg(test)]

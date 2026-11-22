@@ -1,4 +1,7 @@
-//! The entries of a listing: listing this PC, sorting, and the row the view draws for one.
+//! The entries of a listing: listing this PC, filtering, sorting, and the row the view draws
+//! for one.
+
+use std::cmp::Ordering;
 
 use slint::SharedString;
 
@@ -17,6 +20,8 @@ pub struct Entry {
     pub size: u64,
     /// Unix seconds.
     pub modified: Option<i64>,
+    /// Type and permissions as a host reports them ("drwxr-xr-x"); empty elsewhere.
+    pub permissions: String,
 }
 
 impl Entry {
@@ -24,17 +29,119 @@ impl Entry {
     pub(super) fn opens(&self) -> bool {
         self.is_dir || self.is_drive || self.is_symlink
     }
+
+    /// A folder or a drive: listed before the files, and something files can be dropped into.
+    pub(super) fn holds_files(&self) -> bool {
+        self.is_dir || self.is_drive
+    }
+
+    /// The Kind column: "folder", "drive", "link", or the file's extension ("pdf"), "file"
+    /// when it has none.
+    pub(super) fn kind_text(&self) -> String {
+        if self.is_drive {
+            return "drive".into();
+        }
+        if self.is_dir {
+            return "folder".into();
+        }
+        if self.is_symlink {
+            return "link".into();
+        }
+        match self.name.rsplit_once('.') {
+            // ".bashrc" is a name, not an extension.
+            Some((stem, extension))
+                if !stem.is_empty() && !extension.is_empty() && extension.len() <= 8 =>
+            {
+                extension.to_lowercase()
+            }
+            _ => "file".into(),
+        }
+    }
 }
 
-/// Folders first, then by name without regard to case.
-pub fn sort_entries(entries: &mut [Entry]) {
+/// The column a list is ordered by.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Column {
+    #[default]
+    Name,
+    Modified,
+    Size,
+    Kind,
+}
+
+impl Column {
+    /// The name the view uses for the column.
+    pub(super) fn id(self) -> &'static str {
+        match self {
+            Column::Name => "name",
+            Column::Modified => "modified",
+            Column::Size => "size",
+            Column::Kind => "kind",
+        }
+    }
+
+    pub(super) fn from_id(id: &str) -> Option<Self> {
+        [Column::Name, Column::Modified, Column::Size, Column::Kind]
+            .into_iter()
+            .find(|column| column.id() == id)
+    }
+}
+
+/// How a list is ordered.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Sort {
+    pub column: Column,
+    pub descending: bool,
+}
+
+impl Sort {
+    /// The order after a click on the header of `column`: a new column starts ascending, the
+    /// same one turns around.
+    pub(super) fn clicked(self, column: Column) -> Self {
+        Self {
+            column,
+            descending: self.column == column && !self.descending,
+        }
+    }
+}
+
+/// Folders first, whatever the direction; then by the chosen column, and by name without
+/// regard to case where that leaves two rows equal.
+pub fn sort_entries(entries: &mut [Entry], sort: Sort) {
+    let by_name = |a: &Entry, b: &Entry| {
+        (a.name.to_lowercase(), &a.name).cmp(&(b.name.to_lowercase(), &b.name))
+    };
     entries.sort_by(|a, b| {
-        (!a.is_dir, a.name.to_lowercase(), &a.name).cmp(&(
-            !b.is_dir,
-            b.name.to_lowercase(),
-            &b.name,
-        ))
+        let folders = b.holds_files().cmp(&a.holds_files());
+        if folders != Ordering::Equal {
+            return folders;
+        }
+        let order = match sort.column {
+            Column::Name => Ordering::Equal,
+            Column::Modified => a.modified.cmp(&b.modified),
+            Column::Size => a.size.cmp(&b.size),
+            Column::Kind => a.kind_text().cmp(&b.kind_text()),
+        }
+        .then_with(|| by_name(a, b));
+        if sort.descending {
+            order.reverse()
+        } else {
+            order
+        }
     });
+}
+
+/// The rows of a list: the entries whose name contains `filter` (case does not matter), in
+/// the order of `sort`.
+pub fn view(all: &[Entry], filter: &str, sort: Sort) -> Vec<Entry> {
+    let needle = filter.trim().to_lowercase();
+    let mut entries: Vec<Entry> = all
+        .iter()
+        .filter(|entry| needle.is_empty() || entry.name.to_lowercase().contains(&needle))
+        .cloned()
+        .collect();
+    sort_entries(&mut entries, sort);
+    entries
 }
 
 pub fn size_text(bytes: u64) -> String {
@@ -76,6 +183,7 @@ fn list_drives() -> Vec<Entry> {
             is_drive: true,
             size: 0,
             modified: None,
+            permissions: String::new(),
         })
         .collect()
 }
@@ -119,15 +227,23 @@ pub fn list_local(path: &str) -> Result<(String, Vec<Entry>), String> {
             is_drive: false,
             size: if meta.is_dir() { 0 } else { meta.len() },
             modified,
+            permissions: String::new(),
         });
     }
-    sort_entries(&mut entries);
+    sort_entries(&mut entries, Sort::default());
     Ok((path, entries))
 }
 
-pub(super) fn row(entry: &Entry, selected: bool) -> FileRow {
+/// The row of an entry. `tall` rows have a second line under the name, for the permissions.
+pub(super) fn row(entry: &Entry, selected: bool, tall: bool) -> FileRow {
     FileRow {
         name: entry.name.as_str().into(),
+        detail: if tall {
+            entry.permissions.as_str().into()
+        } else {
+            SharedString::new()
+        },
+        kind_text: entry.kind_text().into(),
         kind: if entry.is_drive {
             "drive"
         } else if entry.is_dir {

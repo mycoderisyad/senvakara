@@ -1,11 +1,15 @@
 //! Host registry commands (INV-01..04, tasks CORE-03, CORE-05, CORE-07).
 
+mod credentials;
+
+pub(crate) use credentials::{host_set_password, host_set_rdp_password};
+
 use crate::logging;
 use crate::state::{candidates, db_err, to_core, ActivePath, AppState, CmdResult};
 use crate::App;
 use senvakara_adapters_ssh::{first_reachable, SshConnection};
 use senvakara_core::{CoreError, ErrorCode};
-use senvakara_storage::{HostRecord, HostUpsert, VpnEndpoint};
+use senvakara_storage::{HostRecord, HostUpsert, Protocol, SshAuth, VpnEndpoint};
 use serde::Serialize;
 use std::sync::Arc;
 use std::time::Duration;
@@ -20,11 +24,15 @@ pub struct HostView {
     pub is_local: bool,
     pub trust_state: String,
     pub last_seen_at: Option<String>,
+    pub protocol: Protocol,
+    pub group_name: Option<String>,
+    pub tags: Vec<String>,
     pub capabilities: serde_json::Value,
     pub connected: bool,
     /// Attempt number while an automatic reconnect is in progress.
     pub reconnecting: Option<u32>,
     pub ssh: Option<SshView>,
+    pub rdp: Option<RdpView>,
     /// VPN addresses of the same host (NET-03).
     pub vpn: Vec<VpnEndpoint>,
     /// Address the live connection went through; `None` when not connected.
@@ -36,9 +44,21 @@ pub struct SshView {
     pub address: String,
     pub port: u16,
     pub username: String,
+    pub auth: SshAuth,
+    /// The key file of a `key_file` host; empty for other sign-in methods.
     pub private_key_path: String,
     pub fingerprint: Option<String>,
     pub has_passphrase: bool,
+    pub has_password: bool,
+    pub startup_snippet: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct RdpView {
+    pub address: String,
+    pub port: u16,
+    pub username: String,
+    pub has_credential: bool,
 }
 
 fn view(h: HostRecord, connected: bool) -> HostView {
@@ -48,10 +68,25 @@ fn view(h: HostRecord, connected: bool) -> HostView {
             address: s.address,
             port: s.port,
             username: s.username,
-            private_key_path: s.private_key_path,
+            private_key_path: match &s.auth {
+                SshAuth::KeyFile { path } => path.clone(),
+                _ => String::new(),
+            },
+            auth: s.auth,
             fingerprint: s.fingerprint,
             has_passphrase: s.passphrase_ref.is_some(),
+            has_password: s.password_ref.is_some(),
+            startup_snippet: s.startup_snippet,
         }),
+        rdp: h.rdp.map(|r| RdpView {
+            address: r.address,
+            port: r.port,
+            username: r.username,
+            has_credential: r.credential_target.is_some(),
+        }),
+        protocol: h.protocol,
+        group_name: h.group_name,
+        tags: h.tags,
         vpn: h.vpn,
         id: h.id,
         display_name: h.display_name,
@@ -153,16 +188,19 @@ pub(crate) async fn host_update(
     input: HostUpsert,
 ) -> CmdResult<HostView> {
     let state = &app.state;
-    let rec = state
-        .db
-        .lock()
-        .unwrap()
-        .update_host(&id, &input)
-        .map_err(|e| db_err("update host", e))?;
+    let (before, rec) = {
+        let mut db = state.db.lock().unwrap();
+        let before = db.get_host(&id).map_err(|e| db_err("update host", e))?;
+        let rec = db
+            .update_host(&id, &input)
+            .map_err(|e| db_err("update host", e))?;
+        (before, rec)
+    };
     // Settings may have changed (address, user, key): force a fresh connection.
     crate::android::stop_host(app, &id);
     state.disconnect(&id).await;
-    Ok(view(rec, false))
+    credentials::forget_moved_rdp_credential(state, &id, before.rdp.as_ref(), rec.rdp.as_ref())?;
+    host_view(state, &id)
 }
 
 pub(crate) async fn host_delete(app: &Arc<App>, id: String) -> CmdResult<()> {
@@ -170,16 +208,27 @@ pub(crate) async fn host_delete(app: &Arc<App>, id: String) -> CmdResult<()> {
     state.want_connected.lock().unwrap().remove(&id);
     crate::android::stop_host(app, &id);
     state.disconnect(&id).await;
-    let passphrase_ref = {
+    let rec = {
         let db = state.db.lock().unwrap();
         let rec = db.get_host(&id).map_err(|e| db_err("delete host", e))?;
         db.delete_host(&id).map_err(|e| db_err("delete host", e))?;
-        rec.ssh.and_then(|s| s.passphrase_ref)
+        rec
     };
-    if let (Some(r), Some(store)) = (passphrase_ref, &state.secrets) {
-        store
-            .delete(&r)
-            .map_err(|e| to_core("delete passphrase", e.into()))?;
+    // The host is gone from the database; its secrets go from the OS store.
+    if let Some(store) = &state.secrets {
+        let ssh = rec.ssh.as_ref();
+        for r in ssh
+            .iter()
+            .flat_map(|s| [&s.passphrase_ref, &s.password_ref])
+            .flatten()
+        {
+            store
+                .delete(r)
+                .map_err(|e| to_core("delete host secret", e.into()))?;
+        }
+        if let Some(target) = rec.rdp.and_then(|r| r.credential_target) {
+            credentials::drop_rdp_credential(state, store, &id, &target)?;
+        }
     }
     logging::info(&format!("host deleted {id}"));
     Ok(())

@@ -1,0 +1,350 @@
+// The list of one side of the Files tab: sortable column headers and the rows. A row can be
+// dragged (with everything selected) onto the other list or onto a folder; the list and every
+// folder row take such a drop.
+
+import { ListView } from "std-widgets.slint";
+import { Theme } from "../../theme.slint";
+import { Icon } from "../controls.slint";
+import { Files, FileRow, FileSide } from "data.slint";
+
+// A column title. A click orders the list by the column, a second one turns the order around.
+component HeaderCell inherits Rectangle {
+    in property <string> text;
+    in property <string> column;
+    in property <FileSide> info;
+    in property <bool> right;
+    callback clicked();
+    private property <bool> current: info.sort-column == column;
+
+    accessible-role: button;
+    accessible-label: "Sort by " + root.text + (root.current ? (root.info.sort-descending ? ", now descending" : ", now ascending") : "");
+    accessible-action-default => {
+        root.clicked();
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+    }
+
+    HorizontalLayout {
+        alignment: root.right ? end : start;
+        spacing: 2px;
+
+        Text {
+            vertical-alignment: center;
+            text: root.text;
+            color: touch.has-hover || root.current ? Theme.text : Theme.text-muted;
+            font-size: Theme.text-small;
+            font-weight: 600;
+        }
+
+        if root.current: VerticalLayout {
+            alignment: center;
+            Icon {
+                width: 12px;
+                height: 12px;
+                source: root.info.sort-descending ? @image-url("../../icons/down.svg") : @image-url("../../icons/up.svg");
+                tint: Theme.text;
+            }
+        }
+    }
+}
+
+export component FileTable inherits Rectangle {
+    in property <int> pane;
+    in property <int> side;
+    in property <FileSide> info;
+    in property <[FileRow]> rows;
+    out property <bool> has-focus: keys.has-focus;
+
+    public function focus-list() {
+        keys.focus();
+    }
+
+    private property <string> side-name: side == 0 ? "left" : "right";
+    private property <length> row-height: info.tall ? 40px : 28px;
+    private property <length> size-width: 72px;
+    private property <length> time-width: 116px;
+    private property <length> kind-width: 56px;
+    // Columns give way to the name when the list is narrow.
+    in property <bool> show-time: true;
+    in property <bool> show-kind: true;
+    private property <int> cursor: info.cursor;
+    // Rows from inside the app are held over this list, or files from Explorer would land here.
+    private property <bool> drop-target: list-drop.has-drag || (Files.explorer-pane == pane && Files.explorer-side == side);
+
+    // Keep the row the keyboard is on in view.
+    changed cursor => {
+        if (cursor >= 0) {
+            if (cursor * row-height < -list.content-y) {
+                list.content-y = -cursor * row-height;
+            } else if ((cursor + 1) * row-height > list.visible-height - list.content-y) {
+                list.content-y = list.visible-height - (cursor + 1) * row-height;
+            }
+        }
+    }
+
+    border-radius: Theme.radius;
+    border-width: root.drop-target ? 2px : 1px;
+    border-color: root.drop-target || keys.has-focus ? Theme.accent : Theme.hairline;
+    background: root.drop-target ? Theme.accent.with-alpha(0.06) : Theme.surface;
+    clip: true;
+
+    VerticalLayout {
+        padding: 2px;
+
+        HorizontalLayout {
+            height: 28px;
+            padding-left: Theme.space-2 + 16px + Theme.space-2;
+            padding-right: Theme.space-3;
+            spacing: Theme.space-2;
+
+            HeaderCell {
+                horizontal-stretch: 1;
+                text: "Name";
+                column: "name";
+                info: root.info;
+                clicked => {
+                    Files.sort(root.pane, root.side, "name");
+                }
+            }
+
+            if root.show-time: HeaderCell {
+                width: root.time-width;
+                text: "Date Modified";
+                column: "modified";
+                info: root.info;
+                clicked => {
+                    Files.sort(root.pane, root.side, "modified");
+                }
+            }
+
+            HeaderCell {
+                width: root.size-width;
+                right: true;
+                text: "Size";
+                column: "size";
+                info: root.info;
+                clicked => {
+                    Files.sort(root.pane, root.side, "size");
+                }
+            }
+
+            if root.show-kind: HeaderCell {
+                width: root.kind-width;
+                text: "Kind";
+                column: "kind";
+                info: root.info;
+                clicked => {
+                    Files.sort(root.pane, root.side, "kind");
+                }
+            }
+        }
+
+        Rectangle {
+            height: 1px;
+            background: Theme.hairline;
+        }
+
+        ContextMenuArea {
+            vertical-stretch: 1;
+
+            Menu {
+                MenuItem {
+                    title: "Open";
+                    enabled: root.info.can-open;
+                    activated => {
+                        Files.open(root.pane, root.side, root.info.cursor);
+                    }
+                }
+
+                MenuItem {
+                    title: "Copy to other side";
+                    enabled: root.info.copy-reason == "";
+                    activated => {
+                        Files.copy(root.pane, root.side);
+                    }
+                }
+
+                MenuItem {
+                    title: "Up one folder";
+                    enabled: root.info.can-up;
+                    activated => {
+                        Files.up(root.pane, root.side);
+                    }
+                }
+
+                MenuItem {
+                    title: "Refresh";
+                    activated => {
+                        Files.refresh(root.pane, root.side);
+                    }
+                }
+            }
+
+            list-drop := DropArea {
+                can-drop(event) => {
+                    return Files.can-drop(root.pane, root.side, -1, event.data) ? DragAction.copy : DragAction.none;
+                }
+                dropped(event) => {
+                    return Files.dropped(root.pane, root.side, -1, event.data) ? DragAction.copy : DragAction.none;
+                }
+
+                keys := FocusScope {
+                    key-pressed(event) => {
+                        return Files.key(root.pane, root.side, event.text, event.modifiers.control, event.modifiers.shift) ? accept : reject;
+                    }
+
+                    list := ListView {
+                        accessible-label: "Files on the " + root.side-name + " side";
+
+                        for row[index] in root.rows: Rectangle {
+                            // A press on a row that is selected already keeps the selection until the button
+                            // is let go: the press may be the start of a drag of all of it.
+                            property <bool> collapse;
+
+                            height: root.row-height;
+                            background: row-drop.has-drag ? Theme.accent.with-alpha(0.22) : row.selected ? Theme.surface-selected : touch.has-hover ? Theme.surface-hover : transparent;
+                            opacity: drag.dragging ? 0.55 : 1;
+                            accessible-role: list-item;
+                            accessible-label: row.name + (row.link ? ", link" : "") + ", " + (row.kind == "file" ? row.size : row.kind) + (row.detail == "" ? "" : ", " + row.detail);
+                            accessible-item-selected: row.selected;
+                            accessible-action-default => {
+                                Files.select(root.pane, root.side, index, false, false);
+                            }
+
+                            // A folder takes what is dropped on it; a file leaves the drop to the list.
+                            row-drop := DropArea {
+                                enabled: row.kind != "file";
+                                can-drop(event) => {
+                                    return Files.can-drop(root.pane, root.side, index, event.data) ? DragAction.copy : DragAction.none;
+                                }
+                                dropped(event) => {
+                                    return Files.dropped(root.pane, root.side, index, event.data) ? DragAction.copy : DragAction.none;
+                                }
+
+                                drag := DragArea {
+                                    data: Files.drag-data(root.pane, root.side);
+                                    allow-copy: true;
+
+                                    touch := TouchArea {
+                                        pointer-event(event) => {
+                                            if (event.kind == PointerEventKind.down && event.button == PointerEventButton.left) {
+                                                keys.focus();
+                                                collapse = row.selected && !event.modifiers.control && !event.modifiers.shift;
+                                                if (!collapse) {
+                                                    Files.select(root.pane, root.side, index, event.modifiers.control, event.modifiers.shift);
+                                                }
+                                            } else if (event.kind == PointerEventKind.down && event.button == PointerEventButton.right && !row.selected) {
+                                                // The menu acts on what is selected: a right-click on another row selects it first.
+                                                keys.focus();
+                                                Files.select(root.pane, root.side, index, false, false);
+                                            }
+                                        }
+                                        clicked => {
+                                            if (collapse) {
+                                                collapse = false;
+                                                Files.select(root.pane, root.side, index, false, false);
+                                            }
+                                        }
+                                        double-clicked => {
+                                            Files.open(root.pane, root.side, index);
+                                        }
+                                    }
+
+                                    // The row the keyboard is on.
+                                    if index == root.info.cursor && keys.has-focus: Rectangle {
+                                        x: 0;
+                                        width: 2px;
+                                        background: Theme.accent;
+                                    }
+
+                                    HorizontalLayout {
+                                        padding-left: Theme.space-2;
+                                        padding-right: Theme.space-3;
+                                        spacing: Theme.space-2;
+
+                                        VerticalLayout {
+                                            alignment: center;
+                                            Icon {
+                                                source: row.kind == "folder" ? @image-url("../../icons/folder.svg") : row.kind == "drive" ? @image-url("../../icons/drive.svg") : @image-url("../../icons/file.svg");
+                                                tint: row.kind == "file" ? Theme.text-faint : Theme.text-muted;
+                                            }
+                                        }
+
+                                        VerticalLayout {
+                                            horizontal-stretch: 1;
+                                            alignment: center;
+                                            spacing: 1px;
+
+                                            Text {
+                                                text: row.name;
+                                                color: Theme.text;
+                                                font-size: Theme.text-body;
+                                                overflow: elide;
+                                            }
+
+                                            if row.detail != "": Text {
+                                                text: row.detail;
+                                                color: Theme.text-faint;
+                                                font-size: Theme.text-small;
+                                                font-family: Theme.mono;
+                                                overflow: elide;
+                                            }
+                                        }
+
+                                        if row.link: Text {
+                                            vertical-alignment: center;
+                                            text: "link";
+                                            color: Theme.text-faint;
+                                            font-size: Theme.text-small;
+                                        }
+
+                                        if root.show-time: Text {
+                                            width: root.time-width;
+                                            vertical-alignment: center;
+                                            text: row.modified;
+                                            color: Theme.text-muted;
+                                            font-size: Theme.text-small;
+                                            overflow: elide;
+                                        }
+
+                                        Text {
+                                            width: root.size-width;
+                                            vertical-alignment: center;
+                                            horizontal-alignment: right;
+                                            text: row.size == "" ? "--" : row.size;
+                                            color: row.size == "" ? Theme.text-faint : Theme.text-muted;
+                                            font-size: Theme.text-small;
+                                        }
+
+                                        if root.show-kind: Text {
+                                            width: root.kind-width;
+                                            vertical-alignment: center;
+                                            text: row.kind-text;
+                                            color: Theme.text-muted;
+                                            font-size: Theme.text-small;
+                                            overflow: elide;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if root.rows.length == 0: Text {
+                        width: parent.width - 2 * Theme.space-4;
+                        horizontal-alignment: center;
+                        text: root.info.loading ? "Reading " + root.info.place : root.info.error != "" ? "Nothing to show" : !root.info.loaded ? "No folder open" : root.info.filtered ? "No name here contains the filter text" : "This folder is empty";
+                        color: Theme.text-muted;
+                        font-size: Theme.text-small;
+                        wrap: word-wrap;
+                    }
+                }
+            }
+        }
+    }
+}

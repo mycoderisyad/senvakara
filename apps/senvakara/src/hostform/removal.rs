@@ -18,10 +18,17 @@ impl App {
                 true,
             ));
         }
+        if let Some(rdp) = &host.rdp {
+            facts.push(fact(
+                "Address",
+                format!("{}:{}", rdp.address, rdp.port),
+                true,
+            ));
+        }
         self.ask_with(
             Question {
                 title: format!("Remove {}?", host.display_name),
-                body: "Its settings, its trusted key, the saved passphrase and its VPN addresses are removed from Senvakara, and open sessions on it end. Nothing changes on the host itself.".into(),
+                body: "Its settings, its trusted key, the saved password or passphrase and its VPN addresses are removed from Senvakara and from Windows Credential Manager, and open sessions on it end. A key in the Keychain stays. Nothing changes on the host itself.".into(),
                 confirm: "Remove host".into(),
                 danger: true,
             },
