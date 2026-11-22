@@ -314,7 +314,7 @@ The following MPL-2.0 components are used unmodified. Their source code is avail
 | scopeguard | 1.2.0 | Rust crate | MIT OR Apache-2.0 | [954f335b8baf](#text-954f335b8baf) [1a6aa2616e74](#text-1a6aa2616e74) |
 | scrypt | 0.12.0 | Rust crate | MIT OR Apache-2.0 | [e8541ea93f02](#text-e8541ea93f02) [d9479c49b689](#text-d9479c49b689) |
 | sec1 | 0.8.1 | Rust crate | Apache-2.0 OR MIT | [e8541ea93f02](#text-e8541ea93f02) [d9479c49b689](#text-d9479c49b689) |
-| senvakara | 0.2.0 | Rust crate | UNLICENSED | — |
+| senvakara | 0.2.1 | Rust crate | UNLICENSED | — |
 | serde | 1.0.229 | Rust crate | MIT OR Apache-2.0 | [85ad950cce87](#text-85ad950cce87) [30fefc3a7d6a](#text-30fefc3a7d6a) |
 | serde_bytes | 0.11.19 | Rust crate | MIT OR Apache-2.0 | [85ad950cce87](#text-85ad950cce87) [30fefc3a7d6a](#text-30fefc3a7d6a) |
 | serde_core | 1.0.229 | Rust crate | MIT OR Apache-2.0 | [85ad950cce87](#text-85ad950cce87) [30fefc3a7d6a](#text-30fefc3a7d6a) |
@@ -477,7 +477,7 @@ These are covered by the license named in their package metadata, with copyright
 - russh 0.65.2 — Apache-2.0 — Copyright (c) Pierre-Étienne Meunier — https://github.com/warp-tech/russh
 - russh-cryptovec 0.62.0 — Apache-2.0 — Copyright (c) Pierre-Étienne Meunier, Eugeny — https://github.com/warp-tech/russh
 - russh-util 0.52.0 — Apache-2.0 — Copyright (c) the authors — https://github.com/warp-tech/russh
-- senvakara 0.2.0 — UNLICENSED — Copyright (c) the authors
+- senvakara 0.2.1 — UNLICENSED — Copyright (c) the authors
 - slint 1.18.1 — GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 — Copyright (c) Slint Developers — https://github.com/slint-ui/slint
 - slint-macros 1.18.1 — GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 — Copyright (c) Slint Developers — https://github.com/slint-ui/slint
 - taffy 0.10.1 — MIT — Copyright (c) Alice Cecile, Johnathan Kelley, Nico Burns — https://github.com/DioxusLabs/taffy

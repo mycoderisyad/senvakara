@@ -5198,7 +5198,7 @@ checksum = "8a7852d02fc848982e0c167ef163aaff9cd91dc640ba85e263cb1ce46fae51cd"
 
 [[package]]
 name = "senvakara"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "alacritty_terminal",
  "anyhow",
@@ -5219,7 +5219,7 @@ dependencies = [
 
 [[package]]
 name = "senvakara-adapters-adb"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "anyhow",
  "senvakara-core",
@@ -5229,7 +5229,7 @@ dependencies = [
 
 [[package]]
 name = "senvakara-adapters-pty"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "anyhow",
  "portable-pty",
@@ -5238,7 +5238,7 @@ dependencies = [
 
 [[package]]
 name = "senvakara-adapters-scrcpy"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "anyhow",
  "senvakara-adapters-adb",
@@ -5250,7 +5250,7 @@ dependencies = [
 
 [[package]]
 name = "senvakara-adapters-ssh"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "anyhow",
  "rand",
@@ -5264,7 +5264,7 @@ dependencies = [
 
 [[package]]
 name = "senvakara-app"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "anyhow",
  "png",
@@ -5290,7 +5290,7 @@ dependencies = [
 
 [[package]]
 name = "senvakara-core"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -5299,14 +5299,14 @@ dependencies = [
 
 [[package]]
 name = "senvakara-metrics"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "senvakara-secrets"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "keyring-core",
  "thiserror 2.0.21",
@@ -5316,7 +5316,7 @@ dependencies = [
 
 [[package]]
 name = "senvakara-storage"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "rusqlite",
  "senvakara-core",
