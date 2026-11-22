@@ -213,7 +213,7 @@ review.
 
 | Topic | Official page | House style | What to do |
 |---|---|---|---|
-| Order of `mod` and `use` | Imports before module declarations (Style Guide, items) | `mod` first, then `pub use`, then `use` in most roots (`apps/senvakara/src/main.rs`, `jobs.rs`, `files.rs`, `inventory.rs`, `term.rs`; `crates/app/src/lib.rs:20-69` and the other `lib.rs` files). Three app roots have imports first: `hostform.rs`, `device.rs`, `desktop.rs` | Use the house order in a new root; do not reorder existing ones in passing; `cargo fmt` accepts both |
+| Order of `mod` and `use` | Imports before module declarations (Style Guide, items) | `mod` first, then `pub use`, then `use` in every root (`apps/senvakara/src/main.rs`, `jobs.rs`, `files.rs`, `inventory.rs`, `term.rs`; `crates/app/src/lib.rs:20-69` and the other `lib.rs` files) | Use the house order; `cargo fmt` accepts both |
 | Comment width | 80 characters (Style Guide, comments) | 80 in `crates/*`; 100 in `apps/senvakara` | Match the crate |
 | Key order in `Cargo.toml` | Version-sorted keys outside `[package]` (Style Guide, Cargo.toml) | Dependencies grouped by purpose, path crates first, with comments | Keep the grouping; do not re-sort |
 | `[package]` key order | `description` last | `description` last in `crates/*`; `build` follows it in `apps/senvakara/Cargo.toml:7-8` | Leave as is; put `description` last in a new manifest |

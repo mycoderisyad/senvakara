@@ -11,8 +11,6 @@ use crate::{App, NetPaths, Pending, Question};
 use super::validation::{parse_port, vpn_problem};
 
 impl App {
-    // -------------------------------------------------------- network paths
-
     /// Called whenever the selection is published: another host starts with empty fields.
     pub fn paths_sync(&self, host_id: &str) {
         if *self.hosts.paths_host.borrow() == host_id {

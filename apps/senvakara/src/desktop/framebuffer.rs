@@ -1,7 +1,5 @@
 //! The framebuffer one pane keeps of the host's screen.
 
-// ----------------------------------------------------------- framebuffer
-
 /// The host's screen as RGBA, kept up to date from the rectangles the server sends.
 #[derive(Default)]
 pub struct Framebuffer {

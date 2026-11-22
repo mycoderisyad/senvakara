@@ -5,18 +5,18 @@
 //! One framebuffer is kept per pane. The screen is copied out for the UI at most about thirty
 //! times a second, only when something changed and only while the tab is on screen.
 
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::Mutex;
-use std::time::{Duration, Instant};
-
-use slint::{Rgba8Pixel, SharedPixelBuffer};
-
 mod framebuffer;
 mod input;
 mod pane;
 mod session;
 
 pub use pane::DesktopPane;
+
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::Mutex;
+use std::time::{Duration, Instant};
+
+use slint::{Rgba8Pixel, SharedPixelBuffer};
 
 /// How often the screen is handed to the UI at most, and how often the host is asked for news.
 const FRAME_GAP: Duration = Duration::from_millis(33);
@@ -46,8 +46,6 @@ impl Drop for OpenGuard {
         OPEN.fetch_sub(1, Ordering::AcqRel);
     }
 }
-
-// ------------------------------------------------------------------ pane
 
 /// Input for the host, in the order the user made it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

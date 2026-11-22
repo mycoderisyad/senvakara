@@ -9,8 +9,6 @@ use crate::{Pane, SlotView};
 
 use super::{Layout, Spec};
 
-// ------------------------------------------------------------------- pane
-
 /// One panel position of a workspace tab.
 #[derive(Default)]
 pub struct Slot {

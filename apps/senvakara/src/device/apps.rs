@@ -11,8 +11,6 @@ use crate::{App, DeviceTools, Pending, Question};
 use super::target_facts;
 
 impl App {
-    // ------------------------------------------------------------------- apps
-
     pub(super) fn apps_load(self: &Rc<Self>) {
         let (Some(ui), Some(device)) = (self.ui.upgrade(), self.selected_device()) else {
             return;

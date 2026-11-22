@@ -14,8 +14,6 @@ use super::history::run_row;
 use super::target::device_label;
 
 impl App {
-    // ---------------------------------------------------------- recipes
-
     pub(super) fn recipe_open(self: &Rc<Self>, draft: Draft, stored: bool) {
         *self.auto.stored.borrow_mut() = stored.then(|| draft.clone());
         if let Some(ui) = self.ui.upgrade() {

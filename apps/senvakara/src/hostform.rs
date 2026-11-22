@@ -2,17 +2,17 @@
 //! form lives in the inspector; nothing is saved until Save, and a form the user has typed in
 //! is never dropped without asking.
 
+mod form;
+mod paths;
+mod removal;
+mod validation;
+
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use slint::ComponentHandle;
 
 use crate::{App, HostForm, Inventory, NetPaths};
-
-mod form;
-mod paths;
-mod removal;
-mod validation;
 
 use validation::Fields;
 

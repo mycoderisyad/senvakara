@@ -4,7 +4,58 @@
 import { Theme } from "../theme.slint";
 import { IconButton } from "controls.slint";
 import { Button, GroupTitle, Notice, TextField, CheckBox, Segmented, Reason, StatusMark } from "widgets.slint";
-import { HostForm, NetPaths, HostItem } from "../data.slint";
+import { HostItem } from "../data.slint";
+
+// Add or edit a remote host. Shown in the inspector instead of the details while open.
+export global HostForm {
+    in property <bool> open;
+    // "New host" | "Edit Fedora laptop"
+    in property <string> title;
+    in property <bool> editing;
+    in-out property <string> name;
+    in-out property <string> address;
+    in-out property <string> port;
+    in-out property <string> username;
+    // "linux" | "unknown"
+    in property <string> os: "linux";
+    in-out property <string> key-path;
+    in-out property <string> passphrase;
+    // A passphrase is stored for this host already.
+    in property <bool> has-passphrase;
+    in property <bool> remove-passphrase;
+    // What is wrong with a field, in words ("" when it is fine).
+    in property <string> name-error;
+    in property <string> address-error;
+    in property <string> port-error;
+    in property <string> username-error;
+    in property <string> key-error;
+    // Why saving failed.
+    in property <string> error;
+    in property <bool> saving;
+    // Bumped whenever the form is (re)opened: the first field takes the cursor.
+    in property <int> revision;
+
+    callback edited();
+    callback set-os(os: string);
+    callback set-remove-passphrase(on: bool);
+    callback browse();
+    callback save();
+    callback cancel();
+}
+
+// Adding a VPN address to the host selected on Home. The addresses themselves are in HostItem.
+export global NetPaths {
+    in-out property <string> address;
+    in-out property <string> port;
+    // Why Add cannot be pressed ("" when it can).
+    in property <string> add-reason;
+    in property <string> error;
+
+    callback edited();
+    callback add();
+    callback add-hint(address: string);
+    callback remove(endpoint-id: string);
+}
 
 // A wrapped line of help. Sized from its own width, not through the layout: a wrapped Text
 // inside nested layouts is otherwise measured as a single line, and the panel then cannot be

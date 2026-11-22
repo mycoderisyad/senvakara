@@ -6,8 +6,6 @@ use crate::FileRow;
 
 use super::paths::tidy_local;
 
-// ---------------------------------------------------------------- entries
-
 /// One row of a listing, whatever the place.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Entry {

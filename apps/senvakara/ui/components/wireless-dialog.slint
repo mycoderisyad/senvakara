@@ -4,7 +4,50 @@ import { ComboBox, ScrollView } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
 import { DialogFrame } from "dialogs.slint";
 import { Button, GroupTitle, Notice, TextField, Reason } from "widgets.slint";
-import { Wireless } from "../data.slint";
+
+// A phone advertising Wireless debugging.
+export struct WirelessService {
+    address: string,
+    // "Pairing screen open" | "Ready to connect"
+    state: string,
+    name: string,
+}
+
+export struct WirelessNote {
+    ok: bool,
+    text: string,
+}
+
+// The "Add over Wi-Fi" dialog.
+export global Wireless {
+    in property <bool> open;
+    // Hosts whose ADB is being watched.
+    in property <[string]> host-names;
+    in-out property <int> host-index;
+    // Why nothing can be done at all ("" when a host is available).
+    in property <string> host-reason;
+    in property <[WirelessService]> found;
+    // A scan of the chosen host has finished.
+    in property <bool> scanned;
+    in-out property <string> pair-address;
+    in-out property <string> code;
+    in-out property <string> connect-address;
+    // Why Pair or Connect cannot be pressed yet ("" when it can).
+    in property <string> pair-reason;
+    in property <string> connect-reason;
+    // "" | "scan" | "pair" | "connect"
+    in property <string> busy;
+    // Newest first.
+    in property <[WirelessNote]> log;
+
+    callback host-changed(index: int);
+    // A field changed: Rust tidies the code and refreshes the reasons.
+    callback edited();
+    callback scan();
+    callback pair();
+    callback connect();
+    callback close();
+}
 
 component Hint inherits Text {
     color: Theme.text-muted;

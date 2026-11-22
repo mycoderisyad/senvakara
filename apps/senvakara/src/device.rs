@@ -2,6 +2,12 @@
 //! forget and disconnect. Everything here acts on the phone selected on Home, and every action
 //! that changes the phone asks first, naming the phone, its route and what will happen.
 
+mod apps;
+mod file_dialog;
+mod overview;
+mod screen;
+mod shell;
+
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
@@ -9,12 +15,6 @@ use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
 
 use crate::inventory::{fact, transport_label};
 use crate::{App, DeviceTools, Inventory, KeyValue};
-
-mod apps;
-mod file_dialog;
-mod overview;
-mod screen;
-mod shell;
 
 type DeviceView = senvakara_app::android::DeviceView;
 

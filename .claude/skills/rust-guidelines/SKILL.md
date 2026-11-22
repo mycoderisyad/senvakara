@@ -144,7 +144,7 @@ Code for each point is in `references/house-patterns.md`.
   `use` imports (`main.rs`, `jobs.rs`, `files.rs`, `inventory.rs`, `term.rs`;
   `crates/app/src/lib.rs:20-69`). The Style Guide puts imports before module declarations
   ([items][sg-items]); the house order is preferred because a root then reads as a table of
-  contents. `hostform.rs`, `device.rs` and `desktop.rs` have imports first: leave them as is.
+  contents.
 - Tests come last in a file. `impl App` comes after the types and helpers it uses.
 
 ## Comments and doc comments

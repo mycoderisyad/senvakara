@@ -4,7 +4,58 @@
 import { Theme } from "../theme.slint";
 import { Icon, IconButton } from "controls.slint";
 import { Button, GroupTitle, Notice, DetailRow, TextField, Segmented, Reason, ActionList } from "widgets.slint";
-import { Inventory, DeviceItem, DeviceTools } from "../data.slint";
+import { Inventory, DeviceItem, KeyValue } from "../data.slint";
+
+// The tools of the device inspector. They always act on the phone selected on Home; Rust clears
+// them when another phone is selected.
+export global DeviceTools {
+    // "overview" | "shell" | "apps" | "screen"
+    in property <string> tab: "overview";
+    // Why the tools cannot be used ("" when the phone is connected and authorized).
+    in property <string> blocked;
+    // Something on the overview went wrong, already worded for the user.
+    in property <string> message;
+
+    in property <bool> renaming;
+    in-out property <string> rename-text;
+
+    in property <bool> info-busy;
+    in property <[KeyValue]> props;
+
+    in-out property <string> command;
+    in property <bool> shell-busy;
+    // A command has run and its result is shown.
+    in property <bool> shell-ran;
+    in property <string> shell-note;
+    in property <string> shell-output;
+    in property <string> shell-error;
+
+    in property <[string]> packages;
+    in property <bool> apps-busy;
+    in property <bool> apps-loaded;
+    in property <string> apps-note;
+    in property <string> apps-error;
+
+    in property <image> shot;
+    in property <int> shot-width;
+    in property <int> shot-height;
+    in property <bool> shot-busy;
+    in property <string> shot-note;
+    // Where the screenshot was saved, shown under the note.
+    in property <string> shot-path;
+    in property <string> shot-error;
+
+    callback show-tab(tab: string);
+    callback run-shell();
+    callback copy-output();
+    callback load-apps();
+    callback install();
+    callback uninstall(package: string);
+    callback take-shot();
+    callback save-shot();
+    callback rename-save();
+    callback rename-cancel();
+}
 
 component Hint inherits Text {
     color: Theme.text-muted;

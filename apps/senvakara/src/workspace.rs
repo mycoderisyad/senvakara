@@ -23,8 +23,6 @@ use serde_json::Value;
 
 type DeviceView = senvakara_app::android::DeviceView;
 
-// ------------------------------------------------------------------ model
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Layout {
     Single,

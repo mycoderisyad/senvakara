@@ -33,8 +33,6 @@ pub fn shown_output(output: &str) -> (String, bool) {
 }
 
 impl App {
-    // ------------------------------------------------------------------ shell
-
     pub(super) fn shell_ask(self: &Rc<Self>) {
         let (Some(ui), Some(device)) = (self.ui.upgrade(), self.selected_device()) else {
             return;

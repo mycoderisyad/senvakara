@@ -18,8 +18,6 @@ pub const KINDS: [(&str, &str); 7] = [
     ("flutter_deploy", "Flutter build and install"),
 ];
 
-// ------------------------------------------------------------------ model
-
 /// One recipe step as the editor holds it. Only the fields of its kind are used.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct StepDraft {

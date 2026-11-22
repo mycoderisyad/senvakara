@@ -6,7 +6,29 @@ import { ScrollView } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
 import { IconButton } from "controls.slint";
 import { Button, GroupTitle, ProgressBar } from "widgets.slint";
-import { Jobs, JobItem } from "../data.slint";
+
+// One transfer or install.
+export struct JobItem {
+    id: int,
+    label: string,
+    // "running" | "done" | "failed" | "cancelled"
+    state: string,
+    // "42 %", "Starting", "Done", ...
+    state-text: string,
+    // 0..1
+    fraction: float,
+    // Where the result went.
+    detail: string,
+    error: string,
+}
+
+export global Jobs {
+    in property <[JobItem]> items;
+    in property <bool> has-finished;
+    callback cancel(id: int);
+    callback dismiss(id: int);
+    callback clear-finished();
+}
 
 component JobRow inherits VerticalLayout {
     in property <JobItem> job;

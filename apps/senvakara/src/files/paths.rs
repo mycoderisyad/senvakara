@@ -2,8 +2,6 @@
 
 use super::Kind;
 
-// ------------------------------------------------------------------ paths
-
 /// A Windows path as this pane writes it: backslashes, no trailing one except on a drive root.
 /// The empty path is the list of drives.
 pub(super) fn tidy_local(path: &str) -> String {

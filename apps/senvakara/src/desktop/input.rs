@@ -2,8 +2,6 @@
 
 use slint::platform::Key;
 
-// --------------------------------------------------------------- keysyms
-
 const SHIFT_L: u32 = 0xffe1;
 const CONTROL_L: u32 = 0xffe3;
 const ALT_L: u32 = 0xffe9;

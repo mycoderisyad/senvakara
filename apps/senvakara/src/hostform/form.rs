@@ -43,8 +43,6 @@ fn check_here(fields: &Fields) -> Result<HostUpsert, Problems> {
 }
 
 impl App {
-    // ------------------------------------------------------------- the form
-
     /// Whether the user changed anything since the form opened.
     fn host_form_dirty(&self) -> bool {
         let Some(ui) = self.ui.upgrade() else {

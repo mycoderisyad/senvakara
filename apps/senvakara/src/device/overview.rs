@@ -124,8 +124,6 @@ impl App {
         );
     }
 
-    // ------------------------------------------------- rename, forget, disconnect
-
     pub(super) fn rename_save(self: &Rc<Self>) {
         let (Some(ui), Some(device)) = (self.ui.upgrade(), self.selected_device()) else {
             return;

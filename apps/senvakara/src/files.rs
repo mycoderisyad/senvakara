@@ -67,8 +67,6 @@ pub fn pair_supported(from: Kind, to: Kind) -> bool {
     from != to
 }
 
-// ------------------------------------------------------------------- pane
-
 struct Side {
     source: Source,
     /// The folder on screen, as the place reported it.

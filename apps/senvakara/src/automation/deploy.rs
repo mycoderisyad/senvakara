@@ -53,8 +53,6 @@ fn folder_name(path: &str) -> String {
 }
 
 impl App {
-    // ----------------------------------------------------------- deploy
-
     pub(super) fn deploy_publish(self: &Rc<Self>) {
         let Some(ui) = self.ui.upgrade() else { return };
         let view = ui.global::<Deploy>();

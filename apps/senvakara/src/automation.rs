@@ -23,8 +23,6 @@ pub use history::friendly_raw;
 
 type DeviceView = senvakara_app::android::DeviceView;
 
-// ------------------------------------------------------------------ state
-
 pub struct State {
     /// None until asked; then the SDK or why it was not found.
     flutter: RefCell<Option<Result<FlutterInfo, String>>>,

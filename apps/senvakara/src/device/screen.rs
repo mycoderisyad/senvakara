@@ -39,8 +39,6 @@ fn decode_png(png: &[u8]) -> Result<SharedPixelBuffer<Rgba8Pixel>, String> {
 }
 
 impl App {
-    // ------------------------------------------------------------- screenshot
-
     pub(super) fn shot_take(self: &Rc<Self>) {
         let (Some(ui), Some(device)) = (self.ui.upgrade(), self.selected_device()) else {
             return;

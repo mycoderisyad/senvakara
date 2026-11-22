@@ -9,8 +9,6 @@ use crate::inventory::{fact, friendly_with};
 use crate::{App, Inventory, Pending, Question};
 
 impl App {
-    // -------------------------------------------------------------- removal
-
     pub fn host_remove_ask(self: &Rc<Self>, host: &HostView) {
         let mut facts = vec![fact("Host", host.display_name.as_str(), false)];
         if let Some(ssh) = &host.ssh {
