@@ -3,7 +3,7 @@
 
 import { ScrollView, AboutSlint } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
-import { Button, GroupTitle, Notice, Segmented, StatusMark, Hint, PageTitle, Card, DetailRow } from "../components/widgets.slint";
+import { Button, GroupTitle, Notice, Segmented, StatusMark, Hint, SectionHeader, Card, DetailRow } from "../components/widgets.slint";
 import { KeyValue } from "../data.slint";
 
 export global Settings {
@@ -114,9 +114,9 @@ export component SettingsPage inherits Rectangle {
             padding-bottom: Theme.space-6;
             spacing: Theme.space-5;
 
-            PageTitle {
+            SectionHeader {
                 title: "Settings";
-                body: "Changes apply at once and are kept for the next start.";
+                detail: "Changes apply at once";
             }
 
             if Settings.error != "": Notice {

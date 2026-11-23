@@ -3,7 +3,7 @@
 import { ScrollView } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
 import { Icon } from "../components/controls.slint";
-import { Button, Notice, PageTitle } from "../components/widgets.slint";
+import { Button, EmptyState, Notice, PageToolbar, SectionHeader, ToolButton } from "../components/widgets.slint";
 import { Workspaces, WorkspaceItem } from "../components/workspace-view.slint";
 
 component WorkspaceRow inherits Rectangle {
@@ -105,10 +105,24 @@ component WorkspaceRow inherits Rectangle {
     }
 }
 
-export component WorkspacesPage inherits Rectangle {
+export component WorkspacesPage inherits VerticalLayout {
+    PageToolbar {
+        ToolButton {
+            icon: @image-url("../icons/plus.svg");
+            text: "New workspace";
+            filled: true;
+            clicked => {
+                Workspaces.create();
+            }
+        }
+
+        Rectangle {
+            horizontal-stretch: 1;
+        }
+    }
+
     ScrollView {
         VerticalLayout {
-            width: root.width;
             alignment: start;
             padding-left: Theme.space-6;
             padding-right: Theme.space-6;
@@ -116,25 +130,9 @@ export component WorkspacesPage inherits Rectangle {
             padding-bottom: Theme.space-6;
             spacing: Theme.space-5;
 
-            HorizontalLayout {
-                spacing: Theme.space-3;
-
-                PageTitle {
-                    horizontal-stretch: 1;
-                    title: "Workspaces";
-                    body: "A workspace keeps up to four panels side by side: terminals, files, a phone screen, logcat or a remote desktop. Opening one starts its sessions.";
-                }
-
-                VerticalLayout {
-                    alignment: start;
-                    Button {
-                        text: "New workspace";
-                        kind: "primary";
-                        clicked => {
-                            Workspaces.create();
-                        }
-                    }
-                }
+            SectionHeader {
+                title: "Workspaces";
+                detail: "Up to four panels side by side; opening one starts its sessions";
             }
 
             if Workspaces.error != "": Notice {
@@ -142,11 +140,14 @@ export component WorkspacesPage inherits Rectangle {
                 text: Workspaces.error;
             }
 
-            if Workspaces.saved.length == 0 && Workspaces.error == "": Text {
-                text: "No saved workspaces yet. Create one, add panels and save it.";
-                color: Theme.text-muted;
-                font-size: Theme.text-small;
-                wrap: word-wrap;
+            if Workspaces.saved.length == 0 && Workspaces.error == "": EmptyState {
+                icon: @image-url("../icons/layout.svg");
+                title: "No workspaces yet";
+                body: "Put terminals, files, a phone screen, logcat or a remote desktop side by side, then save the layout to open it again in one click.";
+                action: "New workspace";
+                activated => {
+                    Workspaces.create();
+                }
             }
 
             VerticalLayout {

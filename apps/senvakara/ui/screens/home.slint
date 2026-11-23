@@ -3,7 +3,7 @@
 import { ScrollView } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
 import { Icon, IconButton } from "../components/controls.slint";
-import { Button, SearchField, SidebarItem, ItemCard, GroupTitle, Notice, StatusMark, MeterRow, DetailRow, ActionList, CardGrid, Card, SectionHeader, EmptyState } from "../components/widgets.slint";
+import { Button, SearchField, SidebarItem, ItemCard, GroupTitle, Notice, StatusMark, MeterRow, DetailRow, ActionList, CardGrid, Card, SectionHeader, EmptyState, PageToolbar, ToolButton } from "../components/widgets.slint";
 import { DevicePanel } from "../components/device-panel.slint";
 import { HostFormPanel, NetworkPaths, HostForm } from "../components/host-form.slint";
 import { JobList, Jobs } from "../components/jobs.slint";
@@ -359,54 +359,44 @@ component Sidebar inherits Rectangle {
 component InventoryPage inherits VerticalLayout {
     private property <bool> hosts: Nav.section == "hosts";
 
-    // Search and the actions of the page.
-    HorizontalLayout {
-        padding-left: Theme.space-6;
-        padding-right: Theme.space-6;
-        padding-top: Theme.space-4;
-        padding-bottom: Theme.space-3;
-        spacing: Theme.space-2;
+    PageToolbar {
+        searchable: true;
+        query <=> Inventory.query;
+        placeholder: root.hosts ? "Search hosts by name, address, user, group or tag" : "Search phones by name, host or serial";
+        searched(text) => {
+            Inventory.search(text);
+        }
 
-        SearchField {
-            horizontal-stretch: 1;
-            text <=> Inventory.query;
-            placeholder: root.hosts ? "Search hosts by name, address, user, group or tag" : "Search phones by name, host or serial";
-            edited(text) => {
-                Inventory.search(text);
+        if root.hosts: ToolButton {
+            icon: @image-url("../icons/plus.svg");
+            text: "New host";
+            filled: true;
+            clicked => {
+                Inventory.add-host();
             }
         }
 
-        VerticalLayout {
-            alignment: center;
-            IconButton {
-                size: Theme.row;
-                icon: @image-url("../icons/refresh.svg");
-                label: "Refresh hosts, phones and local shells";
-                clicked => {
-                    Inventory.refresh();
-                }
-            }
-        }
-
-        if !root.hosts: Button {
+        if !root.hosts: ToolButton {
+            icon: @image-url("../icons/plus.svg");
             text: "Add over Wi-Fi";
+            filled: true;
             clicked => {
                 Inventory.add-wireless();
             }
         }
 
-        Button {
-            text: "New host";
-            kind: root.hosts ? "primary" : "secondary";
+        Rectangle {
+            horizontal-stretch: 1;
+        }
+
+        IconButton {
+            size: Theme.row;
+            icon: @image-url("../icons/refresh.svg");
+            label: "Refresh hosts, phones and local shells";
             clicked => {
-                Inventory.add-host();
+                Inventory.refresh();
             }
         }
-    }
-
-    Rectangle {
-        height: 1px;
-        background: Theme.hairline;
     }
 
     ScrollView {

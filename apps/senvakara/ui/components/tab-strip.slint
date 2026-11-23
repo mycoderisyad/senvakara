@@ -118,6 +118,9 @@ export component TabStrip inherits Rectangle {
     callback select(int);
     callback close(int);
     callback new-session();
+    // The SFTP pane's tab, pinned after Home rather than in line with the sessions; -1 if none.
+    in property <int> sftp-tab: -1;
+    callback open-sftp();
     // The menu next to "+": local shells, then hosts, then phones.
     in property <[LaunchItem]> quick;
     // The menu is about to open.
@@ -148,6 +151,20 @@ export component TabStrip inherits Rectangle {
             }
         }
 
+        TabButton {
+            icon: @image-url("../icons/folder.svg");
+            title: "SFTP";
+            tinted: false;
+            closable: root.sftp-tab >= 0;
+            active: root.sftp-tab >= 0 && root.active == root.sftp-tab;
+            selected => {
+                root.open-sftp();
+            }
+            closed => {
+                root.close(root.sftp-tab);
+            }
+        }
+
         // Session tabs scroll sideways when they do not fit; "+" stays right after them.
         flick := Flickable {
             horizontal-stretch: 0;
@@ -169,27 +186,31 @@ export component TabStrip inherits Rectangle {
                 }
 
                 row := HorizontalLayout {
-                    spacing: Theme.space-1 + 1px;
 
-                    for tab[index] in root.tabs: TabButton {
-                        icon: tab.kind == "mirror" ? @image-url("../icons/phone.svg") : tab.kind == "logcat" ? @image-url("../icons/list.svg") : tab.kind == "files" ? @image-url("../icons/folder.svg") : tab.kind == "desktop" ? @image-url("../icons/monitor.svg") : tab.kind == "workspace" ? @image-url("../icons/layout.svg") : tab.kind == "run" ? @image-url("../icons/play.svg") : tab.kind == "new-tab" ? @image-url("../icons/plus.svg") : @image-url("../icons/terminal.svg");
-                        title: tab.title;
-                        hue: Theme.host-hue(tab.hue);
-                        // The New Tab page belongs to no machine yet.
-                        tinted: tab.kind != "new-tab";
-                        exited: tab.exited;
-                        active: root.active == index;
-                        selected => {
-                            root.select(index);
-                        }
-                        closed => {
-                            root.close(index);
-                        }
-                        shown => {
-                            if (self.x + flick.content-x < 0) {
-                                flick.content-x = -self.x;
-                            } else if (self.x + self.width + flick.content-x > flick.width) {
-                                flick.content-x = flick.width - self.x - self.width;
+                    // The SFTP pane is shown pinned after Home, so its own place stays empty.
+                    for tab[index] in root.tabs: HorizontalLayout {
+                        padding-left: index == 0 || index == root.sftp-tab ? 0px : Theme.space-1 + 1px;
+
+                        if index != root.sftp-tab: TabButton {
+                            icon: tab.kind == "mirror" ? @image-url("../icons/phone.svg") : tab.kind == "logcat" ? @image-url("../icons/list.svg") : tab.kind == "files" ? @image-url("../icons/folder.svg") : tab.kind == "desktop" ? @image-url("../icons/monitor.svg") : tab.kind == "workspace" ? @image-url("../icons/layout.svg") : tab.kind == "run" ? @image-url("../icons/play.svg") : tab.kind == "new-tab" ? @image-url("../icons/plus.svg") : @image-url("../icons/terminal.svg");
+                            title: tab.title;
+                            hue: Theme.host-hue(tab.hue);
+                            // The New Tab page belongs to no machine yet.
+                            tinted: tab.kind != "new-tab";
+                            exited: tab.exited;
+                            active: root.active == index;
+                            selected => {
+                                root.select(index);
+                            }
+                            closed => {
+                                root.close(index);
+                            }
+                            shown => {
+                                if (parent.x + self.x + flick.content-x < 0) {
+                                    flick.content-x = -(parent.x + self.x);
+                                } else if (parent.x + self.x + self.width + flick.content-x > flick.width) {
+                                    flick.content-x = flick.width - parent.x - self.x - self.width;
+                                }
                             }
                         }
                     }

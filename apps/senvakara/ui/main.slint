@@ -35,6 +35,10 @@ export global Shell {
     // The session of the active tab, when it is a single session.
     in property <PanelView> panel;
 
+    // The tab of the SFTP pane, shown pinned next to Home (Termius's SFTP tab); -1 when none.
+    in property <int> sftp-tab: -1;
+    // The pinned SFTP tab was clicked: show the SFTP pane, opening one if needed.
+    callback open-sftp();
     callback select-tab(index: int);
     callback close-tab(index: int);
     // "+" and Ctrl+Shift+T: show the New Tab page.
@@ -84,6 +88,10 @@ export component MainWindow inherits Window {
             TabStrip {
                 tabs: Shell.tabs;
                 active: Shell.active-tab;
+                sftp-tab: Shell.sftp-tab;
+                open-sftp => {
+                    Shell.open-sftp();
+                }
                 select(index) => {
                     Shell.select-tab(index);
                 }

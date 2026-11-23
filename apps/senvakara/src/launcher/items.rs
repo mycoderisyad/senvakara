@@ -97,23 +97,12 @@ impl App {
             .into_iter()
             .map(|index| hosts[index].clone())
             .collect();
-        let sftp = Item {
-            entry: Entry {
-                title: "SFTP".into(),
-                detail: "Copy files between this PC, a host and a phone".into(),
-                kind: "files",
-                command: Command::Sftp,
-            },
-            label: String::new(),
-            hue: 0,
-        };
         super::rows(
             &[
                 (RECENT, recent),
                 ("Hosts", hosts),
                 ("Local shells", self.launcher_shells()),
                 ("Phones", self.launcher_devices()),
-                ("Files", vec![sftp]),
             ],
             query,
         )

@@ -116,6 +116,9 @@ impl App {
         }
         ui.global::<Shell>().set_active_kind(kind.into());
         ui.global::<Shell>().set_active_tab(index);
+        // Every change to the tabs ends here, so the pinned SFTP tab always points right.
+        ui.global::<Shell>()
+            .set_sftp_tab(self.sftp_tab().map_or(-1, |index| index as i32));
     }
 
     pub fn close(self: &Rc<Self>, index: i32) {

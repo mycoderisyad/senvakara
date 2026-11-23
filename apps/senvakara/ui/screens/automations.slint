@@ -3,16 +3,33 @@
 
 import { ScrollView } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
-import { PageTitle } from "../components/widgets.slint";
+import { PageToolbar, SectionHeader, ToolButton } from "../components/widgets.slint";
 import { DeployCard } from "automations/deploy-card.slint";
 import { RecipesCard } from "automations/recipes-card.slint";
 
+import { Recipes } from "automations/model.slint";
 export { RunRow, Deploy, RecipeItem, StepItem, Recipes } from "automations/model.slint";
 
-export component AutomationsPage inherits Rectangle {
+export component AutomationsPage inherits VerticalLayout {
+    PageToolbar {
+        ToolButton {
+            icon: @image-url("../icons/plus.svg");
+            text: "New recipe";
+            filled: true;
+            clicked => {
+                Recipes.create();
+            }
+        }
+
+        Rectangle {
+            horizontal-stretch: 1;
+        }
+    }
+
     ScrollView {
         VerticalLayout {
-            width: root.width;
+            // Forms read badly when a field runs across a wide screen.
+            width: Math.min(root.width, 960px);
             alignment: start;
             padding-left: Theme.space-6;
             padding-right: Theme.space-6;
@@ -20,9 +37,9 @@ export component AutomationsPage inherits Rectangle {
             padding-bottom: Theme.space-6;
             spacing: Theme.space-5;
 
-            PageTitle {
+            SectionHeader {
                 title: "Automations";
-                body: "Build and install a Flutter app, or save a list of steps for one phone and run it again. Every run opens in its own tab and can be cancelled there.";
+                detail: "Every run opens in its own tab";
             }
 
             DeployCard { }

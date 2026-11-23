@@ -50,7 +50,7 @@ component RecipeRow inherits Rectangle {
             text: root.item.name;
             color: Theme.text;
             font-size: Theme.text-body;
-            font-weight: root.item.selected ? 600 : 400;
+            font-weight: root.item.selected ? Theme.weight-strong : Theme.weight-medium;
             overflow: elide;
         }
 
@@ -64,12 +64,22 @@ component RecipeRow inherits Rectangle {
 }
 
 export component RecipesCard inherits Card {
-    GroupTitle {
-        text: "Recipes";
-    }
+    HorizontalLayout {
+        spacing: Theme.space-3;
 
-    Hint {
-        text: "A recipe is a list of steps for one phone. It runs after one confirmation and stops at the first step that fails.";
+        GroupTitle {
+            vertical-alignment: center;
+            text: "Recipes";
+        }
+
+        Text {
+            horizontal-stretch: 1;
+            vertical-alignment: center;
+            text: "Steps for one phone, stopped at the first that fails";
+            color: Theme.text-muted;
+            font-size: Theme.text-small;
+            overflow: elide;
+        }
     }
 
     HorizontalLayout {
@@ -80,24 +90,11 @@ export component RecipesCard inherits Card {
             alignment: start;
             spacing: Theme.space-1;
 
-            HorizontalLayout {
-                alignment: start;
-                Button {
-                    text: "New recipe";
-                    clicked => {
-                        Recipes.create();
-                    }
-                }
-            }
-
-            Rectangle {
-                height: Theme.space-1;
-            }
-
             if Recipes.items.length == 0: Text {
-                text: "No recipes yet.";
+                text: "No recipes yet. Create one with New recipe.";
                 color: Theme.text-muted;
                 font-size: Theme.text-small;
+                wrap: word-wrap;
             }
 
             for item in Recipes.items: RecipeRow {
@@ -120,7 +117,7 @@ export component RecipesCard inherits Card {
             spacing: Theme.space-3;
 
             Text {
-                text: "Choose a recipe to edit or run it, or create a new one.";
+                text: "Select a recipe to edit or run it.";
                 color: Theme.text-muted;
                 font-size: Theme.text-small;
                 wrap: word-wrap;

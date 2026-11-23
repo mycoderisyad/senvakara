@@ -60,6 +60,7 @@ Built, unit-tested and the Home screen looked at in the running app; the other s
 - Remote Desktop hosts open with the user name filled in, also without a saved password: Senvakara writes a small `.rdp` file (address and user only, never a password) under its data folder and opens it with `mstsc.exe`. Not yet tried against a Windows target.
 - An encrypted private key now asks for its passphrase before Save, in the Keychain and for a key file in the host form.
 - Drop-down lists use the app's own style; session tabs that do not fit scroll sideways and the active tab is kept in view.
+- SFTP is a pinned tab next to Home, as in Termius (also "Open SFTP" in the command palette); it left the New Tab page. Every page now has the same toolbar: search on top, then the page's own actions on the left in one button style (New host, Add over Wi-Fi, New key, New workspace, New recipe), Refresh on the right. Automations has less text: one short line per card, the Flutter path only when something is wrong, content kept to a readable width.
 
 ### Added — 2026-11-22 (host credentials and Keychain, not yet released)
 

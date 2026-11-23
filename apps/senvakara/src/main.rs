@@ -120,6 +120,10 @@ fn main() -> anyhow::Result<()> {
         let app = app.clone();
         move |accepted| app.answer(accepted)
     });
+    shell.on_open_sftp({
+        let app = app.clone();
+        move || app.sftp_tab_open()
+    });
     shell.on_select_tab({
         let app = app.clone();
         move |index| app.select(index)

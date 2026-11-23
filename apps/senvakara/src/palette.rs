@@ -140,7 +140,12 @@ impl App {
     /// Everything that can be opened right now. Actions the inventory marks as unavailable
     /// are left out: the palette only lists what will work.
     fn palette_entries(&self) -> Vec<Entry> {
-        let mut entries = Vec::new();
+        let mut entries = vec![Entry {
+            title: "Open SFTP".into(),
+            detail: "Copy files between this PC, a host and a phone".into(),
+            kind: "files",
+            command: Command::Sftp,
+        }];
         for host in self.inv.host_items() {
             for action in host.actions.iter().filter(|a| a.reason.is_empty()) {
                 let id = action.id.as_str();
@@ -265,7 +270,7 @@ impl App {
             Command::NewWorkspace => self.workspace_create(),
             Command::Section(section) => self.go_to_section(section),
             Command::Shell(shell, title) => self.open_local_shell(&shell, &title),
-            Command::Sftp => self.open_sftp(),
+            Command::Sftp => self.sftp_tab_open(),
         }
     }
 

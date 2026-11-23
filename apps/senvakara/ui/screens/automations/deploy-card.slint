@@ -6,33 +6,34 @@ import { Deploy } from "model.slint";
 import { HistoryTable } from "history-table.slint";
 
 export component DeployCard inherits Card {
-    GroupTitle {
-        text: "Flutter build and deploy";
-    }
-
-    Hint {
-        text: "Builds the app on " + Deploy.build-host + " and installs it on a phone, also one that is plugged into another host.";
-    }
-
+    // Title, where it builds, and whether Flutter is there. The SDK path is only shown when
+    // something is wrong with it.
     HorizontalLayout {
         spacing: Theme.space-3;
 
-        StatusMark {
-            horizontal-stretch: 0;
-            alignment: start;
-            tone: Deploy.sdk-tone;
-            text: Deploy.sdk-text;
+        GroupTitle {
+            vertical-alignment: center;
+            text: "Flutter build and deploy";
         }
 
         Text {
             horizontal-stretch: 1;
             vertical-alignment: center;
-            text: Deploy.sdk-detail;
-            color: Theme.text-faint;
+            text: "on " + Deploy.build-host;
+            color: Theme.text-muted;
             font-size: Theme.text-small;
-            font-family: Deploy.sdk-tone == "live" ? Theme.mono : Theme.sans;
             overflow: elide;
         }
+
+        StatusMark {
+            horizontal-stretch: 0;
+            tone: Deploy.sdk-tone;
+            text: Deploy.sdk-text;
+        }
+    }
+
+    if Deploy.sdk-tone != "live" && Deploy.sdk-detail != "": Hint {
+        text: Deploy.sdk-detail;
     }
 
     Labeled {
@@ -42,7 +43,7 @@ export component DeployCard inherits Card {
 
             TextField {
                 horizontal-stretch: 1;
-                mono: true;
+                mono: Deploy.project != "";
                 text <=> Deploy.project;
                 label: "Flutter project folder";
                 placeholder: "The folder that holds pubspec.yaml";
@@ -116,7 +117,8 @@ export component DeployCard inherits Card {
             horizontal-stretch: 1;
             vertical-alignment: center;
             horizontal-alignment: right;
-            text: Deploy.reason != "" ? Deploy.reason : !Deploy.launch ? "The app log is only read when the app is launched." : "";
+            // Why the button below cannot be used yet.
+            text: Deploy.reason;
             color: Theme.text-faint;
             font-size: Theme.text-small;
             overflow: elide;

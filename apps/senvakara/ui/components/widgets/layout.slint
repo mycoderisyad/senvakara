@@ -2,7 +2,8 @@
 
 import { Theme } from "../../theme.slint";
 import { Hint } from "status.slint";
-import { Button } from "buttons.slint";
+import { ToolButton } from "form.slint";
+import { SearchField } from "inputs.slint";
 import { Icon } from "../controls.slint";
 
 // A section heading inside a page or panel ("Hosts", "Health", a host group).
@@ -168,16 +169,58 @@ export component EmptyState inherits Rectangle {
             }
         }
 
+        // The same button as the page toolbar's, so one action never has two looks.
         if root.action != "": HorizontalLayout {
             alignment: center;
             padding-top: Theme.space-1;
-            Button {
+            ToolButton {
+                icon: @image-url("../../icons/plus.svg");
                 text: root.action;
-                kind: "primary";
+                filled: true;
                 clicked => {
                     root.activated();
                 }
             }
         }
+    }
+}
+
+// The top of a page: the search field (if any) over a row of actions, then a hairline. Every
+// page puts its own actions here, as filled `ToolButton`s on the left; extras such as Refresh go
+// to the right after a stretching `Rectangle`.
+export component PageToolbar inherits VerticalLayout {
+    in property <bool> searchable;
+    in-out property <string> query;
+    in property <string> placeholder;
+    callback searched(string);
+
+    if root.searchable: HorizontalLayout {
+        padding-left: Theme.space-6;
+        padding-right: Theme.space-6;
+        padding-top: Theme.space-4;
+
+        SearchField {
+            horizontal-stretch: 1;
+            text <=> root.query;
+            placeholder: root.placeholder;
+            edited(text) => {
+                root.searched(text);
+            }
+        }
+    }
+
+    HorizontalLayout {
+        padding-left: Theme.space-6;
+        padding-right: Theme.space-6;
+        padding-top: Theme.space-3;
+        padding-bottom: Theme.space-3;
+        spacing: Theme.space-2;
+
+        @children
+    }
+
+    Rectangle {
+        height: 1px;
+        background: Theme.hairline;
     }
 }

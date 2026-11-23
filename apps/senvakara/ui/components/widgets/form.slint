@@ -459,15 +459,16 @@ export component ToolButton inherits Rectangle {
     in property <string> label: text;
     callback clicked();
 
-    private property <color> fill: filled ? Theme.surface : transparent;
+    // Filled: the page's own actions (New host, New key, ...). Plain: the ones next to them.
+    private property <color> fill: filled ? Theme.surface-hover : transparent;
 
     height: Theme.row;
     min-width: row.min-width;
     horizontal-stretch: 0;
     border-radius: Theme.radius;
-    border-width: 1px;
-    border-color: focus.has-focus ? Theme.accent : filled ? Theme.hairline-strong : transparent;
-    background: touch.pressed ? Theme.surface-selected : touch.has-hover ? Theme.surface-hover : fill;
+    border-width: focus.has-focus ? 1px : 0px;
+    border-color: Theme.accent;
+    background: touch.pressed ? Theme.surface-selected.darker(0.1) : touch.has-hover ? (filled ? Theme.surface-selected : Theme.surface-hover) : fill;
     accessible-role: button;
     accessible-label: label;
     accessible-action-default => {
@@ -493,8 +494,8 @@ export component ToolButton inherits Rectangle {
     }
 
     row := HorizontalLayout {
-        padding-left: Theme.space-2;
-        padding-right: root.text == "" ? Theme.space-2 : Theme.space-3;
+        padding-left: root.text == "" ? Theme.space-2 : Theme.space-3 - 2px;
+        padding-right: root.text == "" ? Theme.space-2 : Theme.space-4 - 2px;
         spacing: Theme.space-2;
 
         VerticalLayout {

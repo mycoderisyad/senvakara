@@ -111,6 +111,22 @@ impl App {
         self.open_files_pane(FilesPane::sftp(id));
     }
 
+    /// The pinned SFTP tab next to Home: show the SFTP pane that is open, or open one.
+    pub fn sftp_tab_open(self: &Rc<Self>) {
+        match self.sftp_tab() {
+            Some(index) => self.select(index as i32),
+            None => self.open_sftp(),
+        }
+    }
+
+    /// Where the first SFTP pane is among the tabs; the tab strip shows it pinned, not in line.
+    pub(crate) fn sftp_tab(&self) -> Option<usize> {
+        self.sessions
+            .borrow()
+            .iter()
+            .position(|pane| matches!(pane, Pane::Files(files) if files.sftp))
+    }
+
     fn open_files_pane(self: &Rc<Self>, pane: FilesPane) {
         let id = pane.id;
         self.sessions.borrow_mut().push(Pane::Files(pane));

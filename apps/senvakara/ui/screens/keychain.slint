@@ -3,20 +3,14 @@
 
 import { ScrollView } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
-import { CardGrid, EmptyState, ItemCard, MenuRow, Notice, SectionHeader, ToolButton } from "../components/widgets.slint";
+import { CardGrid, EmptyState, ItemCard, MenuRow, Notice, PageToolbar, SectionHeader, ToolButton } from "../components/widgets.slint";
 import { Keychain, KeyItem } from "keychain/model.slint";
 import { KeyFormPanel } from "keychain/key-form.slint";
 
 export { Keychain, KeyItem }
 
 export component KeychainPage inherits VerticalLayout {
-    HorizontalLayout {
-        padding-left: Theme.space-6;
-        padding-right: Theme.space-6;
-        padding-top: Theme.space-4;
-        padding-bottom: Theme.space-3;
-        spacing: Theme.space-2;
-        alignment: start;
+    PageToolbar {
 
         // "New key" and, behind the chevron, starting from a file.
         HorizontalLayout {
@@ -90,11 +84,10 @@ export component KeychainPage inherits VerticalLayout {
                 Keychain.new-key("fido2");
             }
         }
-    }
 
-    Rectangle {
-        height: 1px;
-        background: Theme.hairline;
+        Rectangle {
+            horizontal-stretch: 1;
+        }
     }
 
     ScrollView {
