@@ -358,10 +358,24 @@ pub(crate) async fn host_connect(app: &Arc<App>, id: String) -> CmdResult<HostVi
 }
 
 /// Connect with the pinned host key, refresh capabilities and start watching
-/// the host's Android devices. Shared by Connect and automatic reconnect.
+/// the host's Android devices. Shared by Connect and automatic reconnect. A
+/// Connect on a connection that is already up prepares it again, so a host
+/// where adb was installed in the meantime is picked up.
 pub(crate) async fn connect_and_watch(app: &Arc<App>, state: &AppState, id: &str) -> CmdResult<()> {
-    let id = id.to_string();
-    let conn = state.connection(&id).await?;
+    let was_live = state.is_connected(id);
+    let conn = state.connection(id).await?;
+    prepare_host(app, id, conn, was_live).await;
+    Ok(())
+}
+
+/// Read a connected host's capabilities and watch the phones attached to it
+/// (ADB through the SSH tunnel, ADR-014). Runs once per connection, whatever
+/// opened it, unless `again`; errors end up in the host's ADB status.
+pub(crate) async fn prepare_host(app: &Arc<App>, id: &str, conn: Arc<SshConnection>, again: bool) {
+    let state = &app.state;
+    if !state.claim_prepare(id, &conn) && !again {
+        return;
+    }
     let os = conn
         .exec(&["cat", "/etc/os-release"])
         .await
@@ -378,10 +392,11 @@ pub(crate) async fn connect_and_watch(app: &Arc<App>, state: &AppState, id: &str
         .map(|o| o.stdout_str().trim().to_string())
         .unwrap_or_default();
     let adb = conn
-        .exec(&["sh", "-c", "command -v adb"])
+        .exec(&["sh", "-c", FIND_ADB])
         .await
         .map(|o| o.success().then(|| o.stdout_str().trim().to_string()))
-        .unwrap_or(None);
+        .unwrap_or(None)
+        .filter(|path| !path.is_empty());
     let caps = serde_json::json!({
         "os_pretty_name": field("PRETTY_NAME"),
         "os_id": field("ID"),
@@ -398,18 +413,29 @@ pub(crate) async fn connect_and_watch(app: &Arc<App>, state: &AppState, id: &str
             .map(|o| vpn_interfaces(&o.stdout_str()))
             .unwrap_or_default(),
     });
-    state
+    if let Err(e) = state
         .db
         .lock()
         .unwrap()
-        .set_capabilities(&id, &caps.to_string())
-        .map_err(|e| db_err("capabilities", e))?;
-    // Android devices attached to this host become visible while connected.
-    if let Some(path) = adb.as_deref() {
-        crate::android::start_remote(app, &id, conn.clone(), path).await;
+        .set_capabilities(id, &caps.to_string())
+    {
+        db_err("capabilities", e);
     }
-    Ok(())
+    // Android devices attached to this host become visible while connected.
+    match adb.as_deref() {
+        Some(path) => crate::android::start_remote(app, id, conn.clone(), path).await,
+        None => crate::android::adb_missing(app, id),
+    }
+    app.emit(crate::AppEvent::DevicesChanged);
 }
+
+/// Finds adb on a Linux host. A non-interactive shell does not read the
+/// user's profile, so an SDK under the home folder is looked for by name.
+const FIND_ADB: &str = r#"command -v adb && exit 0
+for p in "$HOME/Android/Sdk/platform-tools/adb" "$HOME/android-sdk/platform-tools/adb" "$HOME/Library/Android/sdk/platform-tools/adb" /opt/android-sdk/platform-tools/adb /usr/lib/android-sdk/platform-tools/adb; do
+  if [ -x "$p" ]; then echo "$p"; exit 0; fi
+done
+exit 1"#;
 
 pub(crate) async fn host_disconnect(app: &Arc<App>, id: String) -> CmdResult<HostView> {
     let state = &app.state;

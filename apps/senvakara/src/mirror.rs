@@ -2,8 +2,12 @@
 //! on its own thread, and the input sent back.
 //!
 //! Only the newest decoded frame is kept: when the UI is behind, older frames are dropped.
+//!
+//! A pane that is not on screen decodes nothing (ADR-024, rule 8 of `docs/AGENTS.md`): its
+//! packets are read and dropped so the phone never blocks, and coming back asks the phone for a
+//! new key frame ("reset video") and resumes from it.
 
-mod held;
+mod gate;
 
 use std::cell::Cell;
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU32, Ordering};
@@ -16,7 +20,7 @@ use senvakara_app::{Input, MirrorEvent, Sink};
 use slint::platform::Key;
 use slint::{Rgba8Pixel, SharedPixelBuffer};
 
-use held::Held;
+use gate::{Admit, Gate};
 
 /// The touch pointer id the server sees (one finger).
 const FINGER: u64 = 1;
@@ -31,10 +35,10 @@ struct Shared {
     remote: AtomicI64,
     /// The pane was closed: stop as soon as possible.
     closed: AtomicBool,
-    /// The pane is on screen. A hidden pane still decodes, but makes no RGBA pictures.
+    /// The pane is on screen. A hidden pane drops every packet instead of decoding it.
     visible: AtomicBool,
-    /// The newest picture decoded while hidden.
-    held: Mutex<Option<Held>>,
+    /// A new key frame was asked for before the stream had started; it is sent when it has.
+    reset_wanted: AtomicBool,
     notify: Box<dyn Fn() + Send + Sync>,
 }
 
@@ -89,7 +93,7 @@ impl MirrorPane {
             remote: AtomicI64::new(-1),
             closed: AtomicBool::new(false),
             visible: AtomicBool::new(true),
-            held: Mutex::new(None),
+            reset_wanted: AtomicBool::new(false),
             notify: Box::new(notify),
         });
 
@@ -118,6 +122,7 @@ impl MirrorPane {
                         if shared.closed.load(Ordering::Acquire) {
                             backend.mirror_stop(started.id);
                         }
+                        request_reset(&backend, &shared, false);
                     }
                     Err(error) => {
                         *shared.ended.lock().unwrap() = Some(crate::inventory::friendly(&error));
@@ -143,30 +148,12 @@ impl MirrorPane {
         }
     }
 
-    /// The pane came on screen or left it. While it is hidden no picture is converted or
-    /// uploaded; coming back shows the newest picture the phone sent in the meantime.
+    /// The pane came on screen or left it. While it is hidden nothing is decoded; coming back
+    /// asks the phone for a new key frame, and the picture on screen stays until it arrives.
     pub fn set_visible(&self, visible: bool) {
-        if self.shared.visible.swap(visible, Ordering::AcqRel) == visible || !visible {
-            return;
+        if self.shared.visible.swap(visible, Ordering::AcqRel) != visible && visible {
+            request_reset(&self.backend, &self.shared, true);
         }
-        let shared = self.shared.clone();
-        // The conversion is the slow part and must not hold up the UI thread.
-        std::thread::Builder::new()
-            .name(format!("mirror-resume-{}", self.id))
-            .spawn(move || {
-                let Some(held) = shared.held.lock().unwrap().take() else {
-                    return;
-                };
-                let picture = held.to_rgba();
-                let mut frame = shared.frame.lock().unwrap();
-                // A picture decoded since the pane came back is newer: keep it.
-                if frame.is_none() {
-                    *frame = Some(picture);
-                    drop(frame);
-                    shared.mark();
-                }
-            })
-            .ok();
     }
 
     pub fn size(&self) -> (u16, u16) {
@@ -310,23 +297,56 @@ impl Drop for MirrorPane {
     }
 }
 
-fn decode_loop(inbox: mpsc::Receiver<MirrorEvent>, shared: &Shared) {
-    let mut decoder = match Decoder::new() {
-        Ok(decoder) => decoder,
+/// Ask the phone to restart its encoder, so a new config packet and key frame follow. Before the
+/// stream has started the request is kept and sent when it has.
+fn request_reset(backend: &senvakara_app::App, shared: &Shared, wanted: bool) {
+    if wanted {
+        shared.reset_wanted.store(true, Ordering::Release);
+    }
+    let remote = shared.remote.load(Ordering::Acquire);
+    if remote >= 0 && shared.reset_wanted.swap(false, Ordering::AcqRel) {
+        let _ = backend.mirror_input(remote as u32, Input::ResetVideo);
+    }
+}
+
+fn new_decoder(shared: &Shared) -> Option<Decoder> {
+    match Decoder::new() {
+        Ok(decoder) => Some(decoder),
         Err(error) => {
             *shared.ended.lock().unwrap() =
                 Some(format!("The video decoder could not start. ({error})"));
             shared.mark();
-            return;
+            None
         }
+    }
+}
+
+fn decode_loop(inbox: mpsc::Receiver<MirrorEvent>, shared: &Shared) {
+    let Some(mut decoder) = new_decoder(shared) else {
+        return;
     };
+    let mut gate = Gate::default();
+    // The packet that follows a config event carries the new parameter sets.
+    let mut config = false;
     for event in inbox {
         if shared.closed.load(Ordering::Acquire) {
             break;
         }
         match event {
-            MirrorEvent::Config(_) => {}
-            MirrorEvent::Packet { data, .. } => {
+            MirrorEvent::Config(_) => config = true,
+            MirrorEvent::Packet { key, data, .. } => {
+                let with_config = std::mem::take(&mut config);
+                match gate.admit(shared.visible.load(Ordering::Acquire), key, with_config) {
+                    Admit::Skip => continue,
+                    Admit::Decode => {}
+                    Admit::DecodeFresh => {
+                        // Frames were skipped: start clean from this key frame.
+                        let Some(fresh) = new_decoder(shared) else {
+                            return;
+                        };
+                        decoder = fresh;
+                    }
+                }
                 // One packet is one access unit (parameter sets are already prepended to key
                 // frames by the adapter): decode it whole, without the flush that makes the
                 // decoder lose its place between frames.
@@ -334,24 +354,12 @@ fn decode_loop(inbox: mpsc::Receiver<MirrorEvent>, shared: &Shared) {
                     &data,
                     DecodeOptions::new().flush_after_decode(Flush::NoFlush),
                 );
-                let mut produced = None;
                 // Errors before the first key frame are expected: keep going.
                 if let Ok(Some(picture)) = result {
-                    // Checked under the lock `set_visible` takes the held picture with, so a
-                    // picture is either kept for it or converted here.
-                    let mut held = shared.held.lock().unwrap();
-                    if shared.visible.load(Ordering::Acquire) {
-                        drop(held);
-                        let (width, height) = picture.dimensions();
-                        let mut buffer =
-                            SharedPixelBuffer::<Rgba8Pixel>::new(width as u32, height as u32);
-                        picture.write_rgba8(buffer.make_mut_bytes());
-                        produced = Some(buffer);
-                    } else {
-                        Held::keep(&mut held, &picture);
-                    }
-                }
-                if let Some(buffer) = produced {
+                    let (width, height) = picture.dimensions();
+                    let mut buffer =
+                        SharedPixelBuffer::<Rgba8Pixel>::new(width as u32, height as u32);
+                    picture.write_rgba8(buffer.make_mut_bytes());
                     *shared.frame.lock().unwrap() = Some(buffer);
                     shared.frames.fetch_add(1, Ordering::Relaxed);
                     shared.mark();

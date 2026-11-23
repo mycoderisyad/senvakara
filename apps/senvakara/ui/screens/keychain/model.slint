@@ -49,6 +49,8 @@ export global Keychain {
     in property <string> private-error;
     in property <string> public-error;
     in property <string> certificate-error;
+    // The private key is encrypted and no passphrase is typed.
+    in property <string> passphrase-error;
     // Why saving, importing or deleting failed.
     in property <string> form-error;
     in property <bool> saving;

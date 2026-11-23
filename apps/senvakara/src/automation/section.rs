@@ -48,6 +48,8 @@ impl App {
                 if let Some(route) = route {
                     *app.auto.deploy_route.borrow_mut() = route;
                 }
+                // The list shows what Rust holds: show the pick.
+                app.deploy_publish();
                 app.deploy_publish();
             }
         });

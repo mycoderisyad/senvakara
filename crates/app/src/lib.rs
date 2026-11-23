@@ -59,6 +59,7 @@ pub use terminal::ShellRequest;
 pub use senvakara_adapters_adb::sync::SyncEntry;
 pub use senvakara_adapters_adb::wireless::MdnsService;
 pub use senvakara_adapters_scrcpy::control::Input;
+pub use senvakara_adapters_ssh::keys::is_encrypted_private_key;
 pub use senvakara_adapters_ssh::sftp::{Listing, RemoteEntry};
 pub use senvakara_adapters_ssh::SshConnection;
 pub use senvakara_core::{CoreError, ErrorCode};
@@ -125,6 +126,20 @@ impl App {
         });
         android::start_local(&app);
         monitor::spawn_heartbeat(&app);
+        // Whatever opens a host (a terminal, Files, a desktop), its phones are
+        // watched while it is connected, not only after Connect.
+        let weak = Arc::downgrade(&app);
+        app.state.set_on_connect(move |host_id| {
+            let Some(app) = weak.upgrade() else { return };
+            let Some(conn) = app.state.live(host_id) else {
+                return;
+            };
+            let host_id = host_id.to_string();
+            let task_app = app.clone();
+            app.rt.spawn(async move {
+                hosts::prepare_host(&task_app, &host_id, conn, false).await;
+            });
+        });
         Ok(app)
     }
 
@@ -294,6 +309,13 @@ impl App {
     pub async fn keychain_delete(self: &Arc<Self>, id: String) -> CmdResult<()> {
         let app = self.clone();
         self.blocking(move || keychain::keychain_delete(&app.state, &id))
+            .await
+    }
+
+    /// Whether the key file at `path` asks for a passphrase. Fails when the file cannot be
+    /// read or is no key file; the key text never leaves the backend.
+    pub async fn key_file_is_encrypted(&self, path: std::path::PathBuf) -> CmdResult<bool> {
+        self.blocking(move || keychain::key_file_is_encrypted(&path))
             .await
     }
 

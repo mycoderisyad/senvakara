@@ -12,7 +12,8 @@
 use crate::logging;
 use crate::state::{db_err, to_core, AppState, CmdResult};
 use senvakara_adapters_ssh::keys::{
-    check_certificate, inspect_private_key, inspect_public_key, same_public_key, KeyInfo,
+    check_certificate, inspect_private_key, inspect_public_key, is_encrypted_private_key,
+    same_public_key, KeyInfo,
 };
 use senvakara_core::{CoreError, ErrorCode};
 use senvakara_secrets::SecretStore;
@@ -419,9 +420,9 @@ fn sibling(path: &Path, suffix: &str) -> Option<String> {
     (!line.is_empty() && !line.contains('\n')).then(|| line.to_string())
 }
 
-/// Read a private key file for the "new key" form. Nothing is stored yet.
-/// The path is the user's own choice; it is not echoed in errors or logs.
-pub(crate) fn keychain_import_file(path: &Path) -> CmdResult<KeyImport> {
+/// The text of a private key file, or why it is not one. The path is the user's own choice; it
+/// is not echoed in errors or logs.
+fn read_key_text(path: &Path) -> CmdResult<String> {
     let unreadable = || invalid("the key file cannot be read");
     let size = std::fs::metadata(path).map_err(|_| unreadable())?.len();
     if size > MAX_KEY_FILE_BYTES {
@@ -435,6 +436,19 @@ pub(crate) fn keychain_import_file(path: &Path) -> CmdResult<KeyImport> {
             "this file holds no private key; choose the file without the .pub ending",
         ));
     }
+    Ok(private_key)
+}
+
+/// Whether the private key file at `path` is protected by a passphrase. Only the answer leaves
+/// this function: the key text is neither returned nor logged.
+pub(crate) fn key_file_is_encrypted(path: &Path) -> CmdResult<bool> {
+    read_key_text(path).map(|text| is_encrypted_private_key(&text))
+}
+
+/// Read a private key file for the "new key" form. Nothing is stored yet.
+/// The path is the user's own choice; it is not echoed in errors or logs.
+pub(crate) fn keychain_import_file(path: &Path) -> CmdResult<KeyImport> {
+    let private_key = read_key_text(path)?;
     let label = path
         .file_name()
         .map(|name| name.to_string_lossy().into_owned())

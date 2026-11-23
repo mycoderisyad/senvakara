@@ -6,6 +6,7 @@
 mod chips;
 mod credentials;
 mod form;
+mod keyfile;
 mod paths;
 mod removal;
 mod save;
@@ -46,6 +47,9 @@ pub struct State {
     tags: RefCell<Vec<String>>,
     /// The Keychain key the form signs in with, when that is the chosen method.
     key_id: RefCell<String>,
+    /// The key file the form signs in with, and whether it asks for a passphrase (None until
+    /// the backend has read it, or when it could not).
+    key_file: RefCell<(String, Option<bool>)>,
     /// Which secrets the host had when the form opened.
     saved: Cell<secrets::Saved>,
     /// A host saved with Connect whose key must be trusted first: its terminal opens as soon

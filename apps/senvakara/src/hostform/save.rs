@@ -92,6 +92,12 @@ impl App {
                 return;
             }
         };
+        // An encrypted key file needs its passphrase; the note under that field says so.
+        // (Not part of `Problems`, which is returned by value and is already as big as clippy
+        // allows.)
+        if !self.host_form_passphrase_problem(&form).is_empty() {
+            return;
+        }
         let fields = self.host_form_fields(&form);
         let secrets = changes(
             fields.protocol,

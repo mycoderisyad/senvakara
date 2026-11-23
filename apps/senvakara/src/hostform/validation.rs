@@ -97,6 +97,22 @@ impl Problems {
     }
 }
 
+/// The note under the passphrase of a key file that is encrypted when no passphrase will be
+/// there: none typed, and none saved that stays. `encrypted` is None while it is not known.
+pub fn key_passphrase_problem(
+    encrypted: Option<bool>,
+    typed: bool,
+    saved: bool,
+    removed: bool,
+) -> &'static str {
+    let kept = saved && !removed;
+    if encrypted == Some(true) && !typed && !kept {
+        "This key is encrypted: enter its passphrase."
+    } else {
+        ""
+    }
+}
+
 /// Why `text` is not a host name or IP address, or "" when it is.
 pub fn address_problem(text: &str) -> &'static str {
     let text = text.trim();

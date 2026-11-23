@@ -14,6 +14,14 @@ pub struct Question {
     pub danger: bool,
 }
 
+/// A question that waits for the dialog: one answer at a time, none lost.
+pub struct Asked {
+    question: Question,
+    facts: Vec<KeyValue>,
+    warning: String,
+    pending: Pending,
+}
+
 /// What happens when the user accepts the open confirmation.
 pub enum Pending {
     CloseSession(i32),
@@ -86,7 +94,8 @@ impl App {
     }
 
     /// Like [`App::ask`], listing exactly what will be affected. An empty confirm label makes
-    /// the dialog informational: only Close is offered.
+    /// the dialog informational: only Close is offered. While another question is open this
+    /// one waits and is shown after it is answered.
     pub fn ask_with(
         &self,
         question: Question,
@@ -94,6 +103,15 @@ impl App {
         warning: &str,
         pending: Pending,
     ) {
+        if self.pending.borrow().is_some() {
+            self.asks.borrow_mut().push_back(Asked {
+                question,
+                facts,
+                warning: warning.to_string(),
+                pending,
+            });
+            return;
+        }
         let Some(ui) = self.ui.upgrade() else { return };
         let confirm = ui.global::<Confirm>();
         confirm.set_title(question.title.into());
@@ -106,9 +124,16 @@ impl App {
         confirm.set_open(true);
     }
 
-    /// The user answered the open confirmation. Name clashes that waited for it come next.
+    /// The user answered the open confirmation. Questions that waited for it come next, then
+    /// name clashes of the job list.
     pub(crate) fn answer(self: &Rc<Self>, accepted: bool) {
         self.answer_pending(accepted);
+        if self.pending.borrow().is_none() {
+            let next = self.asks.borrow_mut().pop_front();
+            if let Some(next) = next {
+                self.ask_with(next.question, next.facts, &next.warning, next.pending);
+            }
+        }
         self.job_conflict_next();
     }
 

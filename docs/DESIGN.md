@@ -30,7 +30,7 @@ Direction, pinned by the owner: close to Termius (layout, type scale, surfaces a
 +-----------+------------------------------------------+-------------------+
 ```
 
-- **Tab strip (46 px, `shell`):** pinned Home, then one 32 px pill tab per session. A session tab starts with a 22 px tile filled with the hue of the machine it runs on and the icon of its kind (terminal, screen, logcat, files, desktop, workspace, run); the active tab is filled `surface-hover`, the others carry a faint white wash. Closing a running session asks first. "+" opens the New Tab page (search over recent connections, hosts, local shells, phones and SFTP; the pick takes the page's place in the strip); the chevron next to it is a menu of local shells, then hosts, then phones, whose first nine entries answer to Ctrl+Shift+1 to 9.
+- **Tab strip (46 px, `shell`):** pinned Home, then one 32 px pill tab per session. A session tab starts with a 22 px tile filled with the hue of the machine it runs on and the icon of its kind (terminal, screen, logcat, files, desktop, workspace, run); the active tab is filled `surface-hover`, the others carry a faint white wash. Tabs that do not fit scroll sideways with the mouse wheel, and the active one is scrolled into view. Closing a running session asks first. "+" opens the New Tab page (search over recent connections, hosts, local shells, phones and SFTP; the pick takes the page's place in the strip); the chevron next to it is a menu of local shells, then hosts, then phones, whose first nine entries answer to Ctrl+Shift+1 to 9.
 - **Sidebar (196 px, `surface`):** the product name, then Hosts, Devices, Keychain, Workspaces, Automations; Settings at the bottom. Items are 36 px, radius 10, 14 px medium labels with a count on the right.
 - **Pages:** a toolbar row (search with a refresh button, then the page's actions; primary action filled with the accent), a hairline, then the page title (18 px semibold) with its state line, and the content with 24 px side padding. Hosts and Devices are separate pages; an empty list shows an empty state with the one action that fills it.
 - **Inspector (352 px, `ground`):** opens for the selected host or device: a header with the hue tile, then state, actions and titled cards (Health, Details, Network paths). A form that has been typed into is never discarded without asking.
@@ -65,7 +65,7 @@ Direction, pinned by the owner: close to Termius (layout, type scale, surfaces a
 
 All in `apps/senvakara/ui/components`. Every interactive one reacts to hover, press and keyboard focus (1 px accent border) and exposes an accessible role and label.
 
-- **Controls** (`controls.slint`; `widgets.slint`, which re-exports the files in `widgets/`): `Button` (primary, secondary, danger, ghost), `IconButton`, `TextField` (with error text and a masked variant), `BoundField`, `Select`, `CheckBox`, `Segmented`, `SearchField`, `ProgressBar`.
+- **Controls** (`controls.slint`; `widgets.slint`, which re-exports the files in `widgets/`): `Button` (primary, secondary, danger, ghost), `IconButton`, `TextField` (with error text and a masked variant), `BoundField`, `Select` (a themed field with a pop-up list; Up and Down change the pick), `CheckBox`, `Segmented`, `SearchField`, `ProgressBar`.
 - **Status and text:** `StatusMark` (live = filled dot, idle = ring, busy = half-filled ring, attention = filled square, each with a word), `Notice` (danger, warning, info, success), `Reason` (why a control is unavailable), `DetailRow`, `MeterRow`, `GroupTitle`, `PageTitle`, `Hint`.
 - **Forms** (`widgets/form.slint`): `IconField` (a field with a leading icon and an optional icon button at its end), `TextArea`, `Chip` and `ChipRows` (lines packed in Rust), `MenuRow` for pop-up lists, `LinkRow`, `ToolButton`. The host form and the key form group their fields in `Card`s. A pop-up list (`PopupWindow`) is used for the key menu of the host form, the "New key" chevron and the menu next to "+" in the tab strip.
 - **Lists:** `ItemCard` (filled hue tile, name, route or address, state in a fixed right-hand cell, context menu), `SidebarItem`, `ActionList`, `JobList`.
@@ -93,5 +93,3 @@ Keyboard reachable throughout, visible focus, text contrast of at least 4.5:1 on
 - The title bar follows the Windows theme rather than being forced dark.
 - Minimum window size 900 x 560 has not been checked on every screen.
 - The monospace face is the system's Cascadia Mono, not a bundled font.
-- `Select` uses Slint's Fluent `ComboBox`, whose colours come from the Fluent dark palette rather than these tokens.
-- The tab strip does not scroll; with many tabs the last ones run past the window edge.

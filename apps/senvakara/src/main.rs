@@ -86,6 +86,7 @@ fn main() -> anyhow::Result<()> {
         grid: Cell::new((100, 30)),
         focus_term: Cell::new(0),
         pending: RefCell::new(None),
+        asks: Default::default(),
     });
     APP.with(|slot| *slot.borrow_mut() = Some(app.clone()));
 

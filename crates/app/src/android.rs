@@ -33,6 +33,9 @@ struct LiveRoute {
     server: AdbServer,
     serial: String,
     transport_id: Option<u64>,
+    /// The state word ADB reported (`device`, `unauthorized`, `no` for "no
+    /// permissions", ...), finer than the stored route state.
+    adb_state: String,
 }
 
 struct Watcher {
@@ -111,6 +114,7 @@ fn reconcile(app: &Arc<App>, host_id: &str, server: AdbServer, devices: &[AdbDev
                             server,
                             serial: d.serial.clone(),
                             transport_id: d.transport_id,
+                            adb_state: d.state.clone(),
                         },
                     );
                     present.push(rec.route_id);
@@ -292,6 +296,17 @@ pub(crate) async fn start_remote(
     logging::info(&format!("adb tunnel for host {host_id} on {addr}"));
 }
 
+/// A connected Linux host without adb: say so instead of showing no phones.
+pub(crate) fn adb_missing(app: &Arc<App>, host_id: &str) {
+    stop_host(app, host_id);
+    set_status(
+        app,
+        host_id,
+        false,
+        "adb is not installed on this host: install Android platform-tools          (on Fedora: sudo dnf install android-tools), then connect again",
+    );
+}
+
 /// Stop watching a host (disconnect / delete) and mark its routes unavailable.
 pub(crate) fn stop_host(app: &Arc<App>, host_id: &str) {
     app.android.servers.lock().unwrap().remove(host_id);
@@ -311,6 +326,8 @@ pub struct DeviceView {
     #[serde(flatten)]
     pub record: DeviceRouteRecord,
     pub transport_id: Option<u64>,
+    /// What ADB reports for the phone right now, while it is seen at all.
+    pub adb_state: Option<String>,
 }
 
 pub(crate) fn devices_list(app: &App) -> CmdResult<Vec<DeviceView>> {
@@ -325,9 +342,13 @@ pub(crate) fn devices_list(app: &App) -> CmdResult<Vec<DeviceView>> {
     let live = android.live.lock().unwrap();
     Ok(records
         .into_iter()
-        .map(|record| DeviceView {
-            transport_id: live.get(&record.route_id).and_then(|l| l.transport_id),
-            record,
+        .map(|record| {
+            let live = live.get(&record.route_id);
+            DeviceView {
+                transport_id: live.and_then(|l| l.transport_id),
+                adb_state: live.map(|l| l.adb_state.clone()),
+                record,
+            }
         })
         .collect())
 }

@@ -252,3 +252,22 @@ fn a_key_file_is_read_with_the_public_key_next_to_it() {
     let error = keychain_import_file(&f.dir.join("nowhere")).err().unwrap();
     assert!(!error.message.contains("nowhere"), "{error}");
 }
+
+#[test]
+fn a_key_file_tells_whether_it_asks_for_a_passphrase_without_returning_the_key() {
+    let dir = std::env::temp_dir().join(format!("svk-keyfile-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let key = key();
+    let locked = key.encrypt(&mut rand::rng(), "open sesame").unwrap();
+    std::fs::write(dir.join("plain"), text(&key)).unwrap();
+    std::fs::write(dir.join("locked"), text(&locked)).unwrap();
+    std::fs::write(dir.join("notes.txt"), "hello").unwrap();
+
+    assert_eq!(key_file_is_encrypted(&dir.join("plain")), Ok(false));
+    assert_eq!(key_file_is_encrypted(&dir.join("locked")), Ok(true));
+    // Not a key file, or not there: no answer, and no path in the message.
+    assert!(key_file_is_encrypted(&dir.join("notes.txt")).is_err());
+    let error = key_file_is_encrypted(&dir.join("nowhere")).unwrap_err();
+    assert!(!error.message.contains("nowhere"), "{error}");
+    let _ = std::fs::remove_dir_all(&dir);
+}

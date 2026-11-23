@@ -11,7 +11,7 @@ use senvakara_storage::{Db, HostRecord, KeyKind, SshAuth, SshEndpoint, StorageEr
 use serde::Serialize;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 
 pub struct AppState {
@@ -30,7 +30,15 @@ pub struct AppState {
     pub reconnecting: Mutex<HashMap<String, u32>>,
     /// Which address each live connection went through (NET-03).
     pub paths: Mutex<HashMap<String, ActivePath>>,
+    /// Told the host id after every new connection, whatever opened it (a
+    /// terminal, Files, a desktop), so the host's phones are watched too.
+    on_connect: OnceLock<OnConnect>,
+    /// The connection each host was last prepared for (capabilities read,
+    /// ADB watched), by address, so it is prepared once per connection.
+    prepared: Mutex<HashMap<String, usize>>,
 }
+
+type OnConnect = Box<dyn Fn(&str) + Send + Sync>;
 
 /// The network path a live host connection uses.
 #[derive(Debug, Clone, Serialize)]
@@ -115,7 +123,24 @@ impl AppState {
             want_connected: Default::default(),
             reconnecting: Default::default(),
             paths: Default::default(),
+            on_connect: OnceLock::new(),
+            prepared: Default::default(),
         })
+    }
+
+    /// Set what runs after every new connection. Only the first call counts.
+    pub(crate) fn set_on_connect(&self, f: impl Fn(&str) + Send + Sync + 'static) {
+        let _ = self.on_connect.set(Box::new(f));
+    }
+
+    /// Claim the preparation of `conn` for `host_id`: true for the first
+    /// caller per connection, false when it was already claimed.
+    pub(crate) fn claim_prepare(&self, host_id: &str, conn: &Arc<SshConnection>) -> bool {
+        claim(
+            &mut self.prepared.lock().unwrap(),
+            host_id,
+            Arc::as_ptr(conn) as usize,
+        )
     }
 
     fn host_lock(&self, host_id: &str) -> Arc<tokio::sync::Mutex<()>> {
@@ -271,6 +296,11 @@ impl AppState {
             .lock()
             .unwrap()
             .insert(host_id.to_string(), done.conn.clone());
+        // A new connection may reuse the address of a dropped one.
+        self.prepared.lock().unwrap().remove(host_id);
+        if let Some(f) = self.on_connect.get() {
+            f(host_id);
+        }
         Ok(done.conn)
     }
 
@@ -279,11 +309,39 @@ impl AppState {
         let lock = self.host_lock(host_id);
         let _connecting = lock.lock().await;
         self.paths.lock().unwrap().remove(host_id);
+        self.prepared.lock().unwrap().remove(host_id);
         let removed = self.conns.lock().unwrap().remove(host_id);
         if let Some(c) = removed {
             let _ = c.close().await;
             logging::info(&format!("disconnected from host {host_id}"));
         }
+    }
+}
+
+/// True the first time `key` is claimed for `host_id`; a different key (a
+/// new connection) claims again.
+fn claim(claims: &mut HashMap<String, usize>, host_id: &str, key: usize) -> bool {
+    if claims.get(host_id) == Some(&key) {
+        return false;
+    }
+    claims.insert(host_id.to_string(), key);
+    true
+}
+
+#[cfg(test)]
+mod claim_tests {
+    use super::claim;
+    use std::collections::HashMap;
+
+    #[test]
+    fn a_connection_is_prepared_once_and_a_new_one_again() {
+        let mut claims = HashMap::new();
+        assert!(claim(&mut claims, "fedora", 1));
+        assert!(!claim(&mut claims, "fedora", 1));
+        assert!(claim(&mut claims, "other", 1));
+        assert!(claim(&mut claims, "fedora", 2));
+        claims.remove("fedora");
+        assert!(claim(&mut claims, "fedora", 2));
     }
 }
 

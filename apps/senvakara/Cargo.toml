@@ -31,6 +31,12 @@ vnc-rs = "=0.6.1"
 # Local time for the "Modified" column of the file panes; already in the workspace lock.
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 
+[dev-dependencies]
+# Key form tests generate throw-away SSH keys. Same pins and features as crates/adapters-ssh
+# (ADR-016), so nothing extra is built.
+russh = { version = "=0.65.2", default-features = false, features = ["ring", "flate2", "rsa"] }
+rand = { version = "0.10", features = ["thread_rng"] }
+
 [build-dependencies]
 slint-build = "=1.18.1"
 # Embeds the icon and version information in senvakara.exe.

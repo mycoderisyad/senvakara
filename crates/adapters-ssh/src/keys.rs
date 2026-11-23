@@ -52,6 +52,33 @@ pub fn inspect_private_key(private_key: &str, passphrase: Option<&str>) -> Resul
     info(unlock(private_key, passphrase)?.public_key())
 }
 
+/// Whether private key text is protected by a passphrase, told from its headers without
+/// unlocking it or deriving any key: an OpenSSH key with a cipher other than `none`, legacy PEM
+/// with `Proc-Type: 4,ENCRYPTED`, PKCS#8 `BEGIN ENCRYPTED PRIVATE KEY`, or a PuTTY key whose
+/// `Encryption:` is not `none`. Text that is no key of those kinds is not "encrypted".
+pub fn is_encrypted_private_key(text: &str) -> bool {
+    let text = text.trim();
+    if text.contains("-----BEGIN ENCRYPTED PRIVATE KEY-----") {
+        return true;
+    }
+    if text.contains("-----BEGIN OPENSSH PRIVATE KEY-----") {
+        return PrivateKey::from_openssh(text).is_ok_and(|key| key.is_encrypted());
+    }
+    if text.starts_with("PuTTY-User-Key-File") {
+        return text.lines().any(|line| {
+            line.strip_prefix("Encryption:")
+                .is_some_and(|cipher| !cipher.trim().eq_ignore_ascii_case("none"))
+        });
+    }
+    // Legacy PEM: the header sits inside the block, before the body.
+    text.contains("PRIVATE KEY-----")
+        && text.lines().any(|line| {
+            line.trim()
+                .strip_prefix("Proc-Type:")
+                .is_some_and(|value| value.contains("ENCRYPTED"))
+        })
+}
+
 /// Parse an OpenSSH public key line (`ssh-ed25519 AAAA... comment`).
 pub fn inspect_public_key(line: &str) -> Result<KeyInfo> {
     let key = PublicKey::from_openssh(line.trim())
@@ -122,6 +149,52 @@ mod tests {
         let wrong = message(inspect_private_key(&text, Some("guess")).unwrap_err());
         assert!(!wrong.contains("guess"), "{wrong}");
         assert!(inspect_private_key(&text, Some("open sesame")).is_ok());
+    }
+
+    #[test]
+    fn an_openssh_key_is_encrypted_only_when_it_has_a_cipher() {
+        let plain = key();
+        let plain_text = plain.to_openssh(LineEnding::LF).unwrap();
+        assert!(!is_encrypted_private_key(&plain_text));
+        let locked = plain.encrypt(&mut rand::rng(), "open sesame").unwrap();
+        for ending in [LineEnding::LF, LineEnding::CRLF] {
+            let text = locked.to_openssh(ending).unwrap();
+            assert!(is_encrypted_private_key(&text));
+            assert!(is_encrypted_private_key(&format!(
+                "\n  {}\n\n",
+                text.as_str()
+            )));
+        }
+    }
+
+    #[test]
+    fn other_encrypted_formats_are_told_from_their_headers() {
+        let pem_locked = "-----BEGIN RSA PRIVATE KEY-----\nProc-Type: 4,ENCRYPTED\n\
+                          DEK-Info: AES-128-CBC,00112233445566778899AABBCCDDEEFF\n\nAAAA\n\
+                          -----END RSA PRIVATE KEY-----\n";
+        let pem_plain = "-----BEGIN RSA PRIVATE KEY-----\nAAAA\n-----END RSA PRIVATE KEY-----\n";
+        let pkcs8_locked =
+            "-----BEGIN ENCRYPTED PRIVATE KEY-----\nAAAA\n-----END ENCRYPTED PRIVATE KEY-----\n";
+        let pkcs8_plain = "-----BEGIN PRIVATE KEY-----\nAAAA\n-----END PRIVATE KEY-----\n";
+        let putty_locked = "PuTTY-User-Key-File-3: ssh-ed25519\nEncryption: aes256-cbc\n";
+        let putty_plain = "PuTTY-User-Key-File-3: ssh-ed25519\nEncryption: none\n";
+        assert!(is_encrypted_private_key(pem_locked));
+        assert!(is_encrypted_private_key(pkcs8_locked));
+        assert!(is_encrypted_private_key(putty_locked));
+        assert!(!is_encrypted_private_key(pem_plain));
+        assert!(!is_encrypted_private_key(pkcs8_plain));
+        assert!(!is_encrypted_private_key(putty_plain));
+    }
+
+    #[test]
+    fn text_that_is_not_a_private_key_is_not_called_encrypted() {
+        assert!(!is_encrypted_private_key(""));
+        assert!(!is_encrypted_private_key("hello there"));
+        assert!(!is_encrypted_private_key("Proc-Type: 4,ENCRYPTED"));
+        let public = key().public_key().to_openssh().unwrap();
+        assert!(!is_encrypted_private_key(&public));
+        let cut = "-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAA\n";
+        assert!(!is_encrypted_private_key(cut));
     }
 
     #[test]

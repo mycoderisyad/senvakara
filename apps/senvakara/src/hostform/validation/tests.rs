@@ -385,3 +385,20 @@ fn vpn_addresses() {
         "An address cannot contain spaces."
     );
 }
+
+#[test]
+fn an_encrypted_key_file_needs_a_typed_or_kept_passphrase() {
+    let said = "This key is encrypted: enter its passphrase.";
+    // Typed, saved, or removed (with nothing typed instead).
+    assert_eq!(
+        key_passphrase_problem(Some(true), false, false, false),
+        said
+    );
+    assert_eq!(key_passphrase_problem(Some(true), true, false, false), "");
+    assert_eq!(key_passphrase_problem(Some(true), false, true, false), "");
+    assert_eq!(key_passphrase_problem(Some(true), false, true, true), said);
+    assert_eq!(key_passphrase_problem(Some(true), true, true, true), "");
+    // A plain key, or one that has not been read, claims nothing.
+    assert_eq!(key_passphrase_problem(Some(false), false, false, false), "");
+    assert_eq!(key_passphrase_problem(None, false, false, false), "");
+}

@@ -44,8 +44,15 @@ impl State {
     pub(super) fn device_item(&self, device: &DeviceView) -> DeviceItem {
         let record = &device.record;
         let transport = transport_label(&record.connection_type);
+        // ADB lists a phone it may not open as "no permissions" (Linux udev rules).
+        let no_permission = device.adb_state.as_deref() == Some("no");
         let (tone, state_text, hint) = match record.state.as_str() {
             "available" => ("live", "Available", ""),
+            "offline" if no_permission => (
+                "attention",
+                "No permission",
+                "The host's ADB is not allowed to open this phone. Add Android udev rules on the host (developer.android.com/studio/run/device), or check that the user is logged in at the host, then unplug the phone and plug it in again.",
+            ),
             "unauthorized" => (
                 "attention",
                 "Unauthorized",

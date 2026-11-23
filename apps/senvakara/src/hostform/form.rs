@@ -262,6 +262,7 @@ impl App {
         *self.hosts.editing.borrow_mut() = host.map(|host| host.id);
         *self.hosts.tags.borrow_mut() = fields.tags.clone();
         *self.hosts.key_id.borrow_mut() = fields.key_id.clone();
+        *self.hosts.key_file.borrow_mut() = Default::default();
         self.hosts.saved.set(saved);
         self.hosts.submitted.set(false);
         self.keychain_reload();
@@ -269,6 +270,7 @@ impl App {
         self.host_form_show_tags(&form);
         self.host_form_suggest_groups(&form);
         *self.hosts.initial.borrow_mut() = fields;
+        self.host_form_follow_key_file(&form);
         form.set_open(true);
         // A new form starts with the cursor in its first field.
         form.set_revision(form.get_revision().wrapping_add(1));
@@ -323,6 +325,7 @@ impl App {
             form.set_remove_passphrase(false);
         }
         self.host_form_suggest_groups(&form);
+        self.host_form_follow_key_file(&form);
         let fields = self.host_form_fields(&form);
         // Windows files a Remote Desktop password under the address and the user: once either
         // changes, the saved one is gone and the form says so instead of claiming "saved".

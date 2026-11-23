@@ -111,6 +111,11 @@ component KeyFields inherits VerticalLayout {
         }
     }
 
+    if Keychain.passphrase-error != "": Hint {
+        text: Keychain.passphrase-error;
+        ink: Theme.danger;
+    }
+
     Hint {
         text: "The private key and its passphrase are kept in Windows Credential Manager and are never shown again. The public key and the certificate are not secret.";
     }

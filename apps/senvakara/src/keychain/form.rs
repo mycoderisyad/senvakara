@@ -27,6 +27,7 @@ fn show_problems(view: &Keychain, problems: &Problems) {
     view.set_private_error(problems.private_key.into());
     view.set_public_error(problems.public_key.into());
     view.set_certificate_error(problems.certificate.into());
+    view.set_passphrase_error(problems.passphrase.into());
 }
 
 /// Text that is set, or nothing when the field is empty.
@@ -206,12 +207,18 @@ impl App {
     fn keychain_problems(&self, view: &Keychain) -> Problems {
         let kept = kept_of(view);
         match self.keys.editing.borrow().as_deref() {
-            None => check_new(self.keys.mode.get(), &view.get_private_key(), &kept),
+            None => check_new(
+                self.keys.mode.get(),
+                &view.get_private_key(),
+                !view.get_passphrase().is_empty(),
+                &kept,
+            ),
             Some(_) => {
                 let new_private = view.get_replace_private().then(|| view.get_private_key());
                 check_edit(
                     self.keys.mode.get() == Mode::Fido2,
                     new_private.as_deref(),
+                    !view.get_passphrase().is_empty(),
                     &kept,
                 )
             }
@@ -221,8 +228,12 @@ impl App {
     pub(super) fn keychain_edited(&self) {
         let Some(ui) = self.ui.upgrade() else { return };
         let view = ui.global::<Keychain>();
+        let problems = self.keychain_problems(&view);
         if self.keys.submitted.get() {
-            show_problems(&view, &self.keychain_problems(&view));
+            show_problems(&view, &problems);
+        } else {
+            // Which key is encrypted is told as soon as it is pasted or imported.
+            view.set_passphrase_error(problems.passphrase.into());
         }
     }
 

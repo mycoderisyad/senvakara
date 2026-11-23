@@ -54,6 +54,12 @@ Built, unit-tested and the Home screen looked at in the running app; the other s
 - Host form: a tag typed but not added is kept on Save; removing one host no longer closes the form of another; a VPN path may share the address on another port; changing only the letter case of a Remote Desktop address asks for the password again. Remote Desktop hosts no longer count towards "reachable" or appear under "ADB on each host", and a failed launch selects the host so the error shows.
 - Phones: a confirmed deploy runs only for the phone that was confirmed; a hidden screen tab no longer converts or draws frames; deploys inside recipes no longer appear as stand-alone deploys; Wi-Fi scan results can be clicked to fill the field; searching no longer drops the selected phone; card actions on a phone respect an unsaved host form; restarting logcat no longer repeats lines.
 - Recipes ask before unsaved edits are dropped; closing a Run tab right after starting cancels the run; closing a workspace with unsaved layout changes asks first.
+- Phones on a Linux host now appear as soon as the host is opened in any way (a terminal, Files, a desktop, or Connect in the host form), not only after the separate Connect action. adb installed under `~/Android/Sdk` is found too; a host without adb says so under "ADB on each host", and a phone the host's ADB may not open (Linux udev permissions) is shown as "No permission" with what to do. Checked on the reference Fedora laptop: a Redmi 5A on its USB appeared after opening the host through SFTP.
+- A question that comes up while another dialog is open now waits for it instead of replacing it.
+- A screen tab that is not on screen no longer decodes video at all; when it comes back the phone is asked for a fresh picture (scrcpy "reset video", control type 17, checked against the scrcpy v3.3.3 source). Not yet tried with a phone.
+- Remote Desktop hosts open with the user name filled in, also without a saved password: Senvakara writes a small `.rdp` file (address and user only, never a password) under its data folder and opens it with `mstsc.exe`. Not yet tried against a Windows target.
+- An encrypted private key now asks for its passphrase before Save, in the Keychain and for a key file in the host form.
+- Drop-down lists use the app's own style; session tabs that do not fit scroll sideways and the active tab is kept in view.
 
 ### Added — 2026-11-22 (host credentials and Keychain, not yet released)
 

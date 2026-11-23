@@ -50,6 +50,8 @@ pub(crate) struct App {
     pub(crate) palette: palette::State,
     pub(crate) launcher: launcher::State,
     pub(crate) pending: RefCell<Option<Pending>>,
+    /// Questions asked while the dialog was busy with another, oldest first.
+    pub(crate) asks: RefCell<std::collections::VecDeque<crate::confirm::Asked>>,
     pub(crate) ui: slint::Weak<MainWindow>,
     pub(crate) tabs: Rc<VecModel<TabInfo>>,
     pub(crate) sessions: RefCell<Vec<Pane>>,

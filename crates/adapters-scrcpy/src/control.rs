@@ -14,6 +14,8 @@ pub const TYPE_BACK_OR_SCREEN_ON: u8 = 4;
 pub const TYPE_EXPAND_NOTIFICATION_PANEL: u8 = 5;
 pub const TYPE_COLLAPSE_PANELS: u8 = 7;
 pub const TYPE_ROTATE_DEVICE: u8 = 11;
+/// `ControlMessage.TYPE_RESET_VIDEO` in scrcpy v3.3.3: no payload.
+pub const TYPE_RESET_VIDEO: u8 = 17;
 
 /// `INJECT_TEXT_MAX_LENGTH` on the server.
 pub const TEXT_MAX: usize = 300;
@@ -63,6 +65,8 @@ pub enum Input {
     ExpandNotifications,
     CollapsePanels,
     Rotate,
+    /// Restart the encoder: the server sends a new config packet and a key frame.
+    ResetVideo,
 }
 
 fn u16_fixed(v: f32) -> u16 {
@@ -161,6 +165,7 @@ pub fn encode(input: &Input) -> Result<Vec<u8>> {
         Input::ExpandNotifications => b.push(TYPE_EXPAND_NOTIFICATION_PANEL),
         Input::CollapsePanels => b.push(TYPE_COLLAPSE_PANELS),
         Input::Rotate => b.push(TYPE_ROTATE_DEVICE),
+        Input::ResetVideo => b.push(TYPE_RESET_VIDEO),
     }
     Ok(b)
 }
@@ -249,5 +254,12 @@ mod tests {
             [4, 0]
         );
         assert_eq!(encode(&Input::Rotate).unwrap(), [11]);
+    }
+
+    #[test]
+    fn reset_video_is_one_type_byte_with_no_payload() {
+        // Type 17 and an empty payload: `ControlMessage.java` and `ControlMessageReader.java`
+        // of scrcpy v3.3.3 (`TYPE_RESET_VIDEO` is handled like `TYPE_ROTATE_DEVICE`).
+        assert_eq!(encode(&Input::ResetVideo).unwrap(), [17]);
     }
 }

@@ -27,9 +27,17 @@ component TabButton inherits Rectangle {
     in property <bool> closable: true;
     callback selected();
     callback closed();
+    // The tab became the active one: the strip scrolls it into view.
+    callback shown();
+
+    changed active => {
+        if (self.active) {
+            root.shown();
+        }
+    }
 
     height: Theme.tab-height;
-    min-width: 96px;
+    min-width: 72px;
     border-radius: Theme.radius;
     background: active ? Theme.surface-hover : touch.has-hover ? Theme.text.with-alpha(0.07) : Theme.text.with-alpha(0.035);
     accessible-role: tab;
@@ -140,19 +148,52 @@ export component TabStrip inherits Rectangle {
             }
         }
 
-        for tab[index] in root.tabs: TabButton {
-            icon: tab.kind == "mirror" ? @image-url("../icons/phone.svg") : tab.kind == "logcat" ? @image-url("../icons/list.svg") : tab.kind == "files" ? @image-url("../icons/folder.svg") : tab.kind == "desktop" ? @image-url("../icons/monitor.svg") : tab.kind == "workspace" ? @image-url("../icons/layout.svg") : tab.kind == "run" ? @image-url("../icons/play.svg") : tab.kind == "new-tab" ? @image-url("../icons/plus.svg") : @image-url("../icons/terminal.svg");
-            title: tab.title;
-            hue: Theme.host-hue(tab.hue);
-            // The New Tab page belongs to no machine yet.
-            tinted: tab.kind != "new-tab";
-            exited: tab.exited;
-            active: root.active == index;
-            selected => {
-                root.select(index);
-            }
-            closed => {
-                root.close(index);
+        // Session tabs scroll sideways when they do not fit; "+" stays right after them.
+        flick := Flickable {
+            horizontal-stretch: 0;
+            min-width: 0px;
+            preferred-width: row.preferred-width;
+            content-width: row.preferred-width;
+            content-height: self.height;
+            interactive: false;
+
+            wheel := TouchArea {
+                width: row.preferred-width;
+                height: parent.height;
+                scroll-event(event) => {
+                    if (flick.content-width <= flick.width) {
+                        return reject;
+                    }
+                    flick.content-x = Math.max(flick.width - flick.content-width, Math.min(0px, flick.content-x + event.delta-y + event.delta-x));
+                    return accept;
+                }
+
+                row := HorizontalLayout {
+                    spacing: Theme.space-1 + 1px;
+
+                    for tab[index] in root.tabs: TabButton {
+                        icon: tab.kind == "mirror" ? @image-url("../icons/phone.svg") : tab.kind == "logcat" ? @image-url("../icons/list.svg") : tab.kind == "files" ? @image-url("../icons/folder.svg") : tab.kind == "desktop" ? @image-url("../icons/monitor.svg") : tab.kind == "workspace" ? @image-url("../icons/layout.svg") : tab.kind == "run" ? @image-url("../icons/play.svg") : tab.kind == "new-tab" ? @image-url("../icons/plus.svg") : @image-url("../icons/terminal.svg");
+                        title: tab.title;
+                        hue: Theme.host-hue(tab.hue);
+                        // The New Tab page belongs to no machine yet.
+                        tinted: tab.kind != "new-tab";
+                        exited: tab.exited;
+                        active: root.active == index;
+                        selected => {
+                            root.select(index);
+                        }
+                        closed => {
+                            root.close(index);
+                        }
+                        shown => {
+                            if (self.x + flick.content-x < 0) {
+                                flick.content-x = -self.x;
+                            } else if (self.x + self.width + flick.content-x > flick.width) {
+                                flick.content-x = flick.width - self.x - self.width;
+                            }
+                        }
+                    }
+                }
             }
         }
 
