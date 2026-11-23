@@ -72,7 +72,7 @@ export component PaletteOverlay inherits Rectangle {
             y: Math.max(Theme.space-6, root.height * 0.16);
             width: Math.min(560px, root.width - 2 * Theme.space-6);
             height: 46px + 1px + Math.max(1, Math.min(8, Palette.items.length)) * root.row-height + 2 * Theme.space-1;
-            border-radius: 10px;
+            border-radius: Theme.radius-card;
             border-width: 1px;
             border-color: Theme.hairline-strong;
             background: Theme.surface;

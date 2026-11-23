@@ -84,6 +84,12 @@ lines.push("- Source: https://github.com/Genymobile/scrcpy (release v3.3.3), unm
 lines.push("- SHA-256: `7e70323ba7f259649dd4acce97ac4fefbae8102b2c6d91e2e7be613fd5354be0` (verified before every push)");
 lines.push("- Copyright (C) 2018 Genymobile; Copyright (C) 2018-2025 Romain Vimont");
 lines.push(`- License: Apache License 2.0 — full text below as [${apache[0]}](#text-${apache[0]})`, "");
+lines.push("## Bundled font", "");
+lines.push("### Inter 4.1 (Regular, Medium, SemiBold)", "");
+lines.push("- Files: `apps/senvakara/ui/fonts/Inter-*.ttf`, embedded in `senvakara.exe` as the interface font");
+lines.push("- Source: https://github.com/rsms/inter (release v4.1), unmodified");
+lines.push("- License: SIL Open Font License 1.1 — full text below", "");
+lines.push("```text", fs.readFileSync(path.join(root, "apps/senvakara/ui/fonts/Inter-LICENSE.txt"), "utf8").trim(), "```", "");
 lines.push("## Mozilla Public License 2.0 components", "");
 lines.push("The following MPL-2.0 components are used unmodified. Their source code is available from the listed repositories (and, for Rust crates, from https://crates.io).", "");
 for (const p of all.filter((p) => /MPL/.test(p.license))) lines.push(`- ${p.name} ${p.version} — ${p.repo || "see package registry"}`);

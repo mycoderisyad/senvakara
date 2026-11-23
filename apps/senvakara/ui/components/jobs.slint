@@ -39,7 +39,7 @@ component JobRow inherits VerticalLayout {
     accessible-label: job.label + ", " + job.state-text;
 
     HorizontalLayout {
-        height: 26px;
+        height: Theme.control-small;
         spacing: Theme.space-2;
 
         Text {
@@ -60,11 +60,11 @@ component JobRow inherits VerticalLayout {
 
         // A fixed cell, so the state words of all rows line up.
         HorizontalLayout {
-            width: 64px;
+            width: 80px;
             alignment: end;
 
             if root.job.state == "running": Button {
-                height: 26px;
+                height: Theme.control-small;
                 text: "Cancel";
                 accessible-label: "Cancel " + root.job.label;
                 clicked => {
@@ -107,7 +107,7 @@ component JobRow inherits VerticalLayout {
 }
 
 export component JobList inherits Rectangle {
-    background: Theme.shell;
+    background: Theme.surface;
     height: Math.min(220px, content.preferred-height);
 
     Rectangle {
@@ -120,13 +120,14 @@ export component JobList inherits Rectangle {
         content := VerticalLayout {
             width: root.width;
             alignment: start;
-            padding: Theme.space-4;
+            padding-left: Theme.space-6;
+            padding-right: Theme.space-6;
             padding-top: Theme.space-3;
             padding-bottom: Theme.space-3;
             spacing: Theme.space-3;
 
             HorizontalLayout {
-                height: 26px;
+                height: Theme.control-small;
                 GroupTitle {
                     vertical-alignment: center;
                     horizontal-stretch: 1;
@@ -134,7 +135,7 @@ export component JobList inherits Rectangle {
                 }
 
                 if Jobs.has-finished: Button {
-                    height: 26px;
+                    height: Theme.control-small;
                     kind: "ghost";
                     text: "Clear finished";
                     clicked => {

@@ -162,7 +162,7 @@ export component RunView inherits Rectangle {
                 text: Run.title;
                 color: Theme.text;
                 font-size: Theme.text-body;
-                font-weight: 600;
+                font-weight: Theme.weight-strong;
                 overflow: elide;
             }
 
@@ -228,7 +228,7 @@ export component RunView inherits Rectangle {
                         text: "Steps";
                         color: Theme.text-muted;
                         font-size: Theme.text-small;
-                        font-weight: 600;
+                        font-weight: Theme.weight-strong;
                     }
 
                     for step in Run.steps: StepRow {

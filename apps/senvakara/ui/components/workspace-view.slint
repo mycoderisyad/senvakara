@@ -98,7 +98,7 @@ component SlotFrame inherits Rectangle {
                     text: root.slot.title;
                     color: root.slot.state == "live" ? Theme.text : Theme.text-muted;
                     font-size: Theme.text-small;
-                    font-weight: 600;
+                    font-weight: Theme.weight-strong;
                     overflow: elide;
                 }
 
@@ -140,7 +140,7 @@ component SlotFrame inherits Rectangle {
                     text: "Empty panel";
                     color: Theme.text-muted;
                     font-size: Theme.text-small;
-                    font-weight: 600;
+                    font-weight: Theme.weight-strong;
                 }
 
                 Select {

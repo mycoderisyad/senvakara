@@ -27,7 +27,7 @@ export component HistoryTable inherits VerticalLayout {
         Cell {
             width: root.when-width;
             text: "When";
-            font-weight: 600;
+            font-weight: Theme.weight-strong;
         }
 
         Cell {
@@ -35,19 +35,19 @@ export component HistoryTable inherits VerticalLayout {
             min-width: 0px;
             preferred-width: 0px;
             text: "Target";
-            font-weight: 600;
+            font-weight: Theme.weight-strong;
         }
 
         if root.what-title != "": Cell {
             width: root.what-width;
             text: root.what-title;
-            font-weight: 600;
+            font-weight: Theme.weight-strong;
         }
 
         Cell {
             width: root.state-width;
             text: "Result";
-            font-weight: 600;
+            font-weight: Theme.weight-strong;
         }
 
         Cell {
@@ -55,14 +55,14 @@ export component HistoryTable inherits VerticalLayout {
             min-width: 0px;
             preferred-width: 0px;
             text: "Detail";
-            font-weight: 600;
+            font-weight: Theme.weight-strong;
         }
 
         Cell {
             width: root.time-width;
             horizontal-alignment: right;
             text: "Duration";
-            font-weight: 600;
+            font-weight: Theme.weight-strong;
         }
     }
 

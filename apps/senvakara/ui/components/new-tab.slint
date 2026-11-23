@@ -44,20 +44,20 @@ export component LaunchIcon inherits Rectangle {
     in property <string> kind;
     in property <int> hue;
 
-    width: 24px;
-    height: 24px;
-    border-radius: Theme.radius - 2px;
-    background: Theme.host-hue(root.hue).with-alpha(0.16);
+    width: 28px;
+    height: 28px;
+    border-radius: Theme.radius-small + 2px;
+    background: Theme.host-hue(root.hue);
 
     Icon {
         source: root.kind == "linux" ? @image-url("../icons/linux.svg") : root.kind == "server" ? @image-url("../icons/server.svg") : root.kind == "desktop" ? @image-url("../icons/monitor.svg") : root.kind == "mirror" ? @image-url("../icons/phone.svg") : root.kind == "files" ? @image-url("../icons/folder.svg") : @image-url("../icons/terminal.svg");
-        tint: Theme.host-hue(root.hue);
+        tint: Theme.tile-ink;
     }
 }
 
 export component NewTabView inherits Rectangle {
-    private property <length> row-height: 40px;
-    private property <length> field-height: 40px;
+    private property <length> row-height: 48px;
+    private property <length> field-height: 44px;
     private property <int> current: Launcher.current;
     private property <length> top: Math.max(Theme.space-6, Math.min(72px, root.height * 0.1));
 
@@ -107,7 +107,7 @@ export component NewTabView inherits Rectangle {
                 border-radius: Theme.radius;
                 border-width: 1px;
                 border-color: input.has-focus ? Theme.accent : Theme.hairline-strong;
-                background: Theme.shell;
+                background: Theme.surface;
 
                 HorizontalLayout {
                     padding-left: Theme.space-3;
@@ -172,7 +172,7 @@ export component NewTabView inherits Rectangle {
                 min-height: root.row-height + 2 * Theme.space-2;
                 preferred-height: Math.max(1, Launcher.items.length) * root.row-height + 2 * Theme.space-2;
                 max-height: self.preferred-height;
-                border-radius: 10px;
+                border-radius: Theme.radius-card;
                 border-width: 1px;
                 border-color: Theme.hairline;
                 background: Theme.surface;
@@ -215,7 +215,7 @@ export component NewTabView inherits Rectangle {
                             text: item.title;
                             color: Theme.text;
                             font-size: Theme.text-body;
-                            font-weight: 600;
+                            font-weight: Theme.weight-strong;
                             overflow: elide;
                         }
 
@@ -237,7 +237,7 @@ export component NewTabView inherits Rectangle {
                                 text: item.title;
                                 color: Theme.text;
                                 font-size: Theme.text-body;
-                                font-weight: 500;
+                                font-weight: Theme.weight-medium;
                                 overflow: elide;
                                 max-width: 320px;
                             }

@@ -44,7 +44,7 @@ export component DialogFrame inherits Rectangle {
         panel := Rectangle {
             width: root.panel-width;
             height: content.preferred-height;
-            border-radius: 10px;
+            border-radius: Theme.radius-dialog;
             border-width: 1px;
             border-color: Theme.hairline-strong;
             background: Theme.surface;
@@ -63,7 +63,7 @@ export component DialogFrame inherits Rectangle {
                     text: root.title;
                     color: Theme.text;
                     font-size: Theme.text-title;
-                    font-weight: 600;
+                    font-weight: Theme.weight-strong;
                     wrap: word-wrap;
                 }
 

@@ -3,7 +3,7 @@
 
 import { ScrollView } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
-import { CardGrid, GroupTitle, ItemCard, MenuRow, Notice, ToolButton } from "../components/widgets.slint";
+import { CardGrid, EmptyState, ItemCard, MenuRow, Notice, SectionHeader, ToolButton } from "../components/widgets.slint";
 import { Keychain, KeyItem } from "keychain/model.slint";
 import { KeyFormPanel } from "keychain/key-form.slint";
 
@@ -11,8 +11,10 @@ export { Keychain, KeyItem }
 
 export component KeychainPage inherits VerticalLayout {
     HorizontalLayout {
-        padding: Theme.space-4;
-        padding-bottom: Theme.space-2;
+        padding-left: Theme.space-6;
+        padding-right: Theme.space-6;
+        padding-top: Theme.space-4;
+        padding-bottom: Theme.space-3;
         spacing: Theme.space-2;
         alignment: start;
 
@@ -54,9 +56,9 @@ export component KeychainPage inherits VerticalLayout {
                         border-width: 1px;
                         border-color: Theme.hairline-strong;
                         background: Theme.surface;
-                        drop-shadow-blur: 16px;
-                        drop-shadow-offset-y: 4px;
-                        drop-shadow-color: Theme.shell;
+                        drop-shadow-blur: 30px;
+                        drop-shadow-offset-y: 12px;
+                        drop-shadow-color: #00000059;
 
                         VerticalLayout {
                             padding: Theme.space-1;
@@ -90,27 +92,38 @@ export component KeychainPage inherits VerticalLayout {
         }
     }
 
+    Rectangle {
+        height: 1px;
+        background: Theme.hairline;
+    }
+
     ScrollView {
         VerticalLayout {
             alignment: start;
-            padding: Theme.space-4;
-            padding-top: Theme.space-2;
-            spacing: Theme.space-2;
+            padding-left: Theme.space-6;
+            padding-right: Theme.space-6;
+            padding-top: Theme.space-5;
+            padding-bottom: Theme.space-6;
+            spacing: Theme.space-5;
+
+            SectionHeader {
+                title: "Keychain";
+                detail: Keychain.keys.length == 1 ? "1 key" : Keychain.keys.length + " keys";
+            }
 
             if Keychain.error != "": Notice {
                 kind: "danger";
                 text: Keychain.error;
             }
 
-            GroupTitle {
-                text: "Keys";
-            }
-
-            if Keychain.keys.length == 0 && Keychain.error == "": Text {
-                text: "No keys yet. Add one with New key, or drag a private key file from Explorer onto this window. A host can then sign in with it.";
-                color: Theme.text-muted;
-                font-size: Theme.text-small;
-                wrap: word-wrap;
+            if Keychain.keys.length == 0 && Keychain.error == "": EmptyState {
+                icon: @image-url("../icons/key.svg");
+                title: "No keys yet";
+                body: "Add a key with New key, or drag a private key file from Explorer onto this window. Any host can then sign in with it.";
+                action: "New key";
+                activated => {
+                    Keychain.new-key("key");
+                }
             }
 
             grid := CardGrid {
@@ -140,8 +153,8 @@ export component KeychainPage inherits VerticalLayout {
 
 // The inspector of the Keychain section. Shown only while the form is open.
 export component KeyInspector inherits Rectangle {
-    width: 340px;
-    background: Theme.shell;
+    width: Theme.inspector-width;
+    background: Theme.ground;
 
     Rectangle {
         x: 0;
@@ -155,6 +168,7 @@ export component KeyInspector inherits Rectangle {
             width: root.width;
             alignment: start;
             padding: Theme.space-4;
+            padding-top: Theme.space-5;
 
             KeyFormPanel { }
         }

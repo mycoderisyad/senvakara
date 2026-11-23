@@ -106,10 +106,13 @@ component FolderRow inherits HorizontalLayout {
 export component SettingsPage inherits Rectangle {
     ScrollView {
         VerticalLayout {
-            width: root.width;
+            width: Math.min(root.width, 768px);
             alignment: start;
-            padding: Theme.space-4;
-            spacing: Theme.space-4;
+            padding-left: Theme.space-6;
+            padding-right: Theme.space-6;
+            padding-top: Theme.space-5;
+            padding-bottom: Theme.space-6;
+            spacing: Theme.space-5;
 
             PageTitle {
                 title: "Settings";

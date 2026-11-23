@@ -42,6 +42,19 @@ Built and unit-tested; not yet tried by hand in the running app (see TAB-NEW-01 
 - A chevron next to "+" lists the local shells (Windows PowerShell, PowerShell 7, Command Prompt, Git Bash, WSL distributions; only the ones installed), then hosts, then phones. Ctrl+Shift+1 to 9 open the first nine entries.
 - New local shells: PowerShell 7, Command Prompt and Git Bash. Shells are looked for in the background at startup and when Home is refreshed, no longer on the UI thread.
 
+### Changed — 2026-11-23 (interface restyle and fixes, not yet released)
+
+Built, unit-tested and the Home screen looked at in the running app; the other screens and the fixed flows still need a manual pass.
+
+- New look, measured from Termius's dark theme: navy surfaces, 14 px Inter (bundled, OFL) instead of a font name Windows did not have, 36 px controls with 10 px corners, host cards with a filled colour tile, pill-shaped session tabs, a sidebar with the product name, and page headers with a state line. Hosts and Devices are now separate pages, and empty lists say what to do. The accent stays Senvakara's teal.
+- Home has a Refresh button (hosts, phones and the local shell list).
+- Window shortcuts (Ctrl+Shift+T, W, K, 1 to 9, Ctrl+Tab) keep working after switching to a Files, screen, logcat or remote desktop tab.
+- Copying several files that already exist at the destination asks about each one in turn instead of silently skipping all but the last; a cancelled or failed copy refreshes the destination list; replacing a file on a host is now written to a temporary name first, so cancelling keeps the old file.
+- A local shell that fails to start no longer jumps to Home; on the New Tab page the error appears there.
+- Host form: a tag typed but not added is kept on Save; removing one host no longer closes the form of another; a VPN path may share the address on another port; changing only the letter case of a Remote Desktop address asks for the password again. Remote Desktop hosts no longer count towards "reachable" or appear under "ADB on each host", and a failed launch selects the host so the error shows.
+- Phones: a confirmed deploy runs only for the phone that was confirmed; a hidden screen tab no longer converts or draws frames; deploys inside recipes no longer appear as stand-alone deploys; Wi-Fi scan results can be clicked to fill the field; searching no longer drops the selected phone; card actions on a phone respect an unsaved host form; restarting logcat no longer repeats lines.
+- Recipes ask before unsaved edits are dropped; closing a Run tab right after starting cancels the run; closing a workspace with unsaved layout changes asks first.
+
 ### Added — 2026-11-22 (host credentials and Keychain, not yet released)
 
 Built and unit-tested; not yet tried by hand in the running app (see HOST-UI-02, CRED-02 and DESK-IMPL-04 in `docs/TASKS.md`).

@@ -1,12 +1,15 @@
-// Page layout: GroupTitle, Labeled, PageTitle, Card and CardGrid.
+// Page layout: GroupTitle, Labeled, PageTitle, SectionHeader, EmptyState, Card and CardGrid.
 
 import { Theme } from "../../theme.slint";
 import { Hint } from "status.slint";
+import { Button } from "buttons.slint";
+import { Icon } from "../controls.slint";
 
+// A section heading inside a page or panel ("Hosts", "Health", a host group).
 export component GroupTitle inherits Text {
-    color: Theme.text-muted;
-    font-size: Theme.text-small;
-    font-weight: 600;
+    color: Theme.text;
+    font-size: Theme.text-body;
+    font-weight: Theme.weight-strong;
 }
 
 // A label over a control, with what is wrong with it underneath, in words.
@@ -20,6 +23,7 @@ export component Labeled inherits VerticalLayout {
         text: root.label;
         color: Theme.text-muted;
         font-size: Theme.text-small;
+        font-weight: Theme.weight-medium;
     }
 
     @children
@@ -41,7 +45,7 @@ export component PageTitle inherits VerticalLayout {
         text: root.title;
         color: Theme.text;
         font-size: Theme.text-title;
-        font-weight: 600;
+        font-weight: Theme.weight-strong;
     }
 
     if root.body != "": Hint {
@@ -54,8 +58,6 @@ export component Card inherits Rectangle {
     in property <length> pad: Theme.space-4;
     in property <length> gap: Theme.space-3;
     border-radius: Theme.radius;
-    border-width: 1px;
-    border-color: Theme.hairline;
     background: Theme.surface;
     height: content.preferred-height;
 
@@ -72,8 +74,8 @@ export component CardGrid inherits Rectangle {
     in property <length> min-card: 300px;
     out property <int> columns: Math.max(1, Math.floor((self.width + gap) / (min-card + gap)));
     out property <length> card-width: (self.width - (columns - 1) * gap) / columns;
-    out property <length> gap: Theme.space-2;
-    out property <length> row-height: 56px;
+    out property <length> gap: Theme.space-3;
+    out property <length> row-height: 64px;
 
     pure public function card-x(index: int) -> length {
         return Math.mod(index, columns) * (card-width + gap);
@@ -85,4 +87,97 @@ export component CardGrid inherits Rectangle {
 
     height: count == 0 ? 0px : Math.ceil(count / columns) * (row-height + gap) - gap;
     @children
+}
+
+// A page heading with the line of state under it ("2 of 3 hosts reachable").
+export component SectionHeader inherits HorizontalLayout {
+    in property <string> title;
+    in property <string> detail;
+    spacing: Theme.space-3;
+
+    Text {
+        vertical-alignment: center;
+        text: root.title;
+        color: Theme.text;
+        font-size: Theme.text-title;
+        font-weight: Theme.weight-strong;
+    }
+
+    Text {
+        horizontal-stretch: 1;
+        vertical-alignment: center;
+        text: root.detail;
+        color: Theme.text-muted;
+        font-size: Theme.text-small;
+        overflow: elide;
+    }
+}
+
+// What an empty list says, with the one action that fills it.
+export component EmptyState inherits Rectangle {
+    in property <image> icon;
+    in property <string> title;
+    in property <string> body;
+    in property <string> action;
+    callback activated();
+
+    height: content.preferred-height + 2 * Theme.space-8;
+    border-radius: Theme.radius-card;
+    border-width: 1px;
+    border-color: Theme.hairline;
+
+    content := VerticalLayout {
+        y: Theme.space-8;
+        width: parent.width;
+        alignment: center;
+        spacing: Theme.space-3;
+
+        HorizontalLayout {
+            alignment: center;
+            Rectangle {
+                width: 48px;
+                height: 48px;
+                border-radius: Theme.radius + 4px;
+                background: Theme.surface;
+                Icon {
+                    width: 22px;
+                    height: 22px;
+                    source: root.icon;
+                    tint: Theme.text-muted;
+                }
+            }
+        }
+
+        Text {
+            horizontal-alignment: center;
+            text: root.title;
+            color: Theme.text;
+            font-size: Theme.text-body + 2px;
+            font-weight: Theme.weight-medium;
+        }
+
+        HorizontalLayout {
+            alignment: center;
+            Text {
+                max-width: 420px;
+                horizontal-alignment: center;
+                text: root.body;
+                color: Theme.text-muted;
+                font-size: Theme.text-small;
+                wrap: word-wrap;
+            }
+        }
+
+        if root.action != "": HorizontalLayout {
+            alignment: center;
+            padding-top: Theme.space-1;
+            Button {
+                text: root.action;
+                kind: "primary";
+                clicked => {
+                    root.activated();
+                }
+            }
+        }
+    }
 }

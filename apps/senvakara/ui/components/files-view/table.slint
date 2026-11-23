@@ -38,7 +38,7 @@ component HeaderCell inherits Rectangle {
             text: root.text;
             color: touch.has-hover || root.current ? Theme.text : Theme.text-muted;
             font-size: Theme.text-small;
-            font-weight: 600;
+            font-weight: Theme.weight-strong;
         }
 
         if root.current: VerticalLayout {

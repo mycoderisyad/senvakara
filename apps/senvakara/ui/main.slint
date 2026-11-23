@@ -66,8 +66,10 @@ export component MainWindow inherits Window {
         }
     }
 
+    // Only the terminal and the New Tab page take the keyboard when they appear; every other view
+    // would otherwise leave the focus on an item that no longer exists, and the shortcuts die.
     changed shown => {
-        if (Shell.active-tab < 0 || Shell.active-kind == "workspace" || Shell.active-kind == "run") {
+        if (Shell.active-tab < 0 || (Shell.active-kind != "terminal" && Shell.active-kind != "new-tab")) {
             keys.focus();
         }
     }

@@ -1,54 +1,78 @@
 // Design tokens for the Senvakara desktop UI (dark only, owner decision 2026-11-21).
-// Every colour, size and font used by a component comes from here.
+// Every colour, size and font used by a component comes from here. Surfaces, type scale and
+// metrics follow Termius's dark theme (measured from its shipped stylesheets, 2026-11-23);
+// the accent stays Senvakara's own.
+
+import "fonts/Inter-Regular.ttf";
+import "fonts/Inter-Medium.ttf";
+import "fonts/Inter-SemiBold.ttf";
 
 export global Theme {
     // Surfaces, darkest (window chrome) to lightest (selection).
-    out property <color> shell: #0e1116;
-    out property <color> ground: #13161b;
-    out property <color> surface: #1a1e25;
-    out property <color> surface-hover: #212630;
-    out property <color> surface-selected: #272e3a;
-    out property <color> term-ground: #0c0f13;
-    out property <color> hairline: #262b34;
-    out property <color> hairline-strong: #343b47;
+    out property <color> shell: #141729;
+    out property <color> ground: #1d2033;
+    out property <color> surface: #282b3d;
+    out property <color> surface-hover: #32364a;
+    out property <color> surface-selected: #3e4257;
+    out property <color> term-ground: #141729;
+    out property <color> hairline: #31344a;
+    out property <color> hairline-strong: #43475c;
+    // A field inside a card: one step darker than the card.
+    out property <color> field: #1d2033;
 
     // Text.
-    out property <color> text: #e4e7ec;
-    out property <color> text-muted: #9ba3b0;
-    out property <color> text-faint: #7c8593;
+    out property <color> text: #f5f6fa;
+    out property <color> text-muted: #a1a5b8;
+    out property <color> text-faint: #868b9f;
 
     // Brand accent: primary action and selection only.
     out property <color> accent: #5bc4ae;
-    out property <color> accent-ink: #06231d;
+    out property <color> accent-hover: #7dd3c1;
+    out property <color> accent-ink: #062520;
 
     // State. Always paired with a word and a shape, never colour alone.
-    out property <color> success: #6ccb8e;
-    out property <color> warning: #e3b34f;
-    out property <color> danger: #f0807d;
-    out property <color> info: #6fa8f5;
+    out property <color> success: #5fcf8f;
+    out property <color> warning: #f8aa4b;
+    out property <color> danger: #f4676a;
+    out property <color> info: #58adf8;
 
-    // Host identity hues: one per host, used for its icon tile, tab underline and route chips.
+    // Host identity hues: one per host, used for its icon tile, tab icon and route chips. Tiles are
+    // filled with the hue and carry a dark glyph (`tile-ink`).
     out property <[color]> host-hues: [
         #5bc4ae, #6fa8f5, #a58bf0, #e487b8, #ee9a62, #d9be5a, #86ce77, #5cc3dc,
     ];
+    out property <color> tile-ink: #141729;
 
-    // Type. Rank is carried by weight and tone more than by size.
-    out property <string> sans: "Segoe UI Variable";
+    // Type. Inter is bundled (OFL, `fonts/`); rank comes from tone first, then size, then weight.
+    out property <string> sans: "Inter";
     out property <string> mono: "Cascadia Mono";
     out property <length> text-small: 12px;
-    out property <length> text-body: 13px;
-    out property <length> text-title: 15px;
+    out property <length> text-body: 14px;
+    out property <length> text-title: 18px;
+    out property <length> text-display: 22px;
+    out property <int> weight-regular: 400;
+    out property <int> weight-medium: 500;
+    out property <int> weight-strong: 600;
 
     // Metrics.
-    out property <length> row: 32px;
-    out property <length> tab-strip: 38px;
-    out property <length> radius: 6px;
+    out property <length> row: 36px;
+    out property <length> control-small: 30px;
+    out property <length> tab-strip: 46px;
+    out property <length> tab-height: 32px;
+    out property <length> sidebar-width: 196px;
+    out property <length> inspector-width: 352px;
+    out property <length> radius: 10px;
+    out property <length> radius-small: 6px;
+    out property <length> radius-card: 14px;
+    out property <length> radius-dialog: 18px;
     out property <length> space-1: 4px;
     out property <length> space-2: 8px;
     out property <length> space-3: 12px;
     out property <length> space-4: 16px;
+    out property <length> space-5: 20px;
     out property <length> space-6: 24px;
-    out property <duration> quick: 120ms;
+    out property <length> space-8: 32px;
+    out property <duration> quick: 150ms;
 
     pure public function host-hue(index: int) -> color {
         return host-hues[Math.mod(Math.max(index, 0), 8)];

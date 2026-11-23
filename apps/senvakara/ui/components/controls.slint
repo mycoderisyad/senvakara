@@ -14,12 +14,12 @@ export component IconButton inherits Rectangle {
     in property <image> icon;
     in property <string> label;
     in property <bool> enabled: true;
-    in property <length> size: 26px;
+    in property <length> size: Theme.control-small;
     callback clicked();
 
     width: size;
     height: size;
-    border-radius: Theme.radius;
+    border-radius: Theme.radius-small + 2px;
     background: !enabled ? transparent : touch.pressed ? Theme.surface-selected : touch.has-hover || focus.has-focus ? Theme.surface-hover : transparent;
     border-width: focus.has-focus ? 1px : 0px;
     border-color: Theme.accent;
@@ -67,11 +67,11 @@ export component LaunchRow inherits Rectangle {
     in property <string> detail;
     callback activated();
 
-    height: 52px;
-    border-radius: Theme.radius;
+    height: 60px;
+    border-radius: Theme.radius-card;
     background: touch.pressed ? Theme.surface-selected : touch.has-hover || focus.has-focus ? Theme.surface-hover : Theme.surface;
-    border-width: 1px;
-    border-color: focus.has-focus ? Theme.accent : Theme.hairline;
+    border-width: focus.has-focus ? 2px : 0px;
+    border-color: Theme.accent;
     accessible-role: button;
     accessible-label: title + ", " + detail;
     accessible-action-default => {
@@ -98,19 +98,21 @@ export component LaunchRow inherits Rectangle {
 
     HorizontalLayout {
         padding-left: Theme.space-3;
-        padding-right: Theme.space-3;
+        padding-right: Theme.space-4;
         spacing: Theme.space-3;
 
         VerticalLayout {
             alignment: center;
             Rectangle {
-                width: 32px;
-                height: 32px;
-                border-radius: Theme.radius;
-                background: root.hue.with-alpha(0.16);
+                width: 40px;
+                height: 40px;
+                border-radius: Theme.radius + 2px;
+                background: root.hue;
                 Icon {
+                    width: 20px;
+                    height: 20px;
                     source: root.icon;
-                    tint: root.hue;
+                    tint: Theme.tile-ink;
                 }
             }
         }
@@ -122,7 +124,7 @@ export component LaunchRow inherits Rectangle {
                 text: root.title;
                 color: Theme.text;
                 font-size: Theme.text-body;
-                font-weight: 600;
+                font-weight: Theme.weight-medium;
                 overflow: elide;
             }
 

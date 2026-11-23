@@ -13,15 +13,17 @@ export component Button inherits Rectangle {
     callback clicked();
 
     private property <color> ink: !enabled ? Theme.text-faint : kind == "primary" ? Theme.accent-ink : kind == "danger" ? Theme.danger : Theme.text;
-    private property <color> fill: kind == "primary" ? Theme.accent : kind == "ghost" ? transparent : Theme.surface;
+    private property <color> fill: kind == "primary" ? Theme.accent : kind == "danger" ? Theme.danger.with-alpha(0.12) : kind == "ghost" ? transparent : Theme.surface-hover;
+    private property <color> fill-hover: kind == "primary" ? Theme.accent-hover : kind == "danger" ? Theme.danger.with-alpha(0.2) : kind == "ghost" ? Theme.text.with-alpha(0.08) : Theme.surface-selected;
 
     height: Theme.row;
-    min-width: label.preferred-width + 2 * Theme.space-3;
+    min-width: label.preferred-width + 2 * Theme.space-4;
     horizontal-stretch: 0;
     border-radius: Theme.radius;
-    border-width: 1px;
-    border-color: focus.has-focus ? Theme.accent : kind == "ghost" ? transparent : !enabled ? Theme.hairline : kind == "primary" ? transparent : Theme.hairline-strong;
-    background: !enabled ? Theme.surface : touch.pressed ? fill.darker(0.15) : touch.has-hover ? fill.brighter(kind == "primary" ? 0.1 : 0.35) : fill;
+    border-width: focus.has-focus ? 2px : 0px;
+    border-color: kind == "primary" ? Theme.text : Theme.accent;
+    background: !enabled ? Theme.surface : touch.pressed ? fill-hover.darker(0.1) : touch.has-hover ? fill-hover : fill;
+    opacity: enabled ? 1 : 0.7;
     accessible-role: button;
     accessible-label: reason == "" ? text : text + ". Unavailable: " + reason;
     accessible-enabled: enabled;
@@ -55,7 +57,7 @@ export component Button inherits Rectangle {
         text: root.text;
         color: root.ink;
         font-size: Theme.text-body;
-        font-weight: root.kind == "primary" ? 600 : 500;
+        font-weight: root.kind == "primary" ? Theme.weight-strong : Theme.weight-medium;
     }
 }
 

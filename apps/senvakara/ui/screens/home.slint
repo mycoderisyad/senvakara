@@ -3,7 +3,7 @@
 import { ScrollView } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
 import { Icon, IconButton } from "../components/controls.slint";
-import { Button, SearchField, SidebarItem, ItemCard, GroupTitle, Notice, StatusMark, MeterRow, DetailRow, ActionList, CardGrid } from "../components/widgets.slint";
+import { Button, SearchField, SidebarItem, ItemCard, GroupTitle, Notice, StatusMark, MeterRow, DetailRow, ActionList, CardGrid, Card, SectionHeader, EmptyState } from "../components/widgets.slint";
 import { DevicePanel } from "../components/device-panel.slint";
 import { HostFormPanel, NetworkPaths, HostForm } from "../components/host-form.slint";
 import { JobList, Jobs } from "../components/jobs.slint";
@@ -24,12 +24,13 @@ export global Nav {
 
 // The hosts, one grid per parent group.
 component HostGrid inherits VerticalLayout {
-    spacing: Theme.space-4;
+    spacing: Theme.space-6;
 
-    for group in Inventory.host-groups: VerticalLayout {
-        spacing: Theme.space-2;
+    for group[group-index] in Inventory.host-groups: VerticalLayout {
+        spacing: Theme.space-3;
 
-        GroupTitle {
+        // The hosts without a group come first and sit under the page title itself.
+        if group-index > 0 || (group.name != "" && group.name != "Hosts"): GroupTitle {
             text: group.name;
         }
 
@@ -62,17 +63,10 @@ component HostGrid inherits VerticalLayout {
 }
 
 component DeviceGrid inherits VerticalLayout {
-    spacing: Theme.space-2;
+    spacing: Theme.space-3;
 
     GroupTitle {
-        text: "Devices";
-    }
-
-    if Inventory.devices.length == 0 && !Inventory.loading: Text {
-        text: "No Android phones yet. Plug one in with USB debugging on, or add one over Wi-Fi from Devices.";
-        color: Theme.text-muted;
-        font-size: Theme.text-small;
-        wrap: word-wrap;
+        text: "Phones";
     }
 
     grid := CardGrid {
@@ -102,13 +96,25 @@ component DeviceGrid inherits VerticalLayout {
     }
 }
 
+// A titled block of the inspector.
+component InspectorCard inherits Card {
+    in property <string> title;
+    gap: Theme.space-3;
+
+    GroupTitle {
+        text: root.title;
+    }
+
+    @children
+}
+
 component Inspector inherits Rectangle {
     private property <bool> is-host: Inventory.selected-kind == "host";
     private property <HostItem> host: Inventory.selected-host;
     private property <DeviceItem> device: Inventory.selected-device;
 
-    width: 340px;
-    background: Theme.shell;
+    width: Theme.inspector-width;
+    background: Theme.ground;
 
     Rectangle {
         x: 0;
@@ -122,21 +128,40 @@ component Inspector inherits Rectangle {
             width: root.width;
             alignment: start;
             padding: Theme.space-4;
+            padding-top: Theme.space-5;
             spacing: Theme.space-4;
 
             // Adding or editing a host takes the whole panel until it is saved or cancelled.
             if HostForm.open: HostFormPanel { }
 
             if !HostForm.open: HorizontalLayout {
-                spacing: Theme.space-2;
+                spacing: Theme.space-3;
+
                 VerticalLayout {
-                    spacing: 2px;
+                    alignment: start;
+                    Rectangle {
+                        width: 40px;
+                        height: 40px;
+                        border-radius: Theme.radius + 2px;
+                        background: Theme.host-hue(root.is-host ? root.host.hue : root.device.host-hue);
+                        Icon {
+                            width: 20px;
+                            height: 20px;
+                            source: !root.is-host ? @image-url("../icons/phone.svg") : root.host.os == "windows" ? @image-url("../icons/windows.svg") : root.host.os == "rdp" ? @image-url("../icons/monitor.svg") : @image-url("../icons/server.svg");
+                            tint: Theme.tile-ink;
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    spacing: 3px;
                     horizontal-stretch: 1;
+                    alignment: center;
                     Text {
                         text: root.is-host ? root.host.name : root.device.name;
                         color: Theme.text;
-                        font-size: Theme.text-title;
-                        font-weight: 600;
+                        font-size: Theme.text-body + 2px;
+                        font-weight: Theme.weight-strong;
                         overflow: elide;
                     }
 
@@ -148,11 +173,14 @@ component Inspector inherits Rectangle {
                     }
                 }
 
-                IconButton {
-                    icon: @image-url("../icons/close.svg");
-                    label: "Close details";
-                    clicked => {
-                        Inventory.select("", "");
+                VerticalLayout {
+                    alignment: start;
+                    IconButton {
+                        icon: @image-url("../icons/close.svg");
+                        label: "Close details";
+                        clicked => {
+                            Inventory.select("", "");
+                        }
                     }
                 }
             }
@@ -187,11 +215,8 @@ component Inspector inherits Rectangle {
                 }
             }
 
-            if !HostForm.open && root.is-host && root.host.meters.length > 0: VerticalLayout {
-                spacing: Theme.space-3;
-                GroupTitle {
-                    text: "Health";
-                }
+            if !HostForm.open && root.is-host && root.host.meters.length > 0: InspectorCard {
+                title: "Health";
 
                 for meter in root.host.meters: MeterRow {
                     meter: meter;
@@ -205,11 +230,9 @@ component Inspector inherits Rectangle {
                 }
             }
 
-            if !HostForm.open && root.is-host && root.host.details.length > 0: VerticalLayout {
-                spacing: Theme.space-2;
-                GroupTitle {
-                    text: "Details";
-                }
+            if !HostForm.open && root.is-host && root.host.details.length > 0: InspectorCard {
+                title: "Details";
+                gap: Theme.space-2;
 
                 for item in root.host.details: DetailRow {
                     item: item;
@@ -223,168 +246,238 @@ component Inspector inherits Rectangle {
     }
 }
 
+component Sidebar inherits Rectangle {
+    width: Theme.sidebar-width;
+    background: Theme.surface;
+
+    VerticalLayout {
+        padding: Theme.space-2 + 2px;
+        padding-top: Theme.space-4;
+        spacing: Theme.space-1;
+
+        // The product name, as the vault title is in Termius.
+        HorizontalLayout {
+            padding-left: Theme.space-2;
+            padding-bottom: Theme.space-3;
+            spacing: Theme.space-2;
+
+            VerticalLayout {
+                alignment: center;
+                Image {
+                    width: 20px;
+                    height: 20px;
+                    source: @image-url("../icons/app.png");
+                }
+            }
+
+            Text {
+                vertical-alignment: center;
+                text: "Senvakara";
+                color: Theme.text;
+                font-size: Theme.text-body + 1px;
+                font-weight: Theme.weight-strong;
+            }
+        }
+
+        SidebarItem {
+            icon: @image-url("../icons/server.svg");
+            text: "Hosts";
+            badge: Inventory.hosts.length;
+            active: Nav.section == "hosts";
+            clicked => {
+                Nav.section = "hosts";
+                Nav.opened("hosts");
+            }
+        }
+
+        SidebarItem {
+            icon: @image-url("../icons/phone.svg");
+            text: "Devices";
+            badge: Inventory.devices.length;
+            active: Nav.section == "devices";
+            clicked => {
+                Nav.section = "devices";
+                Nav.opened("devices");
+            }
+        }
+
+        SidebarItem {
+            icon: @image-url("../icons/key.svg");
+            text: "Keychain";
+            badge: Keychain.keys.length;
+            active: Nav.section == "keychain";
+            clicked => {
+                Nav.section = "keychain";
+                Nav.opened("keychain");
+            }
+        }
+
+        SidebarItem {
+            icon: @image-url("../icons/layout.svg");
+            text: "Workspaces";
+            badge: Nav.workspace-count;
+            active: Nav.section == "workspaces";
+            clicked => {
+                Nav.section = "workspaces";
+                Nav.opened("workspaces");
+            }
+        }
+
+        SidebarItem {
+            icon: @image-url("../icons/workflow.svg");
+            text: "Automations";
+            active: Nav.section == "automations";
+            clicked => {
+                Nav.section = "automations";
+                Nav.opened("automations");
+            }
+        }
+
+        Rectangle {
+            vertical-stretch: 1;
+        }
+
+        SidebarItem {
+            icon: @image-url("../icons/settings.svg");
+            text: "Settings";
+            active: Nav.section == "settings";
+            clicked => {
+                Nav.section = "settings";
+                Nav.opened("settings");
+            }
+        }
+    }
+
+    Rectangle {
+        x: parent.width - 1px;
+        width: 1px;
+        background: Theme.hairline;
+    }
+}
+
+// Hosts or Devices: the search bar, the list and the jobs under it.
+component InventoryPage inherits VerticalLayout {
+    private property <bool> hosts: Nav.section == "hosts";
+
+    // Search and the actions of the page.
+    HorizontalLayout {
+        padding-left: Theme.space-6;
+        padding-right: Theme.space-6;
+        padding-top: Theme.space-4;
+        padding-bottom: Theme.space-3;
+        spacing: Theme.space-2;
+
+        SearchField {
+            horizontal-stretch: 1;
+            text <=> Inventory.query;
+            placeholder: root.hosts ? "Search hosts by name, address, user, group or tag" : "Search phones by name, host or serial";
+            edited(text) => {
+                Inventory.search(text);
+            }
+        }
+
+        VerticalLayout {
+            alignment: center;
+            IconButton {
+                size: Theme.row;
+                icon: @image-url("../icons/refresh.svg");
+                label: "Refresh hosts, phones and local shells";
+                clicked => {
+                    Inventory.refresh();
+                }
+            }
+        }
+
+        if !root.hosts: Button {
+            text: "Add over Wi-Fi";
+            clicked => {
+                Inventory.add-wireless();
+            }
+        }
+
+        Button {
+            text: "New host";
+            kind: root.hosts ? "primary" : "secondary";
+            clicked => {
+                Inventory.add-host();
+            }
+        }
+    }
+
+    Rectangle {
+        height: 1px;
+        background: Theme.hairline;
+    }
+
+    ScrollView {
+        VerticalLayout {
+            alignment: start;
+            padding-left: Theme.space-6;
+            padding-right: Theme.space-6;
+            padding-top: Theme.space-5;
+            padding-bottom: Theme.space-6;
+            spacing: Theme.space-5;
+
+            SectionHeader {
+                title: root.hosts ? "Hosts" : "Devices";
+                detail: Inventory.summary;
+            }
+
+            if Inventory.error != "": Notice {
+                kind: "danger";
+                text: Inventory.error;
+            }
+
+            if root.hosts && Inventory.host-groups.length > 0: HostGrid { }
+
+            if root.hosts && Inventory.host-groups.length == 0: EmptyState {
+                icon: @image-url("../icons/server.svg");
+                title: Inventory.query != "" ? "No host matches \"\{Inventory.query}\"" : "No hosts yet";
+                body: Inventory.query != "" ? "Search looks through names, addresses, user names, groups and tags." : "Add a computer you reach over SSH or Remote Desktop. Its terminal, files, desktop and phones are then one click away.";
+                action: Inventory.query != "" ? "" : "New host";
+                activated => {
+                    Inventory.add-host();
+                }
+            }
+
+            if !root.hosts && Inventory.adb-sources.length > 0: InspectorCard {
+                title: "ADB on each host";
+                gap: Theme.space-2;
+
+                for source in Inventory.adb-sources: DetailRow {
+                    item: source;
+                }
+            }
+
+            if !root.hosts && Inventory.devices.length > 0: DeviceGrid { }
+
+            if !root.hosts && Inventory.devices.length == 0 && !Inventory.loading: EmptyState {
+                icon: @image-url("../icons/phone.svg");
+                title: Inventory.query != "" ? "No phone matches \"\{Inventory.query}\"" : "No Android phones yet";
+                body: Inventory.query != "" ? "Search looks through phone names, hosts and serials." : "Plug a phone into this PC or a connected host with USB debugging on, or pair one over Wi-Fi.";
+                action: Inventory.query != "" ? "" : "Add over Wi-Fi";
+                activated => {
+                    Inventory.add-wireless();
+                }
+            }
+        }
+    }
+
+    // Transfers and installs stay in view whatever is selected.
+    if Jobs.items.length > 0: JobList { }
+}
+
 export component HomeScreen inherits Rectangle {
     background: Theme.ground;
 
     HorizontalLayout {
-        // Sidebar.
-        Rectangle {
-            width: 208px;
-            background: Theme.shell;
-
-            VerticalLayout {
-                padding: Theme.space-2;
-                spacing: 2px;
-
-                SidebarItem {
-                    icon: @image-url("../icons/server.svg");
-                    text: "Hosts";
-                    badge: Inventory.hosts.length;
-                    active: Nav.section == "hosts";
-                    clicked => {
-                        Nav.section = "hosts";
-                        Nav.opened("hosts");
-                    }
-                }
-
-                SidebarItem {
-                    icon: @image-url("../icons/phone.svg");
-                    text: "Devices";
-                    badge: Inventory.devices.length;
-                    active: Nav.section == "devices";
-                    clicked => {
-                        Nav.section = "devices";
-                        Nav.opened("devices");
-                    }
-                }
-
-                SidebarItem {
-                    icon: @image-url("../icons/key.svg");
-                    text: "Keychain";
-                    badge: Keychain.keys.length;
-                    active: Nav.section == "keychain";
-                    clicked => {
-                        Nav.section = "keychain";
-                        Nav.opened("keychain");
-                    }
-                }
-
-                SidebarItem {
-                    icon: @image-url("../icons/layout.svg");
-                    text: "Workspaces";
-                    badge: Nav.workspace-count;
-                    active: Nav.section == "workspaces";
-                    clicked => {
-                        Nav.section = "workspaces";
-                        Nav.opened("workspaces");
-                    }
-                }
-
-                SidebarItem {
-                    icon: @image-url("../icons/workflow.svg");
-                    text: "Automations";
-                    active: Nav.section == "automations";
-                    clicked => {
-                        Nav.section = "automations";
-                        Nav.opened("automations");
-                    }
-                }
-
-                Rectangle {
-                    vertical-stretch: 1;
-                }
-
-                SidebarItem {
-                    icon: @image-url("../icons/settings.svg");
-                    text: "Settings";
-                    active: Nav.section == "settings";
-                    clicked => {
-                        Nav.section = "settings";
-                        Nav.opened("settings");
-                    }
-                }
-            }
-
-            Rectangle {
-                x: parent.width - 1px;
-                width: 1px;
-                background: Theme.hairline;
-            }
-        }
+        Sidebar { }
 
         // Work area.
         VerticalLayout {
             horizontal-stretch: 1;
 
-            if Nav.section == "hosts" || Nav.section == "devices": VerticalLayout {
-                HorizontalLayout {
-                    padding: Theme.space-4;
-                    padding-bottom: Theme.space-2;
-                    spacing: Theme.space-2;
-
-                    SearchField {
-                        horizontal-stretch: 1;
-                        text <=> Inventory.query;
-                        placeholder: "Search hosts and devices";
-                        edited(text) => {
-                            Inventory.search(text);
-                        }
-                    }
-
-                    if Nav.section == "devices": Button {
-                        text: "Add over Wi-Fi";
-                        clicked => {
-                            Inventory.add-wireless();
-                        }
-                    }
-
-                    Button {
-                        text: "New host";
-                        kind: "primary";
-                        clicked => {
-                            Inventory.add-host();
-                        }
-                    }
-                }
-
-                ScrollView {
-                    VerticalLayout {
-                        alignment: start;
-                        padding: Theme.space-4;
-                        padding-top: Theme.space-2;
-                        spacing: Theme.space-4;
-
-                        if Inventory.error != "": Notice {
-                            kind: "danger";
-                            text: Inventory.error;
-                        }
-
-                        if Inventory.summary != "": Text {
-                            text: Inventory.summary;
-                            color: Theme.text-muted;
-                            font-size: Theme.text-small;
-                        }
-
-                        if Nav.section == "hosts": HostGrid { }
-
-                        if Nav.section == "devices" && Inventory.adb-sources.length > 0: VerticalLayout {
-                            spacing: Theme.space-2;
-                            GroupTitle {
-                                text: "ADB on each host";
-                            }
-
-                            for source in Inventory.adb-sources: DetailRow {
-                                item: source;
-                            }
-                        }
-
-                        DeviceGrid { }
-                    }
-                }
-
-                // Transfers and installs stay in view whatever is selected.
-                if Jobs.items.length > 0: JobList { }
-            }
+            if Nav.section == "hosts" || Nav.section == "devices": InventoryPage { }
 
             if Nav.section == "keychain": KeychainPage { }
 
