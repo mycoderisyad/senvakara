@@ -216,3 +216,71 @@ async fn a_new_folder_needs_a_free_name_that_is_one_path_component() {
         assert_eq!(code(&refused), Some(ErrorCode::InvalidInput), "{bad:?}");
     }
 }
+
+#[tokio::test]
+async fn an_upload_leaves_nothing_under_the_temporary_name() {
+    let local = temp_dir("upload-replace");
+    std::fs::write(local.join("big.bin"), big()).unwrap();
+    let to = disk(&[("/tmp/big.bin", file(b"old"))]);
+    let target = sftp::upload(
+        &connect(&to).await,
+        &local.join("big.bin"),
+        "/tmp",
+        true,
+        &never(),
+        |_, _| {},
+    )
+    .await
+    .unwrap();
+    assert_eq!(target, "/tmp/big.bin");
+    assert_eq!(content(&to, "/tmp/big.bin"), Some(big()));
+    assert_eq!(paths(&to, "/tmp"), ["/tmp/big.bin"]);
+    let _ = std::fs::remove_dir_all(&local);
+}
+
+#[tokio::test]
+async fn cancelling_an_upload_that_replaces_a_file_keeps_the_old_file() {
+    let local = temp_dir("upload-cancel");
+    std::fs::write(local.join("big.bin"), big()).unwrap();
+    let to = disk(&[("/tmp/big.bin", file(b"old"))]);
+    let cancel = never();
+    let stopped = sftp::upload(
+        &connect(&to).await,
+        &local.join("big.bin"),
+        "/tmp",
+        true,
+        &cancel,
+        |done, _| {
+            if done > 0 {
+                cancel.store(true, Ordering::Relaxed);
+            }
+        },
+    )
+    .await
+    .unwrap_err();
+    assert_eq!(code(&stopped), Some(ErrorCode::Cancelled));
+    assert_eq!(paths(&to, "/tmp"), ["/tmp/big.bin"]);
+    assert_eq!(content(&to, "/tmp/big.bin"), Some(b"old".to_vec()));
+    let _ = std::fs::remove_dir_all(&local);
+}
+
+#[tokio::test]
+async fn an_upload_onto_an_existing_file_is_a_conflict_before_anything_is_written() {
+    let local = temp_dir("upload-conflict");
+    std::fs::write(local.join("a.txt"), b"new").unwrap();
+    let to = disk(&[("/tmp/a.txt", file(b"old"))]);
+    let refused = sftp::upload(
+        &connect(&to).await,
+        &local.join("a.txt"),
+        "/tmp",
+        false,
+        &never(),
+        |_, _| {},
+    )
+    .await
+    .unwrap_err();
+    assert_eq!(code(&refused), Some(ErrorCode::Conflict));
+    assert_eq!(paths(&to, "/tmp"), ["/tmp/a.txt"]);
+    assert_eq!(content(&to, "/tmp/a.txt"), Some(b"old".to_vec()));
+    let _ = std::fs::remove_dir_all(&local);
+}

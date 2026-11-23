@@ -101,11 +101,44 @@ impl WorkspacePane {
             .any(|slot| slot.pane.as_ref().is_some_and(Pane::running))
     }
 
+    /// Whether closing the tab loses unsaved work. A new workspace with no panel yet has none.
+    pub fn unsaved(&self) -> bool {
+        let filled = self.slots.borrow().iter().any(|slot| slot.spec.is_some());
+        loses_layout(self.stored.borrow().is_some(), self.dirty(), filled)
+    }
+
     pub fn closing_note(&self) -> String {
-        let mut note = "Every session in its panels will end.".to_string();
-        if self.dirty() {
-            note.push_str(" Changes that were not saved are lost.");
+        let mut note = String::new();
+        if self.running() {
+            note.push_str("Every session in its panels will end.");
+        }
+        if self.unsaved() {
+            if !note.is_empty() {
+                note.push(' ');
+            }
+            note.push_str("Changes that were not saved are lost.");
         }
         note
+    }
+}
+
+/// Whether a workspace layout that differs from what is stored is worth asking about: always
+/// for a saved workspace, and for a new one once a panel was put in it.
+fn loses_layout(saved: bool, dirty: bool, filled: bool) -> bool {
+    dirty && (saved || filled)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn unsaved_layouts_are_asked_about_unless_there_is_nothing_in_them() {
+        // A saved workspace that was changed, and a new one with a panel.
+        assert!(loses_layout(true, true, false));
+        assert!(loses_layout(false, true, true));
+        // A new, empty workspace; a workspace as it was saved.
+        assert!(!loses_layout(false, true, false));
+        assert!(!loses_layout(true, false, true));
     }
 }

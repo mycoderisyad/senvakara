@@ -30,8 +30,31 @@ enum Signal {
     Refused(String),
 }
 
+/// A cancel that is asked for before the backend has named the run is kept until it does.
+#[derive(Default)]
+struct Cancel {
+    run_id: Option<String>,
+    requested: bool,
+}
+
+impl Cancel {
+    /// The user wants the run stopped. Returns the run to stop now, if it has an id yet.
+    fn request(&mut self) -> Option<String> {
+        self.requested = true;
+        self.run_id.clone()
+    }
+
+    /// The backend named the run. Returns it when a cancel was already asked for.
+    fn started(&mut self, run_id: &str) -> Option<String> {
+        self.run_id = Some(run_id.to_string());
+        self.requested.then(|| run_id.to_string())
+    }
+}
+
 struct Shared {
     signals: Mutex<Vec<Signal>>,
+    /// Behind one lock, so a cancel and the start of the run cannot miss each other.
+    cancel: Mutex<Cancel>,
     dirty: AtomicBool,
     notify: Box<dyn Fn() + Send + Sync>,
 }
@@ -111,6 +134,7 @@ impl RunPane {
     ) -> Self {
         let shared = Arc::new(Shared {
             signals: Mutex::new(Vec::new()),
+            cancel: Mutex::new(Cancel::default()),
             dirty: AtomicBool::new(false),
             notify: Box::new(notify),
         });
@@ -142,7 +166,14 @@ impl RunPane {
                     }
                 };
                 shared.push(match started {
-                    Ok(run_id) => Signal::Started(run_id),
+                    Ok(run_id) => {
+                        // The tab may have been closed before the run had an id.
+                        let early = shared.cancel.lock().unwrap().started(&run_id);
+                        if let Some(run_id) = early {
+                            backend.flow_cancel(&run_id);
+                        }
+                        Signal::Started(run_id)
+                    }
                     Err(error) => Signal::Refused(crate::inventory::friendly(&error)),
                 });
             }
@@ -169,15 +200,17 @@ impl RunPane {
         self.done.borrow().is_none()
     }
 
-    /// Ask the backend to stop the run. It ends at the next point where it can.
+    /// Ask the backend to stop the run. It ends at the next point where it can. A run that has
+    /// no id yet is stopped as soon as it gets one.
     pub fn cancel(&self) {
         if !self.running() {
             return;
         }
-        if let Some(run_id) = &*self.run_id.borrow() {
-            self.backend.flow_cancel(run_id);
-            self.cancelling.set(true);
+        let started = self.shared.cancel.lock().unwrap().request();
+        if let Some(run_id) = started {
+            self.backend.flow_cancel(&run_id);
         }
+        self.cancelling.set(true);
     }
 
     fn finish(&self, status: &str, message: String) {
@@ -349,6 +382,17 @@ mod tests {
         assert_eq!(overflow(2000, 1, LOG_LIMIT), 1);
         assert_eq!(overflow(1990, 30, LOG_LIMIT), 20);
         assert_eq!(overflow(5, 2000, LOG_LIMIT), 5);
+    }
+
+    #[test]
+    fn a_cancel_before_the_run_has_an_id_is_sent_when_it_gets_one() {
+        let mut early = Cancel::default();
+        assert_eq!(early.request(), None);
+        assert_eq!(early.started("run_1").as_deref(), Some("run_1"));
+
+        let mut late = Cancel::default();
+        assert_eq!(late.started("run_2"), None);
+        assert_eq!(late.request().as_deref(), Some("run_2"));
     }
 
     #[test]

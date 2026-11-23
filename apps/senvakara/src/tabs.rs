@@ -50,9 +50,12 @@ impl App {
                 self.select(self.tabs.row_count() as i32 - 1);
             }
             Err(error) => {
-                ui.global::<Inventory>()
-                    .set_error(format!("Could not start {title}: {error:#}").into());
-                self.select(-1);
+                // Stay on the tab the user is on: the New Tab page says why nothing opened,
+                // any other tab leaves the message on Home.
+                let message = format!("Could not start {title}: {error:#}");
+                if !self.launcher_note_on_screen(message.clone()) {
+                    ui.global::<Inventory>().set_error(message.into());
+                }
             }
         }
     }
@@ -61,9 +64,12 @@ impl App {
     pub fn pane_started(self: &Rc<Self>, id: i32) {
         let files = self
             .with_pane(id, |pane, place| {
-                // A desktop only sends its screen while it is on screen.
-                if let Pane::Desktop(pane) = pane {
-                    pane.set_visible(self.on_screen(place));
+                // A desktop only sends its screen while it is on screen; a mirror only makes
+                // pictures while it is.
+                match pane {
+                    Pane::Desktop(pane) => pane.set_visible(self.on_screen(place)),
+                    Pane::Mirror(pane) => pane.set_visible(self.on_screen(place)),
+                    _ => {}
                 }
                 matches!(pane, Pane::Files(_))
             })
@@ -82,11 +88,12 @@ impl App {
             index.max(-1)
         };
         self.active.set(index);
-        // A desktop is only asked for its screen while its tab is the one on screen.
-        self.each_pane(|pane, place| {
-            if let Pane::Desktop(pane) = pane {
-                pane.set_visible(place.tab() as i32 == index);
-            }
+        // A desktop is only asked for its screen while its tab is the one on screen, and a
+        // mirror (also one in a workspace) only makes pictures then.
+        self.each_pane(|pane, place| match pane {
+            Pane::Desktop(pane) => pane.set_visible(place.tab() as i32 == index),
+            Pane::Mirror(pane) => pane.set_visible(place.tab() as i32 == index),
+            _ => {}
         });
         let kind = (index >= 0)
             .then(|| self.sessions.borrow().get(index as usize).map(Pane::kind))
@@ -134,13 +141,14 @@ impl App {
         }
     }
 
-    /// Close a tab, asking first when its session is still running.
+    /// Close a tab, asking first when its session is still running or a workspace has unsaved
+    /// changes.
     pub(crate) fn request_close(self: &Rc<Self>, index: i32) {
         let sessions = self.sessions.borrow();
         let Some(pane) = (index >= 0).then(|| sessions.get(index as usize)).flatten() else {
             return;
         };
-        if !pane.running() {
+        if !pane.closing_loses() {
             drop(sessions);
             self.close(index);
             return;

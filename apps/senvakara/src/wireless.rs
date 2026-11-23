@@ -5,7 +5,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use senvakara_app::CoreError;
-use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
+use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
 
 use crate::{App, Inventory, Wireless, WirelessNote, WirelessService};
 
@@ -15,6 +15,16 @@ pub struct State {
     hosts: RefCell<Vec<String>>,
     found: Rc<VecModel<WirelessService>>,
     log: Rc<VecModel<WirelessNote>>,
+    /// The address a scan last put in the pairing field, while it is still there.
+    pair_from_scan: RefCell<String>,
+    /// The same for the connect field.
+    connect_from_scan: RefCell<String>,
+}
+
+/// Whether a scan may put an address in a field: when the user typed nothing there, or the
+/// value is one an earlier scan put there (the phone's port changes every time).
+fn scan_may_fill(current: &str, from_scan: &str) -> bool {
+    current.trim().is_empty() || current == from_scan
 }
 
 /// A pairing code as the phone shows it: digits only, six at most.
@@ -51,10 +61,12 @@ pub fn pair_problem(address: &str, code: &str) -> &'static str {
     ""
 }
 
+const PAIRING_OPEN: &str = "Pairing screen open";
+
 /// What a discovered service means, from its mDNS type.
 fn service_state(service: &str) -> &'static str {
     if service.contains("pairing") {
-        "Pairing screen open"
+        PAIRING_OPEN
     } else {
         "Ready to connect"
     }
@@ -112,6 +124,31 @@ impl App {
             let app = self.clone();
             move || app.wireless_connect()
         });
+        wireless.on_use_found({
+            let app = self.clone();
+            move |index| app.wireless_use_found(index)
+        });
+    }
+
+    /// The user picked a found phone: its address goes in the field for what it offers.
+    fn wireless_use_found(&self, index: i32) {
+        let Some(ui) = self.ui.upgrade() else { return };
+        let Some(service) = usize::try_from(index)
+            .ok()
+            .and_then(|index| self.wifi.found.row_data(index))
+        else {
+            return;
+        };
+        let wireless = ui.global::<Wireless>();
+        let address = service.address.to_string();
+        if service.state == PAIRING_OPEN {
+            wireless.set_pair_address(address.as_str().into());
+            *self.wifi.pair_from_scan.borrow_mut() = address;
+        } else {
+            wireless.set_connect_address(address.as_str().into());
+            *self.wifi.connect_from_scan.borrow_mut() = address;
+        }
+        self.wireless_validate();
     }
 
     fn wireless_open(self: &Rc<Self>) {
@@ -127,6 +164,8 @@ impl App {
         wireless.set_connect_address(SharedString::new());
         wireless.set_busy(SharedString::new());
         wireless.set_scanned(false);
+        self.wifi.pair_from_scan.borrow_mut().clear();
+        self.wifi.connect_from_scan.borrow_mut().clear();
         self.wifi.found.set_vec(Vec::new());
         self.wifi.log.set_vec(Vec::new());
         self.wireless_validate();
@@ -215,14 +254,22 @@ impl App {
                                 .find(|service| service.service.contains(kind))
                                 .map(|service| service.address.clone())
                         };
-                        if wireless.get_pair_address().is_empty() {
+                        if scan_may_fill(
+                            &wireless.get_pair_address(),
+                            &app.wifi.pair_from_scan.borrow(),
+                        ) {
                             if let Some(address) = address_of("pairing") {
-                                wireless.set_pair_address(address.into());
+                                wireless.set_pair_address(address.as_str().into());
+                                *app.wifi.pair_from_scan.borrow_mut() = address;
                             }
                         }
-                        if wireless.get_connect_address().is_empty() {
+                        if scan_may_fill(
+                            &wireless.get_connect_address(),
+                            &app.wifi.connect_from_scan.borrow(),
+                        ) {
                             if let Some(address) = address_of("connect") {
-                                wireless.set_connect_address(address.into());
+                                wireless.set_connect_address(address.as_str().into());
+                                *app.wifi.connect_from_scan.borrow_mut() = address;
                             }
                         }
                         app.wifi.found.set_vec(
@@ -357,6 +404,17 @@ mod tests {
         assert!(pair_problem("", "123456").contains("IP address"));
         assert!(pair_problem("192.168.1.20:37123", "123").contains("6-digit"));
         assert_eq!(pair_problem("192.168.1.20:37123", "123456"), "");
+    }
+
+    #[test]
+    fn a_scan_fills_what_the_user_did_not_type() {
+        assert!(scan_may_fill("", ""));
+        assert!(scan_may_fill("  ", "192.0.2.20:37123"));
+        // The earlier scan's port is replaced by the new one.
+        assert!(scan_may_fill("192.0.2.20:37123", "192.0.2.20:37123"));
+        // Typed or edited by the user: left alone.
+        assert!(!scan_may_fill("192.0.2.20:4444", "192.0.2.20:37123"));
+        assert!(!scan_may_fill("192.0.2.20:4444", ""));
     }
 
     #[test]

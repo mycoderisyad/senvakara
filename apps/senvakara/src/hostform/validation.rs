@@ -146,13 +146,12 @@ pub fn tag_problem(tag: &str, tags: &[String]) -> &'static str {
 }
 
 /// A Remote Desktop host keeps its saved password only while its address and user name stay
-/// the same: Windows files the credential under both. True when an edit would lose it.
+/// the same: Windows files the credential under both, and the backend compares them exactly
+/// (`crates/app/src/hosts/credentials.rs`), so a change of case counts. True when an edit would
+/// lose it.
 pub fn rdp_password_lost(before: &Fields, now: &Fields) -> bool {
     now.protocol == Protocol::Rdp
-        && (!before
-            .address
-            .trim()
-            .eq_ignore_ascii_case(now.address.trim())
+        && (before.address.trim() != now.address.trim()
             || before.username.trim() != now.username.trim())
 }
 
@@ -249,9 +248,15 @@ pub fn check(fields: &Fields, password: Password) -> Result<HostUpsert, Problems
     }
 }
 
-/// Why a VPN address cannot be added, or "" when it can. `known` are the addresses the host
-/// already has (its main one included); `vpn_count` how many of them are VPN addresses.
-pub fn vpn_problem(address: &str, port: &str, known: &[String], vpn_count: usize) -> &'static str {
+/// Why a VPN address cannot be added, or "" when it can. `known` are the (address, port) pairs
+/// the host already has (its main one included); the same address on another port is a
+/// different path, as in storage. `vpn_count` is how many of them are VPN addresses.
+pub fn vpn_problem(
+    address: &str,
+    port: &str,
+    known: &[(String, u16)],
+    vpn_count: usize,
+) -> &'static str {
     let address = address.trim();
     if vpn_count >= MAX_VPN {
         return "A host can have at most 4 VPN addresses. Remove one first.";
@@ -263,10 +268,14 @@ pub fn vpn_problem(address: &str, port: &str, known: &[String], vpn_count: usize
     if !problem.is_empty() {
         return problem;
     }
-    if known.iter().any(|have| have.eq_ignore_ascii_case(address)) {
-        return "This host already has that address.";
-    }
     match parse_port(port) {
+        Ok(port)
+            if known
+                .iter()
+                .any(|(have, on)| *on == port && have.eq_ignore_ascii_case(address)) =>
+        {
+            "This host already has that address and port."
+        }
         Ok(_) => "",
         Err(problem) => problem,
     }

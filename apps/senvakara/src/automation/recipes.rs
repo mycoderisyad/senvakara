@@ -13,9 +13,95 @@ use super::draft::{
 use super::history::run_row;
 use super::target::device_label;
 
+/// Where to go once the recipe in the editor is left.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Leave {
+    /// Just close the editor.
+    Close,
+    /// Open the stored recipe with this id.
+    Select(String),
+    /// Start a new recipe.
+    Create,
+}
+
+/// Whether `draft` differs from what is stored, or, for a recipe never saved, from the blank
+/// recipe it started as.
+fn has_unsaved_changes(stored: Option<&Draft>, fresh: Option<&Draft>, draft: &Draft) -> bool {
+    match stored {
+        Some(stored) => stored != draft,
+        None => fresh != Some(draft),
+    }
+}
+
 impl App {
+    /// Leave the open recipe for `next`, asking first when it has changes that are not saved.
+    pub(super) fn recipe_leave(self: &Rc<Self>, next: Leave) {
+        let dirty = self.auto.draft.borrow().as_ref().is_some_and(|draft| {
+            has_unsaved_changes(
+                self.auto.stored.borrow().as_ref(),
+                self.auto.fresh.borrow().as_ref(),
+                draft,
+            )
+        });
+        if !dirty {
+            self.recipe_go(next);
+            return;
+        }
+        let name = self
+            .auto
+            .draft
+            .borrow()
+            .as_ref()
+            .map(|draft| draft.name.trim().to_string())
+            .unwrap_or_default();
+        self.ask(
+            Question {
+                title: "Discard your changes?".into(),
+                body: format!("The changes to {name} have not been saved."),
+                confirm: "Discard".into(),
+                danger: true,
+            },
+            Pending::DiscardRecipe(next),
+        );
+    }
+
+    /// Do what `next` says, dropping the recipe in the editor.
+    pub fn recipe_go(self: &Rc<Self>, next: Leave) {
+        match next {
+            Leave::Close => {
+                *self.auto.draft.borrow_mut() = None;
+                *self.auto.stored.borrow_mut() = None;
+                *self.auto.fresh.borrow_mut() = None;
+                self.auto.error.borrow_mut().clear();
+                self.recipes_publish();
+            }
+            Leave::Select(id) => {
+                let record = self
+                    .auto
+                    .recipes
+                    .borrow()
+                    .iter()
+                    .find(|record| record.id == id)
+                    .cloned();
+                if let Some(record) = record {
+                    self.recipe_open(Draft::from_record(&record), true);
+                }
+            }
+            Leave::Create => {
+                let route = self
+                    .inv
+                    .available_devices()
+                    .into_iter()
+                    .next()
+                    .unwrap_or_default();
+                self.recipe_open(Draft::blank(route), false);
+            }
+        }
+    }
+
     pub(super) fn recipe_open(self: &Rc<Self>, draft: Draft, stored: bool) {
         *self.auto.stored.borrow_mut() = stored.then(|| draft.clone());
+        *self.auto.fresh.borrow_mut() = (!stored).then(|| draft.clone());
         if let Some(ui) = self.ui.upgrade() {
             ui.global::<Recipes>().set_name(draft.name.as_str().into());
         }
@@ -341,11 +427,38 @@ impl App {
                 if open.as_deref() == Some(id.as_str()) {
                     *self.auto.draft.borrow_mut() = None;
                     *self.auto.stored.borrow_mut() = None;
+                    *self.auto.fresh.borrow_mut() = None;
                 }
                 self.auto.error.borrow_mut().clear();
             }
             Err(error) => *self.auto.error.borrow_mut() = friendly(&error),
         }
         self.automations_reload();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_new_recipe_is_unsaved_only_once_it_is_changed() {
+        let blank = Draft::blank("route".into());
+        assert!(!has_unsaved_changes(None, Some(&blank), &blank));
+        let mut edited = blank.clone();
+        edited.name = "Smoke test".into();
+        assert!(has_unsaved_changes(None, Some(&blank), &edited));
+    }
+
+    #[test]
+    fn a_stored_recipe_is_unsaved_when_it_differs_from_what_is_stored() {
+        let stored = Draft {
+            id: Some("rec_1".into()),
+            ..Draft::blank("route".into())
+        };
+        assert!(!has_unsaved_changes(Some(&stored), None, &stored));
+        let mut edited = stored.clone();
+        edited.shell = true;
+        assert!(has_unsaved_changes(Some(&stored), None, &edited));
     }
 }

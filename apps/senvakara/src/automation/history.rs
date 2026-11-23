@@ -75,6 +75,12 @@ pub fn run_state(status: &str) -> (&'static str, &'static str) {
     }
 }
 
+/// Whether a run is a deploy the user started from the Deploy card. A deploy step inside a
+/// recipe is stored as a run of its own, marked `embedded`; it belongs to the recipe.
+pub fn is_standalone_deploy(run: &RunRecord) -> bool {
+    run.recipe_id.is_none() && run.summary.get("embedded").and_then(Value::as_bool) != Some(true)
+}
+
 /// One history row. `what` is the summary field of the middle column ("mode" or "recipe").
 pub fn run_row(run: &RunRecord, what: &str) -> RunRow {
     let field = |key: &str| {
@@ -123,6 +129,25 @@ mod tests {
         );
         assert_eq!(friendly_raw("3 steps done"), "3 steps done");
         assert_eq!(friendly_raw(""), "");
+    }
+
+    #[test]
+    fn a_deploy_step_inside_a_recipe_is_not_a_standalone_deploy() {
+        let mut run = RunRecord {
+            id: "run_2".into(),
+            recipe_id: None,
+            status: "succeeded".into(),
+            created_at: String::new(),
+            finished_at: None,
+            summary: json!({ "mode": "debug" }),
+            steps: Vec::new(),
+        };
+        assert!(is_standalone_deploy(&run));
+        run.summary = json!({ "mode": "debug", "embedded": true });
+        assert!(!is_standalone_deploy(&run));
+        run.summary = json!({ "mode": "debug" });
+        run.recipe_id = Some("rec_1".into());
+        assert!(!is_standalone_deploy(&run));
     }
 
     #[test]

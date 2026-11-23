@@ -46,6 +46,8 @@ export global Wireless {
     callback scan();
     callback pair();
     callback connect();
+    // Put the address of the found phone at this index in the field for what it offers.
+    callback use-found(index: int);
     callback close();
 }
 
@@ -118,28 +120,46 @@ export component WirelessDialog inherits DialogFrame {
             text: "No phone is advertising Wireless debugging on that host's network right now. You can still type the address shown on the phone.";
         }
 
-        for service in Wireless.found: HorizontalLayout {
-            spacing: Theme.space-3;
-
-            Text {
-                text: service.address;
-                color: Theme.text;
-                font-family: Theme.mono;
-                font-size: Theme.text-small;
+        for service[index] in Wireless.found: Rectangle {
+            border-radius: Theme.radius - 2px;
+            background: found-touch.pressed ? Theme.surface-selected : found-touch.has-hover ? Theme.surface-hover : transparent;
+            accessible-role: button;
+            accessible-label: "Use " + service.address + ", " + service.state;
+            accessible-action-default => {
+                Wireless.use-found(index);
             }
 
-            Text {
-                text: service.state;
-                color: Theme.text;
-                font-size: Theme.text-small;
+            found-touch := TouchArea {
+                mouse-cursor: pointer;
+                clicked => {
+                    Wireless.use-found(index);
+                }
             }
 
-            Text {
-                horizontal-stretch: 1;
-                text: service.name;
-                color: Theme.text-faint;
-                font-size: Theme.text-small;
-                overflow: elide;
+            HorizontalLayout {
+                padding: Theme.space-1;
+                spacing: Theme.space-3;
+
+                Text {
+                    text: service.address;
+                    color: Theme.text;
+                    font-family: Theme.mono;
+                    font-size: Theme.text-small;
+                }
+
+                Text {
+                    text: service.state;
+                    color: Theme.text;
+                    font-size: Theme.text-small;
+                }
+
+                Text {
+                    horizontal-stretch: 1;
+                    text: service.name;
+                    color: Theme.text-faint;
+                    font-size: Theme.text-small;
+                    overflow: elide;
+                }
             }
         }
     }

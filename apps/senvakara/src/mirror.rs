@@ -3,6 +3,8 @@
 //!
 //! Only the newest decoded frame is kept: when the UI is behind, older frames are dropped.
 
+mod held;
+
 use std::cell::Cell;
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU32, Ordering};
 use std::sync::{mpsc, Arc, Mutex};
@@ -13,6 +15,8 @@ use openh264::formats::YUVSource;
 use senvakara_app::{Input, MirrorEvent, Sink};
 use slint::platform::Key;
 use slint::{Rgba8Pixel, SharedPixelBuffer};
+
+use held::Held;
 
 /// The touch pointer id the server sees (one finger).
 const FINGER: u64 = 1;
@@ -27,6 +31,10 @@ struct Shared {
     remote: AtomicI64,
     /// The pane was closed: stop as soon as possible.
     closed: AtomicBool,
+    /// The pane is on screen. A hidden pane still decodes, but makes no RGBA pictures.
+    visible: AtomicBool,
+    /// The newest picture decoded while hidden.
+    held: Mutex<Option<Held>>,
     notify: Box<dyn Fn() + Send + Sync>,
 }
 
@@ -80,6 +88,8 @@ impl MirrorPane {
             frames: AtomicU32::new(0),
             remote: AtomicI64::new(-1),
             closed: AtomicBool::new(false),
+            visible: AtomicBool::new(true),
+            held: Mutex::new(None),
             notify: Box::new(notify),
         });
 
@@ -131,6 +141,32 @@ impl MirrorPane {
             ended: Cell::new(false),
             last: Default::default(),
         }
+    }
+
+    /// The pane came on screen or left it. While it is hidden no picture is converted or
+    /// uploaded; coming back shows the newest picture the phone sent in the meantime.
+    pub fn set_visible(&self, visible: bool) {
+        if self.shared.visible.swap(visible, Ordering::AcqRel) == visible || !visible {
+            return;
+        }
+        let shared = self.shared.clone();
+        // The conversion is the slow part and must not hold up the UI thread.
+        std::thread::Builder::new()
+            .name(format!("mirror-resume-{}", self.id))
+            .spawn(move || {
+                let Some(held) = shared.held.lock().unwrap().take() else {
+                    return;
+                };
+                let picture = held.to_rgba();
+                let mut frame = shared.frame.lock().unwrap();
+                // A picture decoded since the pane came back is newer: keep it.
+                if frame.is_none() {
+                    *frame = Some(picture);
+                    drop(frame);
+                    shared.mark();
+                }
+            })
+            .ok();
     }
 
     pub fn size(&self) -> (u16, u16) {
@@ -301,11 +337,19 @@ fn decode_loop(inbox: mpsc::Receiver<MirrorEvent>, shared: &Shared) {
                 let mut produced = None;
                 // Errors before the first key frame are expected: keep going.
                 if let Ok(Some(picture)) = result {
-                    let (width, height) = picture.dimensions();
-                    let mut buffer =
-                        SharedPixelBuffer::<Rgba8Pixel>::new(width as u32, height as u32);
-                    picture.write_rgba8(buffer.make_mut_bytes());
-                    produced = Some(buffer);
+                    // Checked under the lock `set_visible` takes the held picture with, so a
+                    // picture is either kept for it or converted here.
+                    let mut held = shared.held.lock().unwrap();
+                    if shared.visible.load(Ordering::Acquire) {
+                        drop(held);
+                        let (width, height) = picture.dimensions();
+                        let mut buffer =
+                            SharedPixelBuffer::<Rgba8Pixel>::new(width as u32, height as u32);
+                        picture.write_rgba8(buffer.make_mut_bytes());
+                        produced = Some(buffer);
+                    } else {
+                        Held::keep(&mut held, &picture);
+                    }
                 }
                 if let Some(buffer) = produced {
                     *shared.frame.lock().unwrap() = Some(buffer);

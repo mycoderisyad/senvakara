@@ -9,7 +9,7 @@ use crate::inventory::fact;
 use crate::run::Job;
 use crate::{App, Deploy, Pending, Question, RunRow};
 
-use super::history::run_row;
+use super::history::{is_standalone_deploy, run_row};
 use super::target::{device_label, target_facts};
 use super::DeviceView;
 
@@ -42,6 +42,14 @@ pub fn deploy_problem(
         Some(true) => "",
     }
 }
+
+/// Whether the phone found for a confirmed deploy is still the one that was confirmed.
+fn same_target(spec: &FlowSpec, state: &str, serial: &str) -> bool {
+    state == "available" && serial == spec.expected_serial
+}
+
+/// The Deploy card lists this many runs.
+const HISTORY_SHOWN: usize = 50;
 
 fn folder_name(path: &str) -> String {
     path.trim()
@@ -144,7 +152,8 @@ impl App {
             .history
             .borrow()
             .iter()
-            .filter(|run| run.recipe_id.is_none())
+            .filter(|run| is_standalone_deploy(run))
+            .take(HISTORY_SHOWN)
             .map(|run| run_row(run, "mode"))
             .collect();
         let current: Vec<RunRow> = view.get_history().iter().collect();
@@ -204,13 +213,20 @@ impl App {
             },
             facts,
             "",
-            Pending::Deploy,
+            Pending::Deploy(spec),
         );
     }
 
-    /// The user confirmed the deploy: open its run tab.
-    pub fn deploy_start(self: &Rc<Self>) {
-        let Some((spec, device, _)) = self.deploy_spec() else {
+    /// The user confirmed the deploy `spec` the dialog described: open its run tab. It runs
+    /// for exactly that phone, or not at all when the phone is no longer there as it was.
+    pub fn deploy_start(self: &Rc<Self>, spec: FlowSpec) {
+        let device = self
+            .inv
+            .device(&spec.route_id)
+            .filter(|device| same_target(&spec, &device.record.state, &device.record.serial));
+        let Some(device) = device else {
+            // The phone the dialog named went away: show the form as it is now.
+            self.deploy_publish();
             return;
         };
         let title = format!("Deploy {}", folder_name(&spec.project_dir));
@@ -231,6 +247,22 @@ mod tests {
         assert!(deploy_problem(Some(true), "D:\\p", false, true).contains("pubspec.yaml"));
         assert!(deploy_problem(Some(true), "D:\\p", true, false).contains("No phone"));
         assert_eq!(deploy_problem(Some(true), "D:\\p", true, true), "");
+    }
+
+    #[test]
+    fn a_confirmed_deploy_only_runs_for_the_phone_that_was_confirmed() {
+        let spec = FlowSpec {
+            build_host_id: "local".into(),
+            project_dir: "D:/p".into(),
+            mode: "debug".into(),
+            route_id: "route-a".into(),
+            expected_serial: "AAA".into(),
+            launch: false,
+            logcat: false,
+        };
+        assert!(same_target(&spec, "available", "AAA"));
+        assert!(!same_target(&spec, "available", "BBB"));
+        assert!(!same_target(&spec, "offline", "AAA"));
     }
 
     #[test]

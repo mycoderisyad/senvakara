@@ -53,6 +53,9 @@ impl App {
                                 .errors
                                 .borrow_mut()
                                 .insert(host.id.clone(), friendly(&error));
+                            // The error shows in the inspector: from a card's menu the host
+                            // may not be the selected one, so select it.
+                            app.select_item("host", &host.id);
                         }
                         app.reload();
                         app.sample_metrics();
@@ -113,6 +116,9 @@ impl App {
                                 .errors
                                 .borrow_mut()
                                 .insert(host.id.clone(), friendly(&error));
+                            // The error shows in the inspector: from a card's menu the host
+                            // may not be the selected one, so select it.
+                            app.select_item("host", &host.id);
                         }
                         // The host was seen just now, or has an error to show.
                         app.reload();

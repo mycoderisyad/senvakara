@@ -65,6 +65,12 @@ impl Pane {
         }
     }
 
+    /// Whether closing it loses something: a session still going, or the unsaved layout of a
+    /// workspace.
+    pub fn closing_loses(&self) -> bool {
+        self.running() || matches!(self, Pane::Workspace(pane) if pane.unsaved())
+    }
+
     /// What the confirmation says will happen when it is closed.
     pub fn closing_note(&self) -> String {
         match self {

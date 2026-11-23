@@ -40,10 +40,16 @@ impl App {
 
     pub fn host_remove(self: &Rc<Self>, host_id: String) {
         let backend = self.backend.clone();
+        let removed = host_id.clone();
         self.run(
             async move { backend.host_delete(host_id).await },
-            |app, result| {
-                app.host_form_close();
+            move |app, result| {
+                // The form goes only with its own host, and only when that host is gone: it may
+                // hold unsaved changes to another one.
+                let editing_it = app.hosts.editing.borrow().as_deref() == Some(removed.as_str());
+                if result.is_ok() && editing_it {
+                    app.host_form_close();
+                }
                 app.reload();
                 if let (Err(error), Some(ui)) = (result, app.ui.upgrade()) {
                     ui.global::<Inventory>()

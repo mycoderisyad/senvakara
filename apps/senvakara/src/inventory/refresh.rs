@@ -2,7 +2,7 @@
 
 use std::rc::Rc;
 
-use senvakara_app::AppEvent;
+use senvakara_app::{AppEvent, Protocol};
 use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
 
 use crate::{App, DeviceItem, HostGroup, HostItem, Inventory, KeyValue};
@@ -170,7 +170,13 @@ impl App {
                 .filter(|device| device.record.state == state)
                 .count()
         };
-        let connected = hosts
+        // A Remote Desktop host never holds a connection or phones: it is neither reachable nor
+        // unreachable, so it stays out of the count and out of the ADB list.
+        let reachable_hosts: Vec<_> = hosts
+            .iter()
+            .filter(|host| host.protocol != Protocol::Rdp)
+            .collect();
+        let connected = reachable_hosts
             .iter()
             .filter(|host| host.is_local || host.connected)
             .count();
@@ -192,14 +198,14 @@ impl App {
         inventory.set_summary(
             format!(
                 "{connected} of {} reachable  ·  {}",
-                plural(hosts.len(), "host", "hosts"),
+                plural(reachable_hosts.len(), "host", "hosts"),
                 phones.join(", ")
             )
             .into(),
         );
 
         let watching = self.inv.watching.borrow();
-        let sources: Vec<KeyValue> = hosts
+        let sources: Vec<KeyValue> = reachable_hosts
             .iter()
             .map(|host| {
                 let value = match watching.get(&host.id) {
@@ -213,6 +219,7 @@ impl App {
             })
             .collect();
         inventory.set_adb_sources(ModelRc::new(VecModel::from(sources)));
+        drop(reachable_hosts);
         drop((hosts, devices, watching));
         self.publish_selection();
         self.files_inventory_changed();

@@ -285,7 +285,8 @@ impl LogcatPane {
         self.starting.get() || self.streaming.get()
     }
 
-    /// Start streaming again (the backend replays the last 500 lines first).
+    /// Start streaming again. The backend replays the last 500 lines first, so the lines of
+    /// the earlier stream are dropped.
     pub fn resume(&self) {
         if self.active() {
             return;
@@ -293,6 +294,9 @@ impl LogcatPane {
         self.starting.set(true);
         self.error.borrow_mut().clear();
         let generation = self.shared.generation.fetch_add(1, Ordering::AcqRel) + 1;
+        // The backend replays the last lines first: keeping the old ones would show them twice.
+        self.shared.pending.lock().unwrap().clear();
+        self.clear();
         let current = {
             let shared = self.shared.clone();
             move || {
@@ -492,6 +496,30 @@ mod tests {
         buffer.clear();
         assert_eq!(buffer.push_bytes(b" tail\n").appended, [" tail"]);
         assert_eq!(buffer.total(), 1);
+    }
+
+    #[test]
+    fn a_replay_after_a_restart_does_not_repeat_lines() {
+        let mut buffer = LogBuffer::new(10);
+        let model = LogModel::default();
+        model.apply(buffer.push_bytes(
+            b"one
+two
+",
+        ));
+        // What `LogcatPane::clear` does when a stopped stream starts again.
+        buffer.clear();
+        model.replace(Vec::new());
+        // The backend replays what the phone still has.
+        model.apply(buffer.push_bytes(
+            b"one
+two
+three
+",
+        ));
+        assert_eq!(buffer.total(), 3);
+        let shown: Vec<String> = model.iter().map(|line| line.text.to_string()).collect();
+        assert_eq!(shown, ["one", "two", "three"]);
     }
 
     #[test]

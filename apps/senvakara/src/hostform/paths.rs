@@ -33,9 +33,13 @@ impl App {
     /// (host, why the typed address cannot be added)
     fn paths_check(&self, address: &str, port: &str) -> Option<(HostView, &'static str)> {
         let host = self.inv.host(&self.hosts.paths_host.borrow())?;
-        let mut known: Vec<String> = host.vpn.iter().map(|vpn| vpn.address.clone()).collect();
+        let mut known: Vec<(String, u16)> = host
+            .vpn
+            .iter()
+            .map(|vpn| (vpn.address.clone(), vpn.port))
+            .collect();
         if let Some(ssh) = &host.ssh {
-            known.push(ssh.address.clone());
+            known.push((ssh.address.clone(), ssh.port));
         }
         let problem = vpn_problem(address, port, &known, host.vpn.len());
         Some((host, problem))

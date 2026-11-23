@@ -8,7 +8,7 @@ mod spec;
 pub use spec::{file_name, JobSpec};
 
 use std::cell::{Cell, RefCell};
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::rc::Rc;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
@@ -93,12 +93,33 @@ struct Inbox {
     dirty: AtomicBool,
 }
 
+/// Name clashes waiting for the user's answer, oldest first: (label, job that replaces).
+/// The confirmation dialog shows one question at a time, so the rest wait here instead of
+/// overwriting the open one.
+#[derive(Default)]
+struct Conflicts(VecDeque<(String, JobSpec)>);
+
+impl Conflicts {
+    fn push(&mut self, label: String, spec: JobSpec) {
+        self.0.push_back((label, spec));
+    }
+
+    /// The next clash to ask about, unless a dialog is open: that one is answered first.
+    fn take_next(&mut self, dialog_open: bool) -> Option<(String, JobSpec)> {
+        if dialog_open {
+            return None;
+        }
+        self.0.pop_front()
+    }
+}
+
 #[derive(Default)]
 pub struct State {
     jobs: RefCell<Vec<Job>>,
     model: Rc<VecModel<JobItem>>,
     next: Cell<i32>,
     inbox: Arc<Inbox>,
+    conflicts: RefCell<Conflicts>,
 }
 
 #[cfg(test)]
@@ -115,5 +136,32 @@ mod tests {
         assert_eq!(progress(Phase::Done, 0, 0), ("Done".into(), 1.0));
         assert_eq!(progress(Phase::Cancelled, 1, 2), ("Cancelled".into(), 0.5));
         assert_eq!(progress(Phase::Failed, 9, 3).1, 1.0);
+    }
+
+    fn pull(name: &str) -> JobSpec {
+        JobSpec::DevicePull {
+            route_id: "r".into(),
+            remote_path: format!("/sdcard/{name}"),
+            local_dir: "/home/me".into(),
+            overwrite: true,
+        }
+    }
+
+    #[test]
+    fn name_clashes_are_asked_one_at_a_time_in_order() {
+        let mut waiting = Conflicts::default();
+        waiting.push("first".into(), pull("a.txt"));
+        waiting.push("second".into(), pull("b.txt"));
+        // Another dialog is open: nothing is asked and nothing is lost.
+        assert_eq!(waiting.take_next(true), None);
+        assert_eq!(
+            waiting.take_next(false),
+            Some(("first".into(), pull("a.txt")))
+        );
+        assert_eq!(
+            waiting.take_next(false),
+            Some(("second".into(), pull("b.txt")))
+        );
+        assert_eq!(waiting.take_next(false), None);
     }
 }

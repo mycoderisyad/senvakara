@@ -202,7 +202,11 @@ pub async fn download(
     result.map(|_| target)
 }
 
-/// Upload `local` into `remote_dir`; removes the remote partial on failure.
+/// Upload `local` into `remote_dir`. Writes to `<name>.part` and renames on success, so a
+/// cancelled or failed upload never touches a file that was already there; the partial file
+/// is removed on failure or cancellation.
+///
+/// Fails with `Conflict` when the name is taken and `overwrite` is off.
 pub async fn upload(
     sftp: &SftpSession,
     local: &Path,
@@ -229,13 +233,15 @@ pub async fn upload(
         .context("stat local file")?
         .len();
 
+    let part = format!("{target}.part");
+
     let result = async {
         let mut src = tokio::fs::File::open(local)
             .await
             .context("open local file")?;
         let mut dst = sftp
             .open_with_flags(
-                target.clone(),
+                part.clone(),
                 OpenFlags::CREATE | OpenFlags::TRUNCATE | OpenFlags::WRITE,
             )
             .await
@@ -258,12 +264,24 @@ pub async fn upload(
             progress(done, total);
         }
         dst.shutdown().await.context("close remote file")?;
+        if done != total {
+            return Err(err(
+                ErrorCode::InternalError,
+                format!("size mismatch after upload ({done} vs {total} bytes)"),
+            ));
+        }
+        if overwrite {
+            let _ = sftp.remove_file(target.clone()).await;
+        }
+        sftp.rename(part.clone(), target.clone())
+            .await
+            .context("finalise remote file")?;
         anyhow::Ok(())
     }
     .await;
 
     if result.is_err() {
-        let _ = sftp.remove_file(target.clone()).await;
+        let _ = sftp.remove_file(part).await;
     }
     result.map(|_| target)
 }

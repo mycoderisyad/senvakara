@@ -7,7 +7,8 @@ use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
 use crate::inventory::friendly;
 use crate::{App, Deploy, Recipes};
 
-use super::draft::{Draft, StepDraft, KINDS, MAX_STEPS};
+use super::draft::{StepDraft, KINDS, MAX_STEPS};
+use super::recipes::Leave;
 
 impl App {
     pub fn init_automations(self: &Rc<Self>, ui: &crate::MainWindow) {
@@ -80,39 +81,15 @@ impl App {
         )));
         recipes.on_select({
             let app = self.clone();
-            move |id| {
-                let record = app
-                    .auto
-                    .recipes
-                    .borrow()
-                    .iter()
-                    .find(|record| record.id == id.as_str())
-                    .cloned();
-                if let Some(record) = record {
-                    app.recipe_open(Draft::from_record(&record), true);
-                }
-            }
+            move |id| app.recipe_leave(Leave::Select(id.to_string()))
         });
         recipes.on_create({
             let app = self.clone();
-            move || {
-                let route = app
-                    .inv
-                    .available_devices()
-                    .into_iter()
-                    .next()
-                    .unwrap_or_default();
-                app.recipe_open(Draft::blank(route), false);
-            }
+            move || app.recipe_leave(Leave::Create)
         });
         recipes.on_close({
             let app = self.clone();
-            move || {
-                *app.auto.draft.borrow_mut() = None;
-                *app.auto.stored.borrow_mut() = None;
-                app.auto.error.borrow_mut().clear();
-                app.recipes_publish();
-            }
+            move || app.recipe_leave(Leave::Close)
         });
         recipes.on_edited({
             let app = self.clone();

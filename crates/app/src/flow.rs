@@ -187,13 +187,17 @@ pub(crate) async fn flutter_info(app: &Arc<App>, host_id: String) -> CmdResult<F
     })
 }
 
+/// How many runs the history reads. Deploy steps of recipes are runs too, so it is more than
+/// the Deploy card shows.
+const HISTORY_ROWS: usize = 200;
+
 pub(crate) fn flow_history(app: &App) -> CmdResult<Vec<RunRecord>> {
     let state = &app.state;
     state
         .db
         .lock()
         .unwrap()
-        .list_runs(50)
+        .list_runs(HISTORY_ROWS)
         .map_err(|e| db_err("history", e))
 }
 

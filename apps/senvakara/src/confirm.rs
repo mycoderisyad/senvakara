@@ -69,10 +69,12 @@ pub enum Pending {
         workspace: i32,
         layout: workspace::Layout,
     },
-    /// Start the build-and-deploy the form describes.
-    Deploy,
+    /// Start exactly the build-and-deploy the dialog described, for the phone it named.
+    Deploy(senvakara_app::FlowSpec),
     /// Run the recipe open in the editor.
     RunRecipe,
+    /// Leave the recipe in the editor although it has unsaved changes, then go on.
+    DiscardRecipe(crate::automation::Leave),
     /// Database id of a recipe.
     DeleteRecipe(String),
 }
@@ -104,7 +106,13 @@ impl App {
         confirm.set_open(true);
     }
 
+    /// The user answered the open confirmation. Name clashes that waited for it come next.
     pub(crate) fn answer(self: &Rc<Self>, accepted: bool) {
+        self.answer_pending(accepted);
+        self.job_conflict_next();
+    }
+
+    fn answer_pending(self: &Rc<Self>, accepted: bool) {
         let Some(ui) = self.ui.upgrade() else { return };
         ui.global::<Confirm>().set_open(false);
         let Some(pending) = self.pending.borrow_mut().take() else {
@@ -175,8 +183,9 @@ impl App {
             Pending::WorkspaceLayout { workspace, layout } => {
                 self.workspace_set_layout(workspace, layout)
             }
-            Pending::Deploy => self.deploy_start(),
+            Pending::Deploy(spec) => self.deploy_start(spec),
             Pending::RunRecipe => self.recipe_run(),
+            Pending::DiscardRecipe(leave) => self.recipe_go(leave),
             Pending::DeleteRecipe(id) => self.recipe_delete(id),
         }
     }

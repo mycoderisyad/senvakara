@@ -320,6 +320,18 @@ fn a_remote_desktop_host_loses_its_password_when_address_or_user_changes() {
             ..rdp()
         }
     ));
+    // The backend compares the address exactly, so a new case drops the saved password.
+    let named = Fields {
+        address: "server.example".into(),
+        ..rdp()
+    };
+    assert!(rdp_password_lost(
+        &named,
+        &Fields {
+            address: "SERVER.example".into(),
+            ..rdp()
+        }
+    ));
     // An SSH password is filed under the host, not its address.
     assert!(!rdp_password_lost(
         &filled(),
@@ -348,13 +360,20 @@ fn a_tag_is_refused_when_empty_repeated_too_long_or_one_too_many() {
 
 #[test]
 fn vpn_addresses() {
-    let known = vec!["192.0.2.10".to_string(), "10.8.0.3".to_string()];
+    let known = vec![("192.0.2.10".to_string(), 22), ("10.8.0.3".to_string(), 22)];
     assert_eq!(vpn_problem("100.64.0.7", "22", &known, 1), "");
     assert_eq!(vpn_problem("my-host.tailnet", " 2222 ", &known, 1), "");
     assert!(vpn_problem("", "22", &known, 1).starts_with("Type the VPN address"));
     assert_eq!(
         vpn_problem("10.8.0.3", "22", &known, 1),
-        "This host already has that address."
+        "This host already has that address and port."
+    );
+    // The same address on another port is another way in, as storage allows.
+    assert_eq!(vpn_problem("10.8.0.3", "2222", &known, 1), "");
+    assert_eq!(vpn_problem("192.0.2.10", "2222", &known, 1), "");
+    assert_eq!(
+        vpn_problem("192.0.2.10", " 22 ", &known, 1),
+        "This host already has that address and port."
     );
     assert_eq!(
         vpn_problem("10.8.0.9", "70000", &known, 1),

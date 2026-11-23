@@ -20,6 +20,7 @@ use crate::{RecipeItem, StepItem};
 
 use draft::Draft;
 pub use history::friendly_raw;
+pub use recipes::Leave;
 
 type DeviceView = senvakara_app::android::DeviceView;
 
@@ -38,6 +39,8 @@ pub struct State {
     draft: RefCell<Option<Draft>>,
     /// The open recipe as it is stored; None while it was never saved.
     stored: RefCell<Option<Draft>>,
+    /// A new recipe as it was opened, to tell whether it was changed; None for a stored one.
+    fresh: RefCell<Option<Draft>>,
     /// Route ids behind the recipe target picker; the first entry is "no phone".
     recipe_routes: RefCell<Vec<String>>,
     history: RefCell<Vec<RunRecord>>,
@@ -59,6 +62,7 @@ impl Default for State {
             recipes: RefCell::new(Vec::new()),
             draft: RefCell::new(None),
             stored: RefCell::new(None),
+            fresh: RefCell::new(None),
             recipe_routes: RefCell::new(Vec::new()),
             history: RefCell::new(Vec::new()),
             error: RefCell::new(String::new()),

@@ -35,9 +35,13 @@ impl App {
         if inventory.get_selected_kind() != "device"
             || inventory.get_selected_id() != record.route_id.as_str()
         {
-            inventory.set_selected_kind("device".into());
-            inventory.set_selected_id(record.route_id.as_str().into());
-            self.publish_selection();
+            // A host form the user typed in is not dropped by this: it asks first, and the
+            // action is not run then.
+            let next = crate::hostform::Next::Select("device".into(), record.route_id.clone());
+            if !self.host_form_leave(next) {
+                return;
+            }
+            self.select_item("device", &record.route_id);
         }
         let tools = ui.global::<DeviceTools>();
         match action {

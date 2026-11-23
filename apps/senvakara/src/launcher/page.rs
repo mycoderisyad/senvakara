@@ -149,6 +149,19 @@ impl App {
         self.launcher_start(item.entry.command, &item.entry.title);
     }
 
+    /// Say `text` in the note of the New Tab page when that page is the tab on screen. False
+    /// when it is not, so the caller shows the text somewhere else.
+    pub(crate) fn launcher_note_on_screen(&self, text: String) -> bool {
+        let on_screen = self
+            .launcher_tab()
+            .is_some_and(|index| self.active.get() == index as i32);
+        let Some(ui) = self.ui.upgrade().filter(|_| on_screen) else {
+            return false;
+        };
+        ui.global::<Launcher>().set_note(text.into());
+        true
+    }
+
     /// Open `command`. When the New Tab page is the tab on screen, what opens takes its place:
     /// same position in the tab strip, no extra tab. Something that opens no tab (Remote
     /// Desktop runs in a window of its own; a host-key question is a dialog) leaves the page

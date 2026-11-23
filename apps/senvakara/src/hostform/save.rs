@@ -74,6 +74,14 @@ impl App {
         }
         self.hosts.submitted.set(true);
         form.set_error(SharedString::new());
+        // A tag that was typed but not added yet belongs to the host: add it now, or stop and
+        // let the field say why it cannot be added.
+        if !form.get_tag_draft().trim().is_empty() {
+            self.host_form_add_tag();
+            if !form.get_tag_error().is_empty() {
+                return;
+            }
+        }
         let input = match self.host_form_check(&form) {
             Ok(input) => {
                 show_problems(&form, &Problems::default());

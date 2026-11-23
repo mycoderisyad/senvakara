@@ -221,7 +221,9 @@ impl App {
                     }
                     app.jobs_publish();
                 }
-                Err(error) => app.job_failed(id, error),
+                Err(error) => {
+                    app.job_failed(id, error);
+                }
             },
         );
     }
@@ -246,14 +248,22 @@ impl App {
                     job.detail = event.result_path.unwrap_or_default();
                     finished.push(job.spec.clone());
                 }
-                TransferState::Cancelled => job.phase = Phase::Cancelled,
+                TransferState::Cancelled => {
+                    job.phase = Phase::Cancelled;
+                    // A cancelled copy may have left part of a folder behind.
+                    finished.push(job.spec.clone());
+                }
                 TransferState::Failed => {
-                    failed.push((id, event.error.unwrap_or_else(|| CoreError::internal(""))))
+                    let error = event.error.unwrap_or_else(|| CoreError::internal(""));
+                    failed.push((id, job.spec.clone(), error));
                 }
             }
         }
-        for (id, error) in failed {
-            self.job_failed(id, error);
+        for (id, spec, error) in failed {
+            // A clash that will be retried changes nothing yet; any other failure may have.
+            if !self.job_failed(id, error) {
+                finished.push(spec);
+            }
         }
         self.jobs_publish();
         for spec in finished {
@@ -262,11 +272,11 @@ impl App {
     }
 
     /// A job could not start or stopped with an error. A name clash is not a failure yet:
-    /// ask whether to replace the file and start again.
-    fn job_failed(self: &Rc<Self>, id: i32, error: CoreError) {
+    /// ask whether to replace the file and start again. True when it is such a clash.
+    fn job_failed(self: &Rc<Self>, id: i32, error: CoreError) -> bool {
         let mut jobs = self.jobs.jobs.borrow_mut();
         let Some(index) = jobs.iter().position(|job| job.id == id) else {
-            return;
+            return false;
         };
         let retry = (error.code == ErrorCode::Conflict)
             .then(|| jobs[index].spec.replacing())
@@ -275,20 +285,9 @@ impl App {
             let job = jobs.remove(index);
             drop(jobs);
             self.jobs_publish();
-            let (name, place) = job.spec.target();
-            self.ask_with(
-                Question {
-                    title: "Replace existing file?".into(),
-                    body: "A file or folder with this name is already there. Replacing a file cannot be undone; a folder is merged with the one that is there, replacing files of the same name."
-                        .into(),
-                    confirm: "Replace".into(),
-                    danger: true,
-                },
-                vec![fact("File", name, true), fact("Already in", place, true)],
-                "",
-                Pending::ReplaceFile(job.label, spec),
-            );
-            return;
+            self.jobs.conflicts.borrow_mut().push(job.label, spec);
+            self.job_conflict_next();
+            return true;
         }
         let job = &mut jobs[index];
         if error.code == ErrorCode::Cancelled {
@@ -299,6 +298,28 @@ impl App {
         }
         drop(jobs);
         self.jobs_publish();
+        false
+    }
+
+    /// Ask the oldest waiting "Replace existing file?" question, unless a dialog is open. It is
+    /// called again whenever a confirmation is answered or cancelled.
+    pub(crate) fn job_conflict_next(&self) {
+        let dialog_open = self.pending.borrow().is_some();
+        let next = self.jobs.conflicts.borrow_mut().take_next(dialog_open);
+        let Some((label, spec)) = next else { return };
+        let (name, place) = spec.target();
+        self.ask_with(
+            Question {
+                title: "Replace existing file?".into(),
+                body: "A file or folder with this name is already there. Replacing a file cannot be undone; a folder is merged with the one that is there, replacing files of the same name."
+                    .into(),
+                confirm: "Replace".into(),
+                danger: true,
+            },
+            vec![fact("File", name, true), fact("Already in", place, true)],
+            "",
+            Pending::ReplaceFile(label, spec),
+        );
     }
 
     fn job_cancel(&self, id: i32) {
