@@ -5,7 +5,7 @@ description: Rust coding guidelines for the Senvakara workspace (crates/* backen
 
 # Rust guidelines for Senvakara
 
-Rust 1.94.1, edition 2021 (`Cargo.toml:7`), one workspace: `crates/*` plus `apps/senvakara`
+Rust 1.100.0, edition 2021 (`Cargo.toml:7`), one workspace: `crates/*` plus `apps/senvakara`
 (`Cargo.toml:3`). Rules are of two kinds: **official** rules link to the page they come from;
 **house** rules cite the repo file they were read from. App sources (`apps/senvakara/src`) are
 cited by file and item name, bare names like `jobs/queue.rs` being relative to that folder;
@@ -26,19 +26,22 @@ Read when needed:
 
 1. `cargo fmt` decides layout. There is no `rustfmt.toml`, so it is the default Rust style for
    edition 2021 ([Style Guide][sg]); never hand-format against it, because CI rejects the diff.
-2. CI decides what merges: fmt, Clippy with `-D warnings`, tests (`.github/workflows/ci.yml:21-26`).
+2. CI decides what merges: fmt, Clippy with `-D warnings`, tests (`.github/workflows/ci.yml:24-29`).
 3. This skill decides what a tool cannot: names, grouping, comments, module shape, manifests.
 4. In an old file, match the file. Do not restyle code you are not changing, because a mixed diff
    hides the real change (`docs/AGENTS.md`, rule 11).
 
 ## Build constraints on this machine
 
-- Use no language or library feature newer than Rust 1.94, because local builds run 1.94.1. CI
-  installs current stable and nothing pins the toolchain (`ci.yml:17`; no `rust-toolchain` file),
-  so a lint can fail in CI that local Clippy does not know.
-- Slint stays at `=1.18.1` for `slint` and `slint-build` (`apps/senvakara/Cargo.toml:17,35`),
-  because Slint 1.19 needs rustc 1.95 (`docs/DECISIONS.md:31`, ADR-023; `docs/TECH_STACK.md:9`).
-  `sysinfo` stays at 0.38 for the same reason (`crates/app/Cargo.toml`; `docs/TESTING.md:119`).
+- Use no language or library feature newer than Rust 1.100, because local builds run 1.100.0.
+  CI and the release workflow pin the same toolchain (`ci.yml:19-22`, `release.yml`; no
+  `rust-toolchain` file). When Rust is upgraded locally, raise both pins in the same commit, or CI
+  lints with a different Clippy than the one you ran.
+- Slint is pinned exactly at `=1.19.0` for `slint` and `slint-build`
+  (`apps/senvakara/Cargo.toml:17,41`; `docs/DECISIONS.md:31`, ADR-023; `docs/TECH_STACK.md:9`).
+  The `unstable-winit-030` API is tied to the pin: upgrade both together and check the dark title
+  bar. `sysinfo` is still at 0.38, pinned while the toolchain was 1.94 (`crates/app/Cargo.toml`;
+  `docs/TESTING.md:119`); 0.39+ needed rustc 1.95 and has not been tried since the upgrade.
 - Drive D: is short on space; a debug cache once filled it (`docs/TESTING.md:119`). While
   iterating, check one crate, not the workspace:
 
@@ -250,7 +253,7 @@ Code for each point is in `references/house-patterns.md`.
 - Dependencies are grouped by purpose, not version-sorted as the Style Guide suggests
   ([Cargo.toml conventions][sg-cargo]). Add next to related entries; never re-sort in passing.
 - Before adding a dependency ([rustc dev guide][llm]: think before adding dependencies), check
-  that no existing crate already does the job, that it builds on rustc 1.94.1, that its licence
+  that no existing crate already does the job, that it builds on rustc 1.100.0, that its licence
   is permissive (`docs/TECH_STACK.md:33`), and turn off default features you do not need (as
   `arboard`, `rfd`, `image` and `chrono` do). Name the dependency and its licence in your summary;
   `tools/licenses/gen-notices.mjs` builds the notices that ship.

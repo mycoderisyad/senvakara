@@ -174,10 +174,10 @@ async fn main() -> Result<()> {
             updates as f64 / seconds,
             bytes as f64 / 1e6,
         );
-        let filled = screen.rgba.chunks_exact(4).filter(|p| p[0] != 0 || p[1] != 0 || p[2] != 0).count();
+        let filled = screen.rgba.as_chunks::<4>().0.iter().filter(|p| p[0] != 0 || p[1] != 0 || p[2] != 0).count();
         println!("non-black pixels: {:.1} %", filled as f64 * 100.0 / (screen.width * screen.height).max(1) as f64);
 
-        for pixel in screen.rgba.chunks_exact_mut(4) {
+        for pixel in screen.rgba.as_chunks_mut::<4>().0 {
             pixel[3] = 255;
         }
         let file = std::io::BufWriter::new(std::fs::File::create(&out)?);

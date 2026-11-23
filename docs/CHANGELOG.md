@@ -73,6 +73,12 @@ Built and unit-tested; not yet tried by hand in the running app (see HOST-UI-02,
 - Keychain section: add an SSH key by pasting it, importing a key file or dragging the file from Explorer onto the window; add a key with its certificate or a FIDO2 security key by its public key; edit and delete keys. A key that a host still signs in with cannot be deleted. Private keys and passphrases go to Windows Credential Manager and are never shown again.
 - The startup snippet of a host is stored as plain text with the host, not as a secret.
 
+### Changed — 2026-11-23 (toolchain and Slint upgrade, not yet released)
+
+- Built with Rust 1.100.0 (was 1.94.1) and Slint 1.19.0 (was 1.18.1). CI and the new release workflow pin the same Rust version, so Clippy in CI matches local builds. Checked: fmt, Clippy with `-D warnings` and `cargo test --workspace` pass; the app starts and Home draws with the dark title bar. Not yet checked by hand: terminal, SFTP, mirror and remote desktop on Slint 1.19.
+- Release workflow (`.github/workflows/release.yml`): a `vX.Y.Z` tag builds the NSIS installer and a portable zip on GitHub and publishes them as a GitHub Release; it can also be run by hand for a build artifact only.
+- Third-party notices regenerated for the new dependency versions.
+
 ## [0.2.0] - 2026-11-22 (built, not yet signed off)
 
 Installer `senvakara_0.2.0_x64-setup.exe` (NSIS, per-user) is built but has not been run; install, upgrade from 0.1.0 and uninstall are untested.

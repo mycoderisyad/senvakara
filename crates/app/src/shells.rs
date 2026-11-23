@@ -124,10 +124,8 @@ pub(crate) fn wsl_list() -> std::io::Result<Vec<String>> {
 /// The names in the output of `wsl.exe -l -q`, which is UTF-16LE.
 fn parse_wsl_list(bytes: &[u8]) -> Vec<String> {
     let text = if bytes.len() >= 2 && bytes[1] == 0 {
-        let units: Vec<u16> = bytes
-            .chunks_exact(2)
-            .map(|c| u16::from_le_bytes([c[0], c[1]]))
-            .collect();
+        let (pairs, _) = bytes.as_chunks::<2>();
+        let units: Vec<u16> = pairs.iter().map(|&pair| u16::from_le_bytes(pair)).collect();
         String::from_utf16_lossy(&units)
     } else {
         String::from_utf8_lossy(bytes).into_owned()

@@ -37,4 +37,4 @@ cargo test --workspace
 cargo clippy --workspace --all-targets -- -D warnings
 ```
 
-Requires Rust 1.94 (MSVC). Android features need the user's own `adb`. Release steps are in [docs/README.md](docs/README.md#building-a-release-windows).
+Requires Rust 1.100 (MSVC). Android features need the user's own `adb`. Release steps are in [docs/README.md](docs/README.md#building-a-release-windows).

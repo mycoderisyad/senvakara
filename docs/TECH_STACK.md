@@ -6,7 +6,7 @@ The v0.1.0 stack (Tauri 2, React + TypeScript, Zustand, xterm.js) was replaced b
 
 | Layer | Candidate | Why | Caution / gate |
 |---|---|---|---|
-| Desktop UI (ADR-023) | Slint 1.18.1 (pinned; 1.19 needs rustc 1.95) | Native, one language, no WebView2 (about 200 MB less memory) | Royalty-free licence requires the `AboutSlint` attribution (Settings > About) |
+| Desktop UI (ADR-023) | Slint 1.19.0 (exact pin; Rust 1.100.0) | Native, one language, no WebView2 (about 200 MB less memory) | Royalty-free licence requires the `AboutSlint` attribution (Settings > About) |
 | Terminal emulation | `alacritty_terminal` 0.26.0 | Mature VT emulator; rows drawn as styled text runs | Worst-case full-screen redraw is near the 30 fps gate (TESTING §9) |
 | Mirror decoding | `openh264` 0.9.10 from source (ADR-024) | No web view codec needed | Software decode; H.264 patent review before wide distribution |
 | Remote desktop client (VNC) | `vnc-rs` 0.6.1 | Runs directly on the SSH channel | Tight/JPEG rectangles are not drawn yet |

@@ -14,8 +14,11 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      # Same toolchain as local builds (keep in step with release.yml); `stable`
+      # brings new Clippy lints every release and breaks `-D warnings`.
+      - uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: 1.100.0
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
       - name: Rust fmt

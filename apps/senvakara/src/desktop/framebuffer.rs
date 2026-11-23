@@ -18,7 +18,7 @@ impl Framebuffer {
         self.rgba.clear();
         // Opaque black until the server has painted it.
         self.rgba.resize(width * height * 4, 0);
-        for pixel in self.rgba.chunks_exact_mut(4) {
+        for pixel in self.rgba.as_chunks_mut::<4>().0 {
             pixel[3] = 255;
         }
     }
@@ -40,7 +40,7 @@ impl Framebuffer {
             let line = &mut self.rgba[to..to + w * 4];
             line.copy_from_slice(&data[from..from + w * 4]);
             // The fourth byte is padding on the wire; the picture is opaque.
-            for pixel in line.chunks_exact_mut(4) {
+            for pixel in line.as_chunks_mut::<4>().0 {
                 pixel[3] = 255;
             }
         }
@@ -96,7 +96,8 @@ mod tests {
         let mut screen = Framebuffer::default();
         screen.resize(4, 3);
         assert_eq!(screen.rgba.len(), 48);
-        assert!(screen.rgba.chunks_exact(4).all(|p| p == [0, 0, 0, 255]));
+        let (pixels, _) = screen.rgba.as_chunks::<4>();
+        assert!(pixels.iter().all(|p| *p == [0, 0, 0, 255]));
         // Two pixels with a zero padding byte, at (1, 1).
         assert!(screen.draw(rect(1, 1, 2, 1), &[10, 20, 30, 0, 40, 50, 60, 0]));
         let at = |screen: &Framebuffer, x: usize, y: usize| {

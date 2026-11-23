@@ -60,7 +60,7 @@ See [ROADMAP.md](ROADMAP.md) for explicit gates. This ordering is intentional: e
 
 ## Setup / running
 
-Prerequisites (Windows): Rust 1.94 (MSVC build tools, which also compile the bundled OpenH264 source). For Android features the user's own Android platform-tools (`adb`, not bundled — ADR-015). No Node.js and no WebView2 are needed to build or run the app; Node.js is only used by the two scripts in `tools/`.
+Prerequisites (Windows): Rust 1.100 (MSVC build tools, which also compile the bundled OpenH264 source). For Android features the user's own Android platform-tools (`adb`, not bundled — ADR-015). No Node.js and no WebView2 are needed to build or run the app; Node.js is only used by the two scripts in `tools/`.
 
 ```powershell
 cargo run -p senvakara          # run the desktop app

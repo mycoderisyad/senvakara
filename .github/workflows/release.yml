@@ -19,10 +19,10 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v4
-      # Same toolchain as local builds: Slint is pinned to 1.18.1 for rustc 1.94.
+      # Same toolchain as local builds and ci.yml.
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: 1.94.1
+          toolchain: 1.100.0
       - uses: Swatinem/rust-cache@v2
         with:
           shared-key: release

@@ -14,7 +14,7 @@ tokio = { version = "1", features = ["rt-multi-thread", "sync", "time"] }
 # ADR-023: exact pins (ADR-016 policy).
 # `unstable-winit-030`: window attributes hook for the dark title bar (platform.rs); the API is
 # tied to this exact Slint pin.
-slint = { version = "=1.18.1", features = ["raw-window-handle-06", "unstable-winit-030"] }
+slint = { version = "=1.19.0", features = ["raw-window-handle-06", "unstable-winit-030"] }
 alacritty_terminal = "=0.26.0"
 anyhow.workspace = true
 # Workspace and recipe targets are stored as JSON (the v0.1.0 format); settings.json.
@@ -38,7 +38,7 @@ russh = { version = "=0.65.2", default-features = false, features = ["ring", "fl
 rand = { version = "0.10", features = ["thread_rng"] }
 
 [build-dependencies]
-slint-build = "=1.18.1"
+slint-build = "=1.19.0"
 # Embeds the icon and version information in senvakara.exe.
 winresource = "0.1"
 

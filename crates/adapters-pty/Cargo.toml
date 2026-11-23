@@ -7,7 +7,6 @@ publish.workspace = true
 description = "Local PTY sessions (Windows ConPTY): PowerShell and WSL"
 
 [dependencies]
-senvakara-core = { path = "../core" }
 # ADR-016: candidate, pending PoC. Pin to a git rev before M1 if crates.io stays stale.
 portable-pty = "0.9"
 anyhow.workspace = true

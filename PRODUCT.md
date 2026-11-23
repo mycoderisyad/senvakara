@@ -4,7 +4,7 @@
 
 ## Stack
 
-Native Windows desktop application. Rust workspace; UI in Slint (pinned 1.18.1; see `docs/DECISIONS.md` ADR-023). There is no web view, so HTML/CSS tooling does not apply.
+Native Windows desktop application. Rust workspace; UI in Slint (pinned 1.19.0; see `docs/DECISIONS.md` ADR-023). There is no web view, so HTML/CSS tooling does not apply.
 
 ## Users
 

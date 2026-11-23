@@ -16,19 +16,122 @@ Senvakara's interface is made with [Slint](https://slint.dev), used under the Sl
 - Copyright (C) 2018 Genymobile; Copyright (C) 2018-2025 Romain Vimont
 - License: Apache License 2.0 — full text below as [1bc86297d032](#text-1bc86297d032)
 
+## Bundled font
+
+### Inter 4.1 (Regular, Medium, SemiBold)
+
+- Files: `apps/senvakara/ui/fonts/Inter-*.ttf`, embedded in `senvakara.exe` as the interface font
+- Source: https://github.com/rsms/inter (release v4.1), unmodified
+- License: SIL Open Font License 1.1 — full text below
+
+```text
+Copyright (c) 2016 The Inter Project Authors (https://github.com/rsms/inter)
+
+This Font Software is licensed under the SIL Open Font License, Version 1.1.
+This license is copied below, and is also available with a FAQ at:
+http://scripts.sil.org/OFL
+
+-----------------------------------------------------------
+SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007
+-----------------------------------------------------------
+
+PREAMBLE
+The goals of the Open Font License (OFL) are to stimulate worldwide
+development of collaborative font projects, to support the font creation
+efforts of academic and linguistic communities, and to provide a free and
+open framework in which fonts may be shared and improved in partnership
+with others.
+
+The OFL allows the licensed fonts to be used, studied, modified and
+redistributed freely as long as they are not sold by themselves. The
+fonts, including any derivative works, can be bundled, embedded,
+redistributed and/or sold with any software provided that any reserved
+names are not used by derivative works. The fonts and derivatives,
+however, cannot be released under any other type of license. The
+requirement for fonts to remain under this license does not apply
+to any document created using the fonts or their derivatives.
+
+DEFINITIONS
+"Font Software" refers to the set of files released by the Copyright
+Holder(s) under this license and clearly marked as such. This may
+include source files, build scripts and documentation.
+
+"Reserved Font Name" refers to any names specified as such after the
+copyright statement(s).
+
+"Original Version" refers to the collection of Font Software components as
+distributed by the Copyright Holder(s).
+
+"Modified Version" refers to any derivative made by adding to, deleting,
+or substituting -- in part or in whole -- any of the components of the
+Original Version, by changing formats or by porting the Font Software to a
+new environment.
+
+"Author" refers to any designer, engineer, programmer, technical
+writer or other person who contributed to the Font Software.
+
+PERMISSION AND CONDITIONS
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of the Font Software, to use, study, copy, merge, embed, modify,
+redistribute, and sell modified and unmodified copies of the Font
+Software, subject to the following conditions:
+
+1) Neither the Font Software nor any of its individual components,
+in Original or Modified Versions, may be sold by itself.
+
+2) Original or Modified Versions of the Font Software may be bundled,
+redistributed and/or sold with any software, provided that each copy
+contains the above copyright notice and this license. These can be
+included either as stand-alone text files, human-readable headers or
+in the appropriate machine-readable metadata fields within text or
+binary files as long as those fields can be easily viewed by the user.
+
+3) No Modified Version of the Font Software may use the Reserved Font
+Name(s) unless explicit written permission is granted by the corresponding
+Copyright Holder. This restriction only applies to the primary font name as
+presented to the users.
+
+4) The name(s) of the Copyright Holder(s) or the Author(s) of the Font
+Software shall not be used to promote, endorse or advertise any
+Modified Version, except to acknowledge the contribution(s) of the
+Copyright Holder(s) and the Author(s) or with their explicit written
+permission.
+
+5) The Font Software, modified or unmodified, in part or in whole,
+must be distributed entirely under this license, and must not be
+distributed under any other license. The requirement for fonts to
+remain under this license does not apply to any document created
+using the Font Software.
+
+TERMINATION
+This license becomes null and void if any of the above conditions are
+not met.
+
+DISCLAIMER
+THE FONT SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT
+OF COPYRIGHT, PATENT, TRADEMARK, OR OTHER RIGHT. IN NO EVENT SHALL THE
+COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+INCLUDING ANY GENERAL, SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL
+DAMAGES, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
+OTHER DEALINGS IN THE FONT SOFTWARE.
+```
+
 ## Mozilla Public License 2.0 components
 
 The following MPL-2.0 components are used unmodified. Their source code is available from the listed repositories (and, for Rust crates, from https://crates.io).
 
 
-## Components (420)
+## Components (422)
 
 | Component | Version | Kind | License | License texts |
 |---|---|---|---|---|
-| accesskit | 0.24.1 | Rust crate | MIT OR Apache-2.0 | — |
-| accesskit_consumer | 0.38.0 | Rust crate | MIT OR Apache-2.0 | — |
-| accesskit_windows | 0.34.0 | Rust crate | MIT OR Apache-2.0 | — |
-| accesskit_winit | 0.33.2 | Rust crate | Apache-2.0 | — |
+| accesskit | 0.25.2 | Rust crate | MIT OR Apache-2.0 | — |
+| accesskit_consumer | 0.39.2 | Rust crate | MIT OR Apache-2.0 | — |
+| accesskit_windows | 0.35.2 | Rust crate | MIT OR Apache-2.0 | — |
+| accesskit_winit | 0.34.2 | Rust crate | Apache-2.0 | — |
 | adler2 | 2.0.1 | Rust crate | 0BSD OR MIT OR Apache-2.0 | [a21c914647d3](#text-a21c914647d3) [1bc86297d032](#text-1bc86297d032) [30fefc3a7d6a](#text-30fefc3a7d6a) |
 | aead | 0.6.1 | Rust crate | MIT OR Apache-2.0 | [e8541ea93f02](#text-e8541ea93f02) [1aed52f3af3d](#text-1aed52f3af3d) |
 | aes | 0.8.4 | Rust crate | MIT OR Apache-2.0 | [e8541ea93f02](#text-e8541ea93f02) [33e996382660](#text-33e996382660) |
@@ -123,7 +226,7 @@ The following MPL-2.0 components are used unmodified. Their source code is avail
 | fallible-streaming-iterator | 0.1.9 | Rust crate | MIT/Apache-2.0 | [6dc0e068dcf3](#text-6dc0e068dcf3) [dfc632cd74cc](#text-dfc632cd74cc) |
 | fastrand | 2.5.0 | Rust crate | Apache-2.0 OR MIT | [954f335b8baf](#text-954f335b8baf) [30fefc3a7d6a](#text-30fefc3a7d6a) |
 | fdeflate | 0.3.7 | Rust crate | MIT OR Apache-2.0 | [4bf96504d6e8](#text-4bf96504d6e8) [77949ead506e](#text-77949ead506e) |
-| femtovg | 0.27.0 | Rust crate | MIT OR Apache-2.0 | [a88a993a1c7a](#text-a88a993a1c7a) [cd4eb10b20da](#text-cd4eb10b20da) |
+| femtovg | 0.28.0 | Rust crate | MIT OR Apache-2.0 | [a88a993a1c7a](#text-a88a993a1c7a) [cd4eb10b20da](#text-cd4eb10b20da) |
 | ff | 0.14.0 | Rust crate | MIT/Apache-2.0 | [954f335b8baf](#text-954f335b8baf) [a241ea2c0d63](#text-a241ea2c0d63) |
 | field-offset | 0.3.6 | Rust crate | MIT OR Apache-2.0 | [4bf96504d6e8](#text-4bf96504d6e8) [f4bc3f3c5bfd](#text-f4bc3f3c5bfd) |
 | filedescriptor | 0.8.3 | Rust crate | MIT | [0f5e2ba844a4](#text-0f5e2ba844a4) |
@@ -134,7 +237,7 @@ The following MPL-2.0 components are used unmodified. Their source code is avail
 | foldhash | 0.2.0 | Rust crate | Zlib | [b1181a40b2a7](#text-b1181a40b2a7) |
 | font-types | 0.12.7 | Rust crate | MIT OR Apache-2.0 | [af2a770a058a](#text-af2a770a058a) [f03893164caa](#text-f03893164caa) |
 | fontdb | 0.24.0 | Rust crate | MIT | [c80c671db143](#text-c80c671db143) |
-| fontique | 0.11.1 | Rust crate | Apache-2.0 OR MIT | [954f335b8baf](#text-954f335b8baf) [fa9dc7e4b32a](#text-fa9dc7e4b32a) |
+| fontique | 0.12.0 | Rust crate | Apache-2.0 OR MIT | [954f335b8baf](#text-954f335b8baf) [fa9dc7e4b32a](#text-fa9dc7e4b32a) |
 | form_urlencoded | 1.2.3 | Rust crate | MIT OR Apache-2.0 | [954f335b8baf](#text-954f335b8baf) [33ed9a8ecf55](#text-33ed9a8ecf55) |
 | futures | 0.3.34 | Rust crate | MIT OR Apache-2.0 | [27480f391bd9](#text-27480f391bd9) [b420d8add23b](#text-b420d8add23b) |
 | futures-channel | 0.3.34 | Rust crate | MIT OR Apache-2.0 | [27480f391bd9](#text-27480f391bd9) [b420d8add23b](#text-b420d8add23b) |
@@ -170,14 +273,14 @@ The following MPL-2.0 components are used unmodified. Their source code is avail
 | home | 0.5.12 | Rust crate | MIT OR Apache-2.0 | [1bc86297d032](#text-1bc86297d032) [30fefc3a7d6a](#text-30fefc3a7d6a) |
 | htmlparser | 0.2.1 | Rust crate | MIT OR Apache-2.0 | [954f335b8baf](#text-954f335b8baf) [c1ecaa7721a2](#text-c1ecaa7721a2) |
 | hybrid-array | 0.4.15 | Rust crate | MIT OR Apache-2.0 | [e8541ea93f02](#text-e8541ea93f02) [a1aa15c3898d](#text-a1aa15c3898d) |
-| i-slint-backend-selector | 1.18.1 | Rust crate | GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 | — |
-| i-slint-backend-winit | 1.18.1 | Rust crate | GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 | — |
-| i-slint-common | 1.18.1 | Rust crate | GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 | — |
-| i-slint-compiler | 1.18.1 | Rust crate | GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 | — |
-| i-slint-core | 1.18.1 | Rust crate | GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 | — |
-| i-slint-core-macros | 1.18.1 | Rust crate | GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 | — |
-| i-slint-renderer-femtovg | 1.18.1 | Rust crate | GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 | — |
-| i-slint-renderer-software | 1.18.1 | Rust crate | GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 | — |
+| i-slint-backend-selector | 1.19.0 | Rust crate | GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 | — |
+| i-slint-backend-winit | 1.19.0 | Rust crate | GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 | — |
+| i-slint-common | 1.19.0 | Rust crate | GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 | — |
+| i-slint-compiler | 1.19.0 | Rust crate | GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 | — |
+| i-slint-core | 1.19.0 | Rust crate | GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 | — |
+| i-slint-core-macros | 1.19.0 | Rust crate | GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 | — |
+| i-slint-renderer-femtovg | 1.19.0 | Rust crate | GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 | — |
+| i-slint-renderer-software | 1.19.0 | Rust crate | GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 | — |
 | icu_collections | 2.4.0 | Rust crate | Unicode-3.0 | [cde87abe221f](#text-cde87abe221f) |
 | icu_decimal | 2.4.0 | Rust crate | Unicode-3.0 | [cde87abe221f](#text-cde87abe221f) |
 | icu_decimal_data | 2.4.0 | Rust crate | Unicode-3.0 | [cde87abe221f](#text-cde87abe221f) |
@@ -204,7 +307,7 @@ The following MPL-2.0 components are used unmodified. Their source code is avail
 | itoa | 1.0.19 | Rust crate | MIT OR Apache-2.0 | [85ad950cce87](#text-85ad950cce87) [30fefc3a7d6a](#text-30fefc3a7d6a) |
 | keccak | 0.2.2 | Rust crate | Apache-2.0 OR MIT | [e8541ea93f02](#text-e8541ea93f02) [836ed921bbad](#text-836ed921bbad) |
 | kem | 0.3.0 | Rust crate | Apache-2.0 OR MIT | [ef7b30b73e35](#text-ef7b30b73e35) [dec912e37f88](#text-dec912e37f88) |
-| keyboard-types | 0.7.0 | Rust crate | MIT OR Apache-2.0 | [954f335b8baf](#text-954f335b8baf) [31dbbab009f1](#text-31dbbab009f1) |
+| keyboard-types | 0.8.3 | Rust crate | MIT OR Apache-2.0 | [954f335b8baf](#text-954f335b8baf) [31dbbab009f1](#text-31dbbab009f1) |
 | keyring-core | 1.1.0 | Rust crate | MIT OR Apache-2.0 | [6205fe4502da](#text-6205fe4502da) [b5e6923cd7c0](#text-b5e6923cd7c0) |
 | kurbo | 0.13.1 | Rust crate | Apache-2.0 OR MIT | [283ea6cc2997](#text-283ea6cc2997) [0e297345cbd9](#text-0e297345cbd9) |
 | lazy_static | 1.5.1 | Rust crate | MIT OR Apache-2.0 | [954f335b8baf](#text-954f335b8baf) [30fefc3a7d6a](#text-30fefc3a7d6a) |
@@ -232,7 +335,7 @@ The following MPL-2.0 components are used unmodified. Their source code is avail
 | ml-kem | 0.3.4 | Rust crate | Apache-2.0 OR MIT | [e8541ea93f02](#text-e8541ea93f02) [18a3f513c015](#text-18a3f513c015) |
 | module-lattice | 0.2.4 | Rust crate | Apache-2.0 OR MIT | [e8541ea93f02](#text-e8541ea93f02) [18a3f513c015](#text-18a3f513c015) |
 | moxcms | 0.8.1 | Rust crate | BSD-3-Clause OR Apache-2.0 | [836a9c1227c6](#text-836a9c1227c6) [2aa92cada643](#text-2aa92cada643) |
-| muda | 0.19.3 | Rust crate | Apache-2.0 OR MIT | [954f335b8baf](#text-954f335b8baf) [859a90323b68](#text-859a90323b68) [b99f9d43803f](#text-b99f9d43803f) |
+| muda | 0.21.2 | Rust crate | Apache-2.0 OR MIT | [954f335b8baf](#text-954f335b8baf) [859a90323b68](#text-859a90323b68) [b99f9d43803f](#text-b99f9d43803f) |
 | natord | 1.0.9 | Rust crate | MIT | [332b974a713f](#text-332b974a713f) |
 | nix | 0.28.0 | Rust crate | MIT | [b9b039b5058c](#text-b9b039b5058c) |
 | ntapi | 0.4.3 | Rust crate | Apache-2.0 OR MIT | [283ea6cc2997](#text-283ea6cc2997) [88424529b2bf](#text-88424529b2bf) |
@@ -252,8 +355,10 @@ The following MPL-2.0 components are used unmodified. Their source code is avail
 | parking_lot | 0.12.5 | Rust crate | MIT OR Apache-2.0 | [954f335b8baf](#text-954f335b8baf) [8d1f81ea4e87](#text-8d1f81ea4e87) |
 | parking_lot_core | 0.9.12 | Rust crate | MIT OR Apache-2.0 | [954f335b8baf](#text-954f335b8baf) [8d1f81ea4e87](#text-8d1f81ea4e87) |
 | parlance | 0.1.1 | Rust crate | Apache-2.0 OR MIT | [954f335b8baf](#text-954f335b8baf) [ad40d6ebc808](#text-ad40d6ebc808) |
-| parley | 0.11.1 | Rust crate | Apache-2.0 OR MIT | [954f335b8baf](#text-954f335b8baf) [ad40d6ebc808](#text-ad40d6ebc808) |
-| parley_data | 0.11.1 | Rust crate | Apache-2.0 OR MIT | [954f335b8baf](#text-954f335b8baf) [ad40d6ebc808](#text-ad40d6ebc808) |
+| parley | 0.12.0 | Rust crate | Apache-2.0 OR MIT | [954f335b8baf](#text-954f335b8baf) [ad40d6ebc808](#text-ad40d6ebc808) |
+| parley_data | 0.12.0 | Rust crate | Apache-2.0 OR MIT | [954f335b8baf](#text-954f335b8baf) [ad40d6ebc808](#text-ad40d6ebc808) |
+| parley_emoji | 0.12.0 | Rust crate | MIT | [c1a790180cc8](#text-c1a790180cc8) |
+| parley_engine | 0.12.0 | Rust crate | Apache-2.0 OR MIT | [85ad950cce87](#text-85ad950cce87) [0637f0b892b3](#text-0637f0b892b3) |
 | pbkdf2 | 0.13.0 | Rust crate | MIT OR Apache-2.0 | [e8541ea93f02](#text-e8541ea93f02) [d1fd0ccf6437](#text-d1fd0ccf6437) |
 | pem-rfc7468 | 1.0.0 | Rust crate | Apache-2.0 OR MIT | [e8541ea93f02](#text-e8541ea93f02) [52e2ebc2e3f5](#text-52e2ebc2e3f5) |
 | percent-encoding | 2.3.2 | Rust crate | MIT OR Apache-2.0 | [954f335b8baf](#text-954f335b8baf) [7a8093fb4a93](#text-7a8093fb4a93) |
@@ -292,7 +397,7 @@ The following MPL-2.0 components are used unmodified. Their source code is avail
 | regex | 1.13.2 | Rust crate | MIT OR Apache-2.0 | [954f335b8baf](#text-954f335b8baf) [14435fbcd271](#text-14435fbcd271) |
 | regex-automata | 0.4.19 | Rust crate | MIT OR Apache-2.0 | [954f335b8baf](#text-954f335b8baf) [14435fbcd271](#text-14435fbcd271) |
 | regex-syntax | 0.8.12 | Rust crate | MIT OR Apache-2.0 | [954f335b8baf](#text-954f335b8baf) [14435fbcd271](#text-14435fbcd271) |
-| resvg | 0.48.1 | Rust crate | Apache-2.0 OR MIT | [4bf96504d6e8](#text-4bf96504d6e8) [bf23df5f4fa1](#text-bf23df5f4fa1) |
+| resvg | 0.49.0 | Rust crate | Apache-2.0 OR MIT | [4bf96504d6e8](#text-4bf96504d6e8) [bf23df5f4fa1](#text-bf23df5f4fa1) |
 | rfc6979 | 0.6.0 | Rust crate | Apache-2.0 OR MIT | [f330b45715b8](#text-f330b45715b8) [44280199f723](#text-44280199f723) |
 | rfd | 0.17.2 | Rust crate | MIT | [1a6dd9555214](#text-1a6dd9555214) |
 | rgb | 0.8.53 | Rust crate | MIT | [c7d50fa44b04](#text-c7d50fa44b04) |
@@ -333,8 +438,8 @@ The following MPL-2.0 components are used unmodified. Their source code is avail
 | siphasher | 1.0.4 | Rust crate | MIT OR Apache-2.0 | [24e26e8fb783](#text-24e26e8fb783) [283ea6cc2997](#text-283ea6cc2997) [21a2121221d2](#text-21a2121221d2) |
 | skrifa | 0.44.0 | Rust crate | MIT OR Apache-2.0 | [af2a770a058a](#text-af2a770a058a) [f03893164caa](#text-f03893164caa) |
 | slab | 0.4.12 | Rust crate | MIT | [12c7116c4425](#text-12c7116c4425) |
-| slint | 1.18.1 | Rust crate | GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 | — |
-| slint-macros | 1.18.1 | Rust crate | GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 | — |
+| slint | 1.19.0 | Rust crate | GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 | — |
+| slint-macros | 1.19.0 | Rust crate | GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 | — |
 | slotmap | 1.1.1 | Rust crate | Zlib | [0825a545d3d5](#text-0825a545d3d5) |
 | smallvec | 1.16.6 | Rust crate | MIT OR Apache-2.0 | [954f335b8baf](#text-954f335b8baf) [7f194ae45c25](#text-7f194ae45c25) |
 | smol_str | 0.2.2 | Rust crate | MIT OR Apache-2.0 | [954f335b8baf](#text-954f335b8baf) [30fefc3a7d6a](#text-30fefc3a7d6a) |
@@ -362,7 +467,7 @@ The following MPL-2.0 components are used unmodified. Their source code is avail
 | synstructure | 0.14.0 | Rust crate | MIT | [3a036676ec8c](#text-3a036676ec8c) |
 | sys-locale | 0.3.2 | Rust crate | MIT OR Apache-2.0 | [283ea6cc2997](#text-283ea6cc2997) [29243dcc52a7](#text-29243dcc52a7) |
 | sysinfo | 0.38.4 | Rust crate | MIT | [0c19d7104c50](#text-0c19d7104c50) |
-| taffy | 0.10.1 | Rust crate | MIT | — |
+| taffy | 0.15.1 | Rust crate | MIT | — |
 | text-size | 1.1.1 | Rust crate | MIT OR Apache-2.0 | [954f335b8baf](#text-954f335b8baf) [30fefc3a7d6a](#text-30fefc3a7d6a) |
 | thiserror | 1.0.69 | Rust crate | MIT OR Apache-2.0 | [85ad950cce87](#text-85ad950cce87) [30fefc3a7d6a](#text-30fefc3a7d6a) |
 | thiserror | 2.0.21 | Rust crate | MIT OR Apache-2.0 | [85ad950cce87](#text-85ad950cce87) [30fefc3a7d6a](#text-30fefc3a7d6a) |
@@ -397,13 +502,13 @@ The following MPL-2.0 components are used unmodified. Their source code is avail
 | universal-hash | 0.6.1 | Rust crate | MIT OR Apache-2.0 | [e8541ea93f02](#text-e8541ea93f02) [5f934370168b](#text-5f934370168b) |
 | untrusted | 0.9.0 | Rust crate | ISC | [a1fff3442978](#text-a1fff3442978) |
 | url | 2.5.9 | Rust crate | MIT OR Apache-2.0 | [954f335b8baf](#text-954f335b8baf) [7a8093fb4a93](#text-7a8093fb4a93) |
-| usvg | 0.48.1 | Rust crate | Apache-2.0 OR MIT | [4bf96504d6e8](#text-4bf96504d6e8) [bf23df5f4fa1](#text-bf23df5f4fa1) |
+| usvg | 0.49.0 | Rust crate | Apache-2.0 OR MIT | [4bf96504d6e8](#text-4bf96504d6e8) [bf23df5f4fa1](#text-bf23df5f4fa1) |
 | utf_types | 1.0.0 | Rust crate | Apache-2.0 OR MIT | [48fb3f740d15](#text-48fb3f740d15) [283ea6cc2997](#text-283ea6cc2997) [7dc2f6402447](#text-7dc2f6402447) |
 | utf8_iter | 1.1.0 | Rust crate | Apache-2.0 OR MIT | [76c0e37c107d](#text-76c0e37c107d) [283ea6cc2997](#text-283ea6cc2997) [7dc2f6402447](#text-7dc2f6402447) |
 | uuid | 1.29.3 | Rust crate | Apache-2.0 OR MIT | [954f335b8baf](#text-954f335b8baf) [11cd7e6caed4](#text-11cd7e6caed4) |
 | vnc-rs | 0.6.1 | Rust crate | MIT OR Apache-2.0 | [283ea6cc2997](#text-283ea6cc2997) [6e5f677070c3](#text-6e5f677070c3) |
-| vtable | 0.5.0 | Rust crate | MIT OR Apache-2.0 | — |
-| vtable-macro | 0.5.0 | Rust crate | MIT OR Apache-2.0 | — |
+| vtable | 0.5.1 | Rust crate | MIT OR Apache-2.0 | — |
+| vtable-macro | 0.5.1 | Rust crate | MIT OR Apache-2.0 | — |
 | vte | 0.15.0 | Rust crate | Apache-2.0 OR MIT | [85ad950cce87](#text-85ad950cce87) [db2c904eb568](#text-db2c904eb568) |
 | webbrowser | 1.2.7 | Rust crate | MIT OR Apache-2.0 | [82d2cc0ccece](#text-82d2cc0ccece) [8e71c7516506](#text-8e71c7516506) |
 | weezl | 0.1.12 | Rust crate | MIT OR Apache-2.0 | [954f335b8baf](#text-954f335b8baf) [603c83c4c200](#text-603c83c4c200) |
@@ -450,22 +555,22 @@ The following MPL-2.0 components are used unmodified. Their source code is avail
 
 These are covered by the license named in their package metadata, with copyright held by the listed authors. The standard text of each of these licenses appears below where another component ships it.
 
-- accesskit 0.24.1 — MIT OR Apache-2.0 — Copyright (c) The AccessKit contributors — https://github.com/AccessKit/accesskit
-- accesskit_consumer 0.38.0 — MIT OR Apache-2.0 — Copyright (c) The AccessKit contributors — https://github.com/AccessKit/accesskit
-- accesskit_windows 0.34.0 — MIT OR Apache-2.0 — Copyright (c) The AccessKit contributors — https://github.com/AccessKit/accesskit
-- accesskit_winit 0.33.2 — Apache-2.0 — Copyright (c) The AccessKit contributors — https://github.com/AccessKit/accesskit
+- accesskit 0.25.2 — MIT OR Apache-2.0 — Copyright (c) The AccessKit contributors — https://github.com/AccessKit/accesskit
+- accesskit_consumer 0.39.2 — MIT OR Apache-2.0 — Copyright (c) The AccessKit contributors — https://github.com/AccessKit/accesskit
+- accesskit_windows 0.35.2 — MIT OR Apache-2.0 — Copyright (c) The AccessKit contributors — https://github.com/AccessKit/accesskit
+- accesskit_winit 0.34.2 — Apache-2.0 — Copyright (c) The AccessKit contributors — https://github.com/AccessKit/accesskit
 - clipboard-win 5.4.3 — BSL-1.0 — Copyright (c) Douman — https://github.com/DoumanAsh/clipboard-win
 - const-field-offset 0.2.1 — MIT OR Apache-2.0 — Copyright (c) Slint Developers — https://github.com/slint-ui/slint
 - const-field-offset-macro 0.2.1 — MIT OR Apache-2.0 — Copyright (c) Slint Developers — https://github.com/slint-ui/slint
 - delegate 0.13.5 — MIT OR Apache-2.0 — Copyright (c) Godfrey Chan, Jakub Beránek — https://github.com/kobzol/rust-delegate
-- i-slint-backend-selector 1.18.1 — GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 — Copyright (c) Slint Developers — https://github.com/slint-ui/slint
-- i-slint-backend-winit 1.18.1 — GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 — Copyright (c) Slint Developers — https://github.com/slint-ui/slint
-- i-slint-common 1.18.1 — GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 — Copyright (c) Slint Developers — https://github.com/slint-ui/slint
-- i-slint-compiler 1.18.1 — GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 — Copyright (c) Slint Developers — https://github.com/slint-ui/slint
-- i-slint-core 1.18.1 — GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 — Copyright (c) Slint Developers — https://github.com/slint-ui/slint
-- i-slint-core-macros 1.18.1 — GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 — Copyright (c) Slint Developers — https://github.com/slint-ui/slint
-- i-slint-renderer-femtovg 1.18.1 — GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 — Copyright (c) Slint Developers — https://github.com/slint-ui/slint
-- i-slint-renderer-software 1.18.1 — GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 — Copyright (c) Slint Developers — https://github.com/slint-ui/slint
+- i-slint-backend-selector 1.19.0 — GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 — Copyright (c) Slint Developers — https://github.com/slint-ui/slint
+- i-slint-backend-winit 1.19.0 — GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 — Copyright (c) Slint Developers — https://github.com/slint-ui/slint
+- i-slint-common 1.19.0 — GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 — Copyright (c) Slint Developers — https://github.com/slint-ui/slint
+- i-slint-compiler 1.19.0 — GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 — Copyright (c) Slint Developers — https://github.com/slint-ui/slint
+- i-slint-core 1.19.0 — GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 — Copyright (c) Slint Developers — https://github.com/slint-ui/slint
+- i-slint-core-macros 1.19.0 — GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 — Copyright (c) Slint Developers — https://github.com/slint-ui/slint
+- i-slint-renderer-femtovg 1.19.0 — GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 — Copyright (c) Slint Developers — https://github.com/slint-ui/slint
+- i-slint-renderer-software 1.19.0 — GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 — Copyright (c) Slint Developers — https://github.com/slint-ui/slint
 - lyon_algorithms 1.0.22 — MIT OR Apache-2.0 — Copyright (c) Nicolas Silva — https://github.com/nical/lyon
 - lyon_extra 1.1.0 — MIT OR Apache-2.0 — Copyright (c) Nicolas Silva — https://github.com/nical/lyon
 - lyon_geom 1.0.20 — MIT OR Apache-2.0 — Copyright (c) Nicolas Silva — https://github.com/nical/lyon
@@ -478,11 +583,11 @@ These are covered by the license named in their package metadata, with copyright
 - russh-cryptovec 0.62.0 — Apache-2.0 — Copyright (c) Pierre-Étienne Meunier, Eugeny — https://github.com/warp-tech/russh
 - russh-util 0.52.0 — Apache-2.0 — Copyright (c) the authors — https://github.com/warp-tech/russh
 - senvakara 0.2.1 — Apache-2.0 — Copyright (c) the authors
-- slint 1.18.1 — GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 — Copyright (c) Slint Developers — https://github.com/slint-ui/slint
-- slint-macros 1.18.1 — GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 — Copyright (c) Slint Developers — https://github.com/slint-ui/slint
-- taffy 0.10.1 — MIT — Copyright (c) Alice Cecile, Johnathan Kelley, Nico Burns — https://github.com/DioxusLabs/taffy
-- vtable 0.5.0 — MIT OR Apache-2.0 — Copyright (c) Slint Developers — https://github.com/slint-ui/slint
-- vtable-macro 0.5.0 — MIT OR Apache-2.0 — Copyright (c) Slint Developers — https://github.com/slint-ui/slint
+- slint 1.19.0 — GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 — Copyright (c) Slint Developers — https://github.com/slint-ui/slint
+- slint-macros 1.19.0 — GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0 — Copyright (c) Slint Developers — https://github.com/slint-ui/slint
+- taffy 0.15.1 — MIT — Copyright (c) Alice Cecile, Johnathan Kelley, Nico Burns — https://github.com/DioxusLabs/taffy
+- vtable 0.5.1 — MIT OR Apache-2.0 — Copyright (c) Slint Developers — https://github.com/slint-ui/slint
+- vtable-macro 0.5.1 — MIT OR Apache-2.0 — Copyright (c) Slint Developers — https://github.com/slint-ui/slint
 
 ## License texts
 
@@ -1373,7 +1478,7 @@ limitations under the License.
 <a id="text-85ad950cce87"></a>
 ### 85ad950cce87
 
-Used by: allocator-api2 0.2.21 (LICENSE-APACHE), anyhow 1.0.104 (LICENSE-APACHE), itoa 1.0.19 (LICENSE-APACHE), libc 0.2.191 (LICENSE-APACHE), num_enum 0.7.6 (LICENSE-APACHE), num_enum_derive 0.7.6 (LICENSE-APACHE), proc-macro2 1.0.107 (LICENSE-APACHE), quote 1.0.47 (LICENSE-APACHE), rustversion 1.0.23 (LICENSE-APACHE), serde 1.0.229 (LICENSE-APACHE), serde_bytes 0.11.19 (LICENSE-APACHE), serde_core 1.0.229 (LICENSE-APACHE), serde_derive 1.0.229 (LICENSE-APACHE), serde_json 1.0.154 (LICENSE-APACHE), syn 2.0.119 (LICENSE-APACHE), syn 3.0.10 (LICENSE-APACHE), thiserror 1.0.69 (LICENSE-APACHE), thiserror 2.0.21 (LICENSE-APACHE), thiserror-impl 1.0.69 (LICENSE-APACHE), thiserror-impl 2.0.21 (LICENSE-APACHE), typed-index-collections 3.5.0 (LICENSE-APACHE), unicode-ident 1.0.27 (LICENSE-APACHE), vte 0.15.0 (LICENSE-APACHE)
+Used by: allocator-api2 0.2.21 (LICENSE-APACHE), anyhow 1.0.104 (LICENSE-APACHE), itoa 1.0.19 (LICENSE-APACHE), libc 0.2.191 (LICENSE-APACHE), num_enum 0.7.6 (LICENSE-APACHE), num_enum_derive 0.7.6 (LICENSE-APACHE), parley_engine 0.12.0 (LICENSE-APACHE), proc-macro2 1.0.107 (LICENSE-APACHE), quote 1.0.47 (LICENSE-APACHE), rustversion 1.0.23 (LICENSE-APACHE), serde 1.0.229 (LICENSE-APACHE), serde_bytes 0.11.19 (LICENSE-APACHE), serde_core 1.0.229 (LICENSE-APACHE), serde_derive 1.0.229 (LICENSE-APACHE), serde_json 1.0.154 (LICENSE-APACHE), syn 2.0.119 (LICENSE-APACHE), syn 3.0.10 (LICENSE-APACHE), thiserror 1.0.69 (LICENSE-APACHE), thiserror 2.0.21 (LICENSE-APACHE), thiserror-impl 1.0.69 (LICENSE-APACHE), thiserror-impl 2.0.21 (LICENSE-APACHE), typed-index-collections 3.5.0 (LICENSE-APACHE), unicode-ident 1.0.27 (LICENSE-APACHE), vte 0.15.0 (LICENSE-APACHE)
 
 ```text
 Apache License
@@ -2002,7 +2107,7 @@ Apache License
 <a id="text-4bf96504d6e8"></a>
 ### 4bf96504d6e8
 
-Used by: arboard 3.7.0 (LICENSE-APACHE.txt), fdeflate 0.3.7 (LICENSE-APACHE), field-offset 0.3.6 (LICENSE-APACHE), image 0.25.10 (LICENSE-APACHE), image-webp 0.2.4 (LICENSE-APACHE), linebender_resource_handle 0.1.1 (LICENSE-APACHE), miniz_oxide 0.8.9 (LICENSE-APACHE.md), miniz_oxide 0.9.1 (LICENSE-APACHE.md), pin-project 1.2.0 (LICENSE-APACHE), pin-project-internal 1.2.0 (LICENSE-APACHE), pin-project-lite 0.2.18 (LICENSE-APACHE), portable-atomic 1.15.0 (LICENSE-APACHE), raw-window-handle 0.6.2 (LICENSE-APACHE.md), resvg 0.48.1 (LICENSE-APACHE), usvg 0.48.1 (LICENSE-APACHE)
+Used by: arboard 3.7.0 (LICENSE-APACHE.txt), fdeflate 0.3.7 (LICENSE-APACHE), field-offset 0.3.6 (LICENSE-APACHE), image 0.25.10 (LICENSE-APACHE), image-webp 0.2.4 (LICENSE-APACHE), linebender_resource_handle 0.1.1 (LICENSE-APACHE), miniz_oxide 0.8.9 (LICENSE-APACHE.md), miniz_oxide 0.9.1 (LICENSE-APACHE.md), pin-project 1.2.0 (LICENSE-APACHE), pin-project-internal 1.2.0 (LICENSE-APACHE), pin-project-lite 0.2.18 (LICENSE-APACHE), portable-atomic 1.15.0 (LICENSE-APACHE), raw-window-handle 0.6.2 (LICENSE-APACHE.md), resvg 0.49.0 (LICENSE-APACHE), usvg 0.49.0 (LICENSE-APACHE)
 
 ```text
 Apache License
@@ -2282,7 +2387,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 <a id="text-954f335b8baf"></a>
 ### 954f335b8baf
 
-Used by: arrayvec 0.7.8 (LICENSE-APACHE), atomic-waker 1.1.2 (LICENSE-APACHE), base64 0.22.1 (LICENSE-APACHE), base64 0.23.1 (LICENSE-APACHE), bcrypt-pbkdf 0.11.0 (LICENSE-APACHE), bitflags 1.3.2 (LICENSE-APACHE), bitflags 2.13.2 (LICENSE-APACHE), by_address 1.2.1 (LICENSE-APACHE), cfg-if 1.0.5 (LICENSE-APACHE), concurrent-queue 2.5.0 (LICENSE-APACHE), countme 3.0.1 (LICENSE-APACHE), critical-section 1.2.0 (LICENSE-APACHE), crossbeam-channel 0.5.17 (LICENSE-APACHE), crossbeam-deque 0.8.8 (LICENSE-APACHE), crossbeam-epoch 0.9.21 (LICENSE-APACHE), crossbeam-utils 0.8.23 (LICENSE-APACHE), curve25519-dalek-derive 0.1.1 (LICENSE-APACHE), data-url 0.3.2 (LICENSE-APACHE), displaydoc 0.2.7 (LICENSE-APACHE), either 1.19.0 (LICENSE-APACHE), equivalent 1.0.3 (LICENSE-APACHE), euclid 0.22.14 (LICENSE-APACHE), fastrand 2.5.0 (LICENSE-APACHE), ff 0.14.0 (LICENSE-APACHE), flate2 1.1.11 (LICENSE-APACHE), fnv 1.0.7 (LICENSE-APACHE), fontique 0.11.1 (LICENSE-APACHE), form_urlencoded 1.2.3 (LICENSE-APACHE), gif 0.14.2 (LICENSE-APACHE), glow 0.18.0 (LICENSE-APACHE), group 0.14.0 (LICENSE-APACHE), hashbrown 0.14.5 (LICENSE-APACHE), hashbrown 0.16.1 (LICENSE-APACHE), hashbrown 0.17.1 (LICENSE-APACHE), heck 0.5.0 (LICENSE-APACHE), htmlparser 0.2.1 (LICENSE-APACHE), idna 1.1.0 (LICENSE-APACHE), idna_adapter 1.2.2 (LICENSE-APACHE), indexmap 2.14.2 (LICENSE-APACHE), itertools 0.15.0 (LICENSE-APACHE), keyboard-types 0.7.0 (LICENSE-APACHE), lazy_static 1.5.1 (LICENSE-APACHE), lock_api 0.4.14 (LICENSE-APACHE), log 0.4.35 (LICENSE-APACHE), miow 0.6.1 (LICENSE-APACHE), muda 0.19.3 (LICENSE-APACHE), num-bigint 0.4.8 (LICENSE-APACHE), num-bigint 0.5.1 (LICENSE-APACHE), num-integer 0.1.47 (LICENSE-APACHE), num-traits 0.2.19 (LICENSE-APACHE), once_cell 1.21.4 (LICENSE-APACHE), parking_lot 0.12.5 (LICENSE-APACHE), parking_lot_core 0.9.12 (LICENSE-APACHE), parlance 0.1.1 (LICENSE-APACHE), parley 0.11.1 (LICENSE-APACHE), parley_data 0.11.1 (LICENSE-APACHE), percent-encoding 2.3.2 (LICENSE-APACHE), piper 0.2.5 (LICENSE-APACHE), png 0.18.1 (LICENSE-APACHE), polling 3.11.0 (LICENSE-APACHE), rayon 1.12.0 (LICENSE-APACHE), rayon-core 1.13.0 (LICENSE-APACHE), regex 1.13.2 (LICENSE-APACHE), regex-automata 0.4.19 (LICENSE-APACHE), regex-syntax 0.8.12 (LICENSE-APACHE), rowan 0.17.0 (LICENSE-APACHE), roxmltree 0.21.2 (LICENSE-APACHE), rsa 0.10.0 (LICENSE-APACHE), rustc-hash 1.1.0 (LICENSE-APACHE), scoped-tls-hkt 0.1.5 (LICENSE-APACHE), scopeguard 1.2.0 (LICENSE-APACHE), simplecss 0.2.2 (LICENSE-APACHE), smallvec 1.16.6 (LICENSE-APACHE), smol_str 0.2.2 (LICENSE-APACHE), smol_str 0.3.7 (LICENSE-APACHE), socket2 0.6.5 (LICENSE-APACHE), spin_on 0.1.1 (LICENSE-APACHE), stable_deref_trait 1.2.1 (LICENSE-APACHE), svgtypes 0.16.2 (LICENSE-APACHE), swash 0.2.10 (LICENSE-APACHE), text-size 1.1.1 (LICENSE-APACHE), unicase 2.10.0 (LICENSE-APACHE), unicode-bidi 0.3.18 (LICENSE-APACHE), unicode-segmentation 1.13.3 (LICENSE-APACHE), unicode-vo 0.1.0 (LICENSE-APACHE), unicode-width 0.2.3 (LICENSE-APACHE), unicode-xid 0.2.6 (LICENSE-APACHE), url 2.5.9 (LICENSE-APACHE), uuid 1.29.3 (LICENSE-APACHE), weezl 0.1.12 (LICENSE-APACHE), yazi 0.2.2 (LICENSE-APACHE), zeno 0.3.3 (LICENSE-APACHE)
+Used by: arrayvec 0.7.8 (LICENSE-APACHE), atomic-waker 1.1.2 (LICENSE-APACHE), base64 0.22.1 (LICENSE-APACHE), base64 0.23.1 (LICENSE-APACHE), bcrypt-pbkdf 0.11.0 (LICENSE-APACHE), bitflags 1.3.2 (LICENSE-APACHE), bitflags 2.13.2 (LICENSE-APACHE), by_address 1.2.1 (LICENSE-APACHE), cfg-if 1.0.5 (LICENSE-APACHE), concurrent-queue 2.5.0 (LICENSE-APACHE), countme 3.0.1 (LICENSE-APACHE), critical-section 1.2.0 (LICENSE-APACHE), crossbeam-channel 0.5.17 (LICENSE-APACHE), crossbeam-deque 0.8.8 (LICENSE-APACHE), crossbeam-epoch 0.9.21 (LICENSE-APACHE), crossbeam-utils 0.8.23 (LICENSE-APACHE), curve25519-dalek-derive 0.1.1 (LICENSE-APACHE), data-url 0.3.2 (LICENSE-APACHE), displaydoc 0.2.7 (LICENSE-APACHE), either 1.19.0 (LICENSE-APACHE), equivalent 1.0.3 (LICENSE-APACHE), euclid 0.22.14 (LICENSE-APACHE), fastrand 2.5.0 (LICENSE-APACHE), ff 0.14.0 (LICENSE-APACHE), flate2 1.1.11 (LICENSE-APACHE), fnv 1.0.7 (LICENSE-APACHE), fontique 0.12.0 (LICENSE-APACHE), form_urlencoded 1.2.3 (LICENSE-APACHE), gif 0.14.2 (LICENSE-APACHE), glow 0.18.0 (LICENSE-APACHE), group 0.14.0 (LICENSE-APACHE), hashbrown 0.14.5 (LICENSE-APACHE), hashbrown 0.16.1 (LICENSE-APACHE), hashbrown 0.17.1 (LICENSE-APACHE), heck 0.5.0 (LICENSE-APACHE), htmlparser 0.2.1 (LICENSE-APACHE), idna 1.1.0 (LICENSE-APACHE), idna_adapter 1.2.2 (LICENSE-APACHE), indexmap 2.14.2 (LICENSE-APACHE), itertools 0.15.0 (LICENSE-APACHE), keyboard-types 0.8.3 (LICENSE-APACHE), lazy_static 1.5.1 (LICENSE-APACHE), lock_api 0.4.14 (LICENSE-APACHE), log 0.4.35 (LICENSE-APACHE), miow 0.6.1 (LICENSE-APACHE), muda 0.21.2 (LICENSE-APACHE), num-bigint 0.4.8 (LICENSE-APACHE), num-bigint 0.5.1 (LICENSE-APACHE), num-integer 0.1.47 (LICENSE-APACHE), num-traits 0.2.19 (LICENSE-APACHE), once_cell 1.21.4 (LICENSE-APACHE), parking_lot 0.12.5 (LICENSE-APACHE), parking_lot_core 0.9.12 (LICENSE-APACHE), parlance 0.1.1 (LICENSE-APACHE), parley 0.12.0 (LICENSE-APACHE), parley_data 0.12.0 (LICENSE-APACHE), percent-encoding 2.3.2 (LICENSE-APACHE), piper 0.2.5 (LICENSE-APACHE), png 0.18.1 (LICENSE-APACHE), polling 3.11.0 (LICENSE-APACHE), rayon 1.12.0 (LICENSE-APACHE), rayon-core 1.13.0 (LICENSE-APACHE), regex 1.13.2 (LICENSE-APACHE), regex-automata 0.4.19 (LICENSE-APACHE), regex-syntax 0.8.12 (LICENSE-APACHE), rowan 0.17.0 (LICENSE-APACHE), roxmltree 0.21.2 (LICENSE-APACHE), rsa 0.10.0 (LICENSE-APACHE), rustc-hash 1.1.0 (LICENSE-APACHE), scoped-tls-hkt 0.1.5 (LICENSE-APACHE), scopeguard 1.2.0 (LICENSE-APACHE), simplecss 0.2.2 (LICENSE-APACHE), smallvec 1.16.6 (LICENSE-APACHE), smol_str 0.2.2 (LICENSE-APACHE), smol_str 0.3.7 (LICENSE-APACHE), socket2 0.6.5 (LICENSE-APACHE), spin_on 0.1.1 (LICENSE-APACHE), stable_deref_trait 1.2.1 (LICENSE-APACHE), svgtypes 0.16.2 (LICENSE-APACHE), swash 0.2.10 (LICENSE-APACHE), text-size 1.1.1 (LICENSE-APACHE), unicase 2.10.0 (LICENSE-APACHE), unicode-bidi 0.3.18 (LICENSE-APACHE), unicode-segmentation 1.13.3 (LICENSE-APACHE), unicode-vo 0.1.0 (LICENSE-APACHE), unicode-width 0.2.3 (LICENSE-APACHE), unicode-xid 0.2.6 (LICENSE-APACHE), url 2.5.9 (LICENSE-APACHE), uuid 1.29.3 (LICENSE-APACHE), weezl 0.1.12 (LICENSE-APACHE), yazi 0.2.2 (LICENSE-APACHE), zeno 0.3.3 (LICENSE-APACHE)
 
 ```text
 Apache License
@@ -6076,7 +6181,7 @@ DEALINGS IN THE SOFTWARE.
 <a id="text-a88a993a1c7a"></a>
 ### a88a993a1c7a
 
-Used by: femtovg 0.27.0 (LICENSE-APACHE)
+Used by: femtovg 0.28.0 (LICENSE-APACHE)
 
 ```text
 Copyright 2021 femtovg contributors
@@ -6097,7 +6202,7 @@ limitations under the License.
 <a id="text-cd4eb10b20da"></a>
 ### cd4eb10b20da
 
-Used by: femtovg 0.27.0 (LICENSE-MIT)
+Used by: femtovg 0.28.0 (LICENSE-MIT)
 
 ```text
 Copyright 2021 Developers of the femtovg project
@@ -6528,7 +6633,7 @@ SOFTWARE.
 <a id="text-fa9dc7e4b32a"></a>
 ### fa9dc7e4b32a
 
-Used by: fontique 0.11.1 (LICENSE-MIT)
+Used by: fontique 0.12.0 (LICENSE-MIT)
 
 ```text
 Copyright 2024 the Parley Authors
@@ -8055,7 +8160,7 @@ limitations under the License.
 <a id="text-31dbbab009f1"></a>
 ### 31dbbab009f1
 
-Used by: keyboard-types 0.7.0 (LICENSE-MIT)
+Used by: keyboard-types 0.8.3 (LICENSE-MIT)
 
 ```text
 Copyright (c) 2017 Pyfisch
@@ -9509,7 +9614,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 <a id="text-859a90323b68"></a>
 ### 859a90323b68
 
-Used by: muda 0.19.3 (LICENSE-MIT)
+Used by: muda 0.21.2 (LICENSE-MIT)
 
 ```text
 MIT License
@@ -9538,7 +9643,7 @@ SOFTWARE.
 <a id="text-b99f9d43803f"></a>
 ### b99f9d43803f
 
-Used by: muda 0.19.3 (LICENSE.spdx)
+Used by: muda 0.21.2 (LICENSE.spdx)
 
 ```text
 SPDXVersion: SPDX-2.1
@@ -9716,10 +9821,78 @@ DEALINGS IN THE SOFTWARE.
 <a id="text-ad40d6ebc808"></a>
 ### ad40d6ebc808
 
-Used by: parlance 0.1.1 (LICENSE-MIT), parley 0.11.1 (LICENSE-MIT), parley_data 0.11.1 (LICENSE-MIT)
+Used by: parlance 0.1.1 (LICENSE-MIT), parley 0.12.0 (LICENSE-MIT), parley_data 0.12.0 (LICENSE-MIT)
 
 ```text
 Copyright 2020 the Parley Authors
+
+Permission is hereby granted, free of charge, to any
+person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the
+Software without restriction, including without
+limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software
+is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice
+shall be included in all copies or substantial portions
+of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+```
+
+<a id="text-c1a790180cc8"></a>
+### c1a790180cc8
+
+Used by: parley_emoji 0.12.0 (LICENSE-MIT)
+
+```text
+Copyright 2020 the Parley Authors
+Copyright (c) 2026 Christian Hansen <chansen@cpan.org>
+<https://github.com/chansen/c-emoji>
+
+Permission is hereby granted, free of charge, to any
+person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the
+Software without restriction, including without
+limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software
+is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice
+shall be included in all copies or substantial portions
+of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+```
+
+<a id="text-0637f0b892b3"></a>
+### 0637f0b892b3
+
+Used by: parley_engine 0.12.0 (LICENSE-MIT)
+
+```text
+Copyright 2025 the Parley Authors
 
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
@@ -10864,7 +11037,7 @@ DEALINGS IN THE SOFTWARE.
 <a id="text-bf23df5f4fa1"></a>
 ### bf23df5f4fa1
 
-Used by: resvg 0.48.1 (LICENSE-MIT), usvg 0.48.1 (LICENSE-MIT)
+Used by: resvg 0.49.0 (LICENSE-MIT), usvg 0.49.0 (LICENSE-MIT)
 
 ```text
 Copyright 2017 the Resvg Authors

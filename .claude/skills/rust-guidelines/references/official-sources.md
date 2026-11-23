@@ -105,7 +105,7 @@ Style editions: https://doc.rust-lang.org/stable/style-guide/editions.html
 Nightly-only syntax: https://doc.rust-lang.org/stable/style-guide/nightly.html
 
 - Covers only nightly features (at fetch time: frontmatter). Not relevant: this project builds
-  on stable 1.94.1.
+  on stable 1.100.0.
 
 ## The Rust Reference, modules
 
@@ -157,8 +157,8 @@ Usage: https://doc.rust-lang.org/clippy/usage.html
   any warning, including rustc's own such as `dead_code`.
 - The page says that since Cargo 1.97 the recommended way to deny warnings in CI is the
   `build.warnings` config option (`CARGO_BUILD_WARNINGS=deny`), and that older Cargo uses
-  `cargo clippy -- -Dwarnings`. Local Cargo here is 1.94.1 and CI uses the `-- -D warnings` form
-  (`.github/workflows/ci.yml:24`); do not change CI as a side effect of other work.
+  `cargo clippy -- -Dwarnings`. Local Cargo here is 1.100.0 and CI uses the `-- -D warnings` form
+  (`.github/workflows/ci.yml:27`); do not change CI as a side effect of other work.
 - `cargo clippy -p <crate>` lints one workspace member and its workspace dependencies; adding
   `-- --no-deps` restricts it to that crate.
 - `cargo clippy --fix` applies suggestions and implies `--all-targets`. Review what it changed
