@@ -4,7 +4,9 @@ Changes to documentation and (later) shipped product are tracked separately. For
 
 ## [Unreleased]
 
-### Changed — 2026-11-24 (toolbar, SSH quick connect, empty states, SFTP overhaul; not yet released)
+## [0.2.2] - 2026-11-24
+
+### Changed — toolbar, SSH quick connect, empty states, SFTP overhaul
 
 - **Single-row toolbar & SSH quick connect**: `PageToolbar` is one row with the same order on every page: the page's actions on the left with the filled add button first (New host, Add over Wi-Fi, New key, New workspace, New recipe), then the compact search field, and Refresh at the far right. On Hosts, the search bar doubles as a Termius-style SSH quick-connect bar (`Find a host or ssh user@hostname...`) with an inline **Connect** pill that accepts `ssh user@host`, `ssh -p port user@host`, `ssh -l user host`, `user@host[:port]`, and IPv6 targets. Matching saved SSH hosts open straight into a terminal (after host-key verification if untrusted); new targets open the Quick Connect host form pre-filled with address, port, and username.
 - **Empty states without a button**: the empty views of Hosts, Devices, Keychain and Workspaces no longer carry a button. The add button stays in the toolbar, in the same corner whether the list is empty or not, and the empty state names it in its sentence. The empty state is also centred in its frame now (its content used to sit 32 px low, down to the bottom border).
@@ -33,7 +35,7 @@ Changes to documentation and (later) shipped product are tracked separately. For
 - Generalized remote host target from Fedora to generic Linux; Fedora remains the reference test host (ADR-013).
 - Added ADR-014..017: remote ADB via SSH port-forward, no bundled `adb.exe`, candidate library set, embedded streaming approach.
 
-### Changed — 2026-11-22 (after 0.2.0, not yet released)
+### Changed — 2026-11-22 (after 0.2.0)
 
 - Idle CPU on Home: a health sample now redraws only that host's card instead of rebuilding every list, and this PC's disk is read for free space only. Measured 1.20 % of one core before, 0.86 % after (60 s, release build, Intel GPU).
 - The default renderer is Slint's software renderer instead of FemtoVG/OpenGL: the Intel OpenGL driver kept a time-critical thread busy at about 0.5 % of a core with no frames drawn. Idle on Home is now 0.10–0.23 % of one core. `SLINT_BACKEND=winit-femtovg` brings OpenGL back. Settings shows the renderer in use.
