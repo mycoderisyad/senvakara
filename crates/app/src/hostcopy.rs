@@ -3,8 +3,8 @@
 //! on it. Both hosts are reached over their own pinned connection; the copy
 //! logic and its rules are in `senvakara_adapters_ssh::sftp`.
 //!
-//! The facade methods of this module and the folder command of `files` are
-//! in the `impl App` block below, so `lib.rs` does not grow.
+//! The facade methods of this module and the remote file management commands
+//! of `files` are in the `impl App` block below, so `lib.rs` does not grow.
 
 use crate::android_tools::{finish, new_transfer};
 use crate::files::{self, TransferEvent, TransferState};
@@ -145,6 +145,43 @@ impl App {
     ) -> CmdResult<String> {
         let app = self.clone();
         self.run(async move { files::sftp_mkdir(&app, host_id, dir, name).await })
+            .await
+    }
+
+    /// Rename `old_name` in `dir` on a host to `new_name`. Returns its path;
+    /// `Conflict` when `new_name` already exists or `InvalidInput` when either
+    /// name is not a single path component.
+    pub async fn sftp_rename(
+        self: &Arc<Self>,
+        host_id: String,
+        dir: String,
+        old_name: String,
+        new_name: String,
+    ) -> CmdResult<String> {
+        let app = self.clone();
+        self.run(async move { files::sftp_rename(&app, host_id, dir, old_name, new_name).await })
+            .await
+    }
+
+    /// Remove a remote file, symlink, or folder tree on a host without
+    /// following symlinks. Fails with `InvalidInput` for `.`, `..`, `/`, or an
+    /// empty path.
+    pub async fn sftp_remove(self: &Arc<Self>, host_id: String, path: String) -> CmdResult<()> {
+        let app = self.clone();
+        self.run(async move { files::sftp_remove(&app, host_id, path).await })
+            .await
+    }
+
+    /// Change POSIX permissions on `path` of a host (`mode` in `0..=0o7777`).
+    /// Fails with `InvalidInput` for an empty path or out-of-range mode.
+    pub async fn sftp_chmod(
+        self: &Arc<Self>,
+        host_id: String,
+        path: String,
+        mode: u32,
+    ) -> CmdResult<()> {
+        let app = self.clone();
+        self.run(async move { files::sftp_chmod(&app, host_id, path, mode).await })
             .await
     }
 }

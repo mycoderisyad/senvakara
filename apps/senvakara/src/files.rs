@@ -9,6 +9,8 @@ mod copy;
 mod dragdrop;
 mod entries;
 mod folders;
+mod local;
+mod manage;
 mod navigate;
 mod open;
 mod paths;
@@ -101,6 +103,8 @@ struct Side {
     filter: String,
     /// Bumped when Rust empties the filter, so the view empties its field.
     filter_rev: i32,
+    /// Whether dotfiles (and hidden Windows items) are shown.
+    show_hidden: bool,
     selected: BTreeSet<usize>,
     /// The row the keyboard is on, and where a Shift selection starts.
     cursor: Option<usize>,
@@ -111,6 +115,9 @@ struct Side {
     error: String,
     /// Something the user should know that is not an error (why a drop did nothing).
     note: String,
+    /// What went wrong in the action the listing on its way follows (some items could not be
+    /// deleted): it becomes `error` when the listing arrives, which would otherwise clear it.
+    outcome: String,
     /// Bumped by every request: an answer to an older one is dropped.
     request: u64,
     /// What the folder field should say, and a counter bumped each time that is set, so the
@@ -146,6 +153,7 @@ impl Side {
             sort: Sort::default(),
             filter: String::new(),
             filter_rev: 0,
+            show_hidden: true,
             selected: BTreeSet::new(),
             cursor: None,
             anchor: None,
@@ -153,6 +161,7 @@ impl Side {
             loaded: false,
             error: String::new(),
             note: String::new(),
+            outcome: String::new(),
             request: 0,
             input: String::new(),
             input_rev: 0,
@@ -225,7 +234,7 @@ impl Side {
         self.path = path;
         self.all = entries;
         self.loaded = true;
-        self.error.clear();
+        self.error = std::mem::take(&mut self.outcome);
         self.note.clear();
         self.arrange(false);
     }
@@ -240,7 +249,7 @@ impl Side {
         };
         let selected = names(&mut self.selected.iter().copied());
         let cursor = names(&mut self.cursor.into_iter());
-        let entries = view(&self.all, &self.filter, self.sort);
+        let entries = view(&self.all, &self.filter, self.show_hidden, self.sort);
         let find = |name: &String| entries.iter().position(|entry| entry.name == *name);
         self.selected = if keep {
             selected.iter().filter_map(find).collect()

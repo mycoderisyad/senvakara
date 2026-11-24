@@ -115,10 +115,6 @@ export component WorkspacesPage inherits VerticalLayout {
                 Workspaces.create();
             }
         }
-
-        Rectangle {
-            horizontal-stretch: 1;
-        }
     }
 
     ScrollView {
@@ -143,11 +139,7 @@ export component WorkspacesPage inherits VerticalLayout {
             if Workspaces.saved.length == 0 && Workspaces.error == "": EmptyState {
                 icon: @image-url("../icons/layout.svg");
                 title: "No workspaces yet";
-                body: "Put terminals, files, a phone screen, logcat or a remote desktop side by side, then save the layout to open it again in one click.";
-                action: "New workspace";
-                activated => {
-                    Workspaces.create();
-                }
+                body: "Put terminals, files, a phone screen, logcat or a remote desktop side by side with New workspace, then save the layout to open it again in one click.";
             }
 
             VerticalLayout {

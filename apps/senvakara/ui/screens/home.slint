@@ -362,9 +362,20 @@ component InventoryPage inherits VerticalLayout {
     PageToolbar {
         searchable: true;
         query <=> Inventory.query;
-        placeholder: root.hosts ? "Search hosts by name, address, user, group or tag" : "Search phones by name, host or serial";
+        placeholder: root.hosts ? "Find a host or ssh user@hostname..." : "Search phones by name, host or serial";
+        search-action: root.hosts ? "Connect" : "";
+        search-action-enabled: root.hosts && Inventory.can-connect;
         searched(text) => {
             Inventory.search(text);
+        }
+        refresh-label: "Refresh hosts, phones and local shells";
+        search-accepted => {
+            if (root.hosts && Inventory.can-connect) {
+                Inventory.quick-connect();
+            }
+        }
+        refreshed => {
+            Inventory.refresh();
         }
 
         if root.hosts: ToolButton {
@@ -382,19 +393,6 @@ component InventoryPage inherits VerticalLayout {
             filled: true;
             clicked => {
                 Inventory.add-wireless();
-            }
-        }
-
-        Rectangle {
-            horizontal-stretch: 1;
-        }
-
-        IconButton {
-            size: Theme.row;
-            icon: @image-url("../icons/refresh.svg");
-            label: "Refresh hosts, phones and local shells";
-            clicked => {
-                Inventory.refresh();
             }
         }
     }
@@ -421,13 +419,9 @@ component InventoryPage inherits VerticalLayout {
             if root.hosts && Inventory.host-groups.length > 0: HostGrid { }
 
             if root.hosts && Inventory.host-groups.length == 0: EmptyState {
-                icon: @image-url("../icons/server.svg");
-                title: Inventory.query != "" ? "No host matches \"\{Inventory.query}\"" : "No hosts yet";
-                body: Inventory.query != "" ? "Search looks through names, addresses, user names, groups and tags." : "Add a computer you reach over SSH or Remote Desktop. Its terminal, files, desktop and phones are then one click away.";
-                action: Inventory.query != "" ? "" : "New host";
-                activated => {
-                    Inventory.add-host();
-                }
+                icon: Inventory.can-connect ? @image-url("../icons/terminal.svg") : @image-url("../icons/server.svg");
+                title: Inventory.can-connect ? "Connect to " + Inventory.connect-target : Inventory.query != "" ? "No host matches \"\{Inventory.query}\"" : "No hosts yet";
+                body: Inventory.can-connect ? "No saved host matches this address. Press Enter or Connect to start a quick SSH connection." : Inventory.query != "" ? "Search looks through names, addresses, user names, groups and tags." : "Add a computer you reach over SSH or Remote Desktop with New host. Its terminal, files, desktop and phones are then one click away.";
             }
 
             if !root.hosts && Inventory.adb-sources.length > 0: InspectorCard {
@@ -444,11 +438,7 @@ component InventoryPage inherits VerticalLayout {
             if !root.hosts && Inventory.devices.length == 0 && !Inventory.loading: EmptyState {
                 icon: @image-url("../icons/phone.svg");
                 title: Inventory.query != "" ? "No phone matches \"\{Inventory.query}\"" : "No Android phones yet";
-                body: Inventory.query != "" ? "Search looks through phone names, hosts and serials." : "Plug a phone into this PC or a connected host with USB debugging on, or pair one over Wi-Fi.";
-                action: Inventory.query != "" ? "" : "Add over Wi-Fi";
-                activated => {
-                    Inventory.add-wireless();
-                }
+                body: Inventory.query != "" ? "Search looks through phone names, hosts and serials." : "Plug a phone into this PC or a connected host with USB debugging on, or pair one with Add over Wi-Fi.";
             }
         }
     }

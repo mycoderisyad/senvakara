@@ -49,14 +49,18 @@ impl App {
                                 .entries
                                 .into_iter()
                                 .filter(|entry| entry.name != "." && entry.name != "..")
-                                .map(|entry| Entry {
-                                    name: entry.name,
-                                    is_dir: entry.is_dir,
-                                    is_symlink: entry.is_symlink,
-                                    is_drive: false,
-                                    size: entry.size,
-                                    modified: entry.modified.map(i64::from),
-                                    permissions: entry.permissions.unwrap_or_default(),
+                                .map(|entry| {
+                                    let is_hidden = entry.name.starts_with('.');
+                                    Entry {
+                                        name: entry.name,
+                                        is_dir: entry.is_dir,
+                                        is_symlink: entry.is_symlink,
+                                        is_drive: false,
+                                        is_hidden,
+                                        size: entry.size,
+                                        modified: entry.modified.map(i64::from),
+                                        permissions: entry.permissions.unwrap_or_default(),
+                                    }
                                 })
                                 .collect();
                             (listing.path, entries)
@@ -71,14 +75,18 @@ impl App {
                                 let entries: Vec<Entry> = list
                                     .into_iter()
                                     .filter(|entry| entry.name != "." && entry.name != "..")
-                                    .map(|entry| Entry {
-                                        name: entry.name,
-                                        is_dir: entry.is_dir,
-                                        is_symlink: entry.is_symlink,
-                                        is_drive: false,
-                                        size: entry.size as u64,
-                                        modified: Some(entry.mtime as i64),
-                                        permissions: String::new(),
+                                    .map(|entry| {
+                                        let is_hidden = entry.name.starts_with('.');
+                                        Entry {
+                                            name: entry.name,
+                                            is_dir: entry.is_dir,
+                                            is_symlink: entry.is_symlink,
+                                            is_drive: false,
+                                            is_hidden,
+                                            size: entry.size as u64,
+                                            modified: Some(entry.mtime as i64),
+                                            permissions: String::new(),
+                                        }
                                     })
                                     .collect();
                                 (shown, entries)
@@ -101,6 +109,7 @@ impl App {
                         }
                         Err(message) => {
                             state.travelling = false;
+                            state.outcome.clear();
                             state.error = message;
                             None
                         }
@@ -118,6 +127,45 @@ impl App {
                 app.files_publish(id);
             },
         );
+    }
+
+    /// An action changed the folder `path` of `source`: list it again if the side still shows
+    /// it, with `outcome` (what went wrong in the action, or "") over the new listing. False
+    /// when the side has moved on, so nothing was listed.
+    pub(super) fn files_reload_shown(
+        self: &Rc<Self>,
+        id: i32,
+        side: usize,
+        source: Source,
+        path: String,
+        outcome: &str,
+    ) -> bool {
+        if self.files_side(id, side) != Some((id, source.clone(), path.clone())) {
+            return false;
+        }
+        self.with_files(id, |pane| {
+            pane.sides[side].borrow_mut().outcome = outcome.to_string();
+        });
+        self.files_load(id, side, source, path);
+        true
+    }
+
+    /// An action on the folder `path` of `source` ended: list the folder again, or say what
+    /// went wrong.
+    pub(super) fn files_changed(
+        self: &Rc<Self>,
+        id: i32,
+        side: usize,
+        source: Source,
+        path: String,
+        result: Result<(), String>,
+    ) {
+        match result {
+            Ok(()) => {
+                self.files_reload_shown(id, side, source, path, "");
+            }
+            Err(message) => self.files_fail(id, side, message),
+        }
     }
 
     /// (pane id, source, folder on screen) of a side of a pane.

@@ -12,7 +12,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 /// More entries than this in one folder tree is refused, so a host cannot
 /// make this PC collect an endless listing.
-const MAX_ENTRIES: usize = 200_000;
+pub(super) const MAX_ENTRIES: usize = 200_000;
 
 /// What a folder holds below itself, found before anything is copied. Paths
 /// are relative to the folder and use `/`.
@@ -63,7 +63,7 @@ fn cancelled(cancel: &AtomicBool) -> Result<()> {
     Ok(())
 }
 
-fn too_large() -> anyhow::Error {
+pub(super) fn too_large() -> anyhow::Error {
     err(
         ErrorCode::InvalidInput,
         format!("the folder holds more than {MAX_ENTRIES} items"),

@@ -312,20 +312,27 @@ export component MenuRow inherits Rectangle {
     in property <string> detail;
     // A word in a small frame at the end of the row ("certificate").
     in property <string> mark;
+    in property <bool> enabled: true;
+    in property <bool> danger: false;
     callback activated();
 
-    height: root.detail == "" ? Theme.row : 42px;
+    height: root.detail == "" ? 34px : 44px;
     border-radius: Theme.radius - 2px;
-    border-width: focus.has-focus ? 1px : 0px;
+    border-width: focus.has-focus && root.enabled ? 1px : 0px;
     border-color: Theme.accent;
-    background: touch.pressed ? Theme.surface-selected : touch.has-hover || focus.has-focus ? Theme.surface-hover : transparent;
+    background: !root.enabled ? transparent : touch.pressed ? Theme.surface-selected : touch.has-hover || focus.has-focus ? Theme.surface-hover : transparent;
+    opacity: root.enabled ? 1 : 0.45;
     accessible-role: button;
     accessible-label: root.mark == "" ? root.title + " " + root.detail : root.title + " " + root.detail + ", " + root.mark;
+    accessible-enabled: root.enabled;
     accessible-action-default => {
-        root.activated();
+        if (root.enabled) {
+            root.activated();
+        }
     }
 
     focus := FocusScope {
+        enabled: root.enabled;
         key-pressed(event) => {
             if (event.text == Key.Return || event.text == " ") {
                 root.activated();
@@ -336,7 +343,8 @@ export component MenuRow inherits Rectangle {
     }
 
     touch := TouchArea {
-        mouse-cursor: pointer;
+        enabled: root.enabled;
+        mouse-cursor: root.enabled ? MouseCursor.pointer : MouseCursor.default;
         clicked => {
             root.activated();
         }
@@ -347,11 +355,11 @@ export component MenuRow inherits Rectangle {
         padding-right: Theme.space-2;
         spacing: Theme.space-2;
 
-        VerticalLayout {
+        if root.icon.width > 0: VerticalLayout {
             alignment: center;
             Icon {
                 source: root.icon;
-                tint: touch.has-hover ? Theme.text : Theme.text-muted;
+                tint: !root.enabled ? Theme.text-faint : root.danger ? Theme.danger : touch.has-hover ? Theme.text : Theme.text-muted;
             }
         }
 
@@ -360,7 +368,7 @@ export component MenuRow inherits Rectangle {
             horizontal-stretch: 1;
             Text {
                 text: root.title;
-                color: Theme.text;
+                color: !root.enabled ? Theme.text-faint : root.danger ? Theme.danger : Theme.text;
                 font-size: Theme.text-body;
                 overflow: elide;
             }

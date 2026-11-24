@@ -1,6 +1,8 @@
 //! How Home files its hosts: by parent group, and what the search field looks through.
 
-use senvakara_app::HostView;
+use senvakara_app::{HostView, Protocol};
+
+use super::quick_connect::parse_ssh_target;
 
 /// The heading over the hosts that have no parent group. They come first: this PC is one.
 pub const UNGROUPED: &str = "Hosts";
@@ -33,7 +35,8 @@ pub fn grouped<T>(items: Vec<(Option<String>, T)>) -> Vec<(String, Vec<T>)> {
 }
 
 /// Whether the search text finds this host: in its name, address, user, group or one of its
-/// tags. `query` is already lower case; an empty one finds everything.
+/// tags, or as an SSH quick-connect string (`ssh user@host`). `query` is already lower case; an
+/// empty one finds everything.
 pub fn host_matches(host: &HostView, query: &str) -> bool {
     if query.is_empty() {
         return true;
@@ -43,7 +46,7 @@ pub fn host_matches(host: &HostView, query: &str) -> bool {
         (None, Some(rdp)) => (rdp.address.as_str(), rdp.username.as_str()),
         (None, None) => ("", ""),
     };
-    [
+    let direct = [
         host.display_name.as_str(),
         address,
         user,
@@ -51,7 +54,23 @@ pub fn host_matches(host: &HostView, query: &str) -> bool {
     ]
     .into_iter()
     .chain(host.tags.iter().map(String::as_str))
-    .any(|field| field.to_lowercase().contains(query))
+    .any(|field| field.to_lowercase().contains(query));
+    if direct {
+        return true;
+    }
+    if host.protocol == Protocol::Ssh {
+        if let (Some(ssh), Some(target)) = (&host.ssh, parse_ssh_target(query)) {
+            let addr = target.address.to_lowercase();
+            let host_ok = ssh.address.to_lowercase().contains(&addr)
+                || host.display_name.to_lowercase().contains(&addr);
+            let user_ok = target
+                .username
+                .as_deref()
+                .is_none_or(|wanted| ssh.username.to_lowercase().contains(&wanted.to_lowercase()));
+            return host_ok && user_ok;
+        }
+    }
+    false
 }
 
 #[cfg(test)]
@@ -164,5 +183,27 @@ mod tests {
         assert!(host_matches(&rdp, "office"));
         assert!(host_matches(&rdp, "alice"));
         assert!(!host_matches(&rdp, "bob"));
+    }
+
+    #[test]
+    fn an_ssh_quick_connect_query_still_finds_the_matching_host() {
+        let ssh = HostView {
+            ssh: Some(SshView {
+                address: "192.168.1.10".into(),
+                port: 22,
+                username: "raflan".into(),
+                auth: SshAuth::Password,
+                private_key_path: String::new(),
+                fingerprint: None,
+                has_passphrase: false,
+                has_password: true,
+                startup_snippet: None,
+            }),
+            ..host(None, &[])
+        };
+        assert!(host_matches(&ssh, "ssh raflan@192.168.1.10"));
+        assert!(host_matches(&ssh, "raflan@192.168.1.10"));
+        assert!(host_matches(&ssh, "ssh 192.168.1.10"));
+        assert!(!host_matches(&ssh, "ssh root@192.168.1.10"));
     }
 }

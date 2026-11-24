@@ -193,6 +193,7 @@ impl App {
             Next::Close => {}
             Next::Select(kind, id) => self.select_item(&kind, &id),
             Next::Open(host) => self.host_form_open(host.as_deref()),
+            Next::Quick(target) => self.host_form_open_quick(&target),
         }
     }
 
@@ -274,6 +275,21 @@ impl App {
         form.set_open(true);
         // A new form starts with the cursor in its first field.
         form.set_revision(form.get_revision().wrapping_add(1));
+    }
+
+    /// Open a new SSH host form pre-filled from a quick-connect command (`ssh user@host`).
+    pub fn host_form_open_quick(&self, target: &crate::inventory::SshTarget) {
+        self.host_form_open(None);
+        let Some(ui) = self.ui.upgrade() else { return };
+        let form = ui.global::<HostForm>();
+        let port = target.port.to_string();
+        let username = target.username.as_deref().unwrap_or("");
+        form.set_title("Quick connect".into());
+        form.set_address(target.address.as_str().into());
+        form.set_port(port.as_str().into());
+        form.set_username(username.into());
+        // Closing right away without typing credentials should not nag to discard.
+        *self.hosts.initial.borrow_mut() = self.host_form_fields(&form);
     }
 
     /// Offer the existing groups that match what is typed.

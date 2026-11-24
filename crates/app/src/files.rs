@@ -216,6 +216,44 @@ pub(crate) async fn sftp_mkdir(
         .map_err(|e| to_core("create folder", e))
 }
 
+/// Rename `old_name` in `dir` on a host to `new_name`. Returns its path.
+pub(crate) async fn sftp_rename(
+    app: &Arc<App>,
+    host_id: String,
+    dir: String,
+    old_name: String,
+    new_name: String,
+) -> CmdResult<String> {
+    let conn = app.state.connection(&host_id).await?;
+    let session = conn.sftp().await.map_err(|e| to_core("sftp", e))?;
+    sftp::rename(&session, &dir, &old_name, new_name.trim())
+        .await
+        .map_err(|e| to_core("rename remote item", e))
+}
+
+/// Remove a file, symlink, or folder tree on a host without following links.
+pub(crate) async fn sftp_remove(app: &Arc<App>, host_id: String, path: String) -> CmdResult<()> {
+    let conn = app.state.connection(&host_id).await?;
+    let session = conn.sftp().await.map_err(|e| to_core("sftp", e))?;
+    sftp::remove(&session, &path)
+        .await
+        .map_err(|e| to_core("remove remote item", e))
+}
+
+/// Change POSIX permissions `mode` (`0o000`–`0o7777`) on `path` of a host.
+pub(crate) async fn sftp_chmod(
+    app: &Arc<App>,
+    host_id: String,
+    path: String,
+    mode: u32,
+) -> CmdResult<()> {
+    let conn = app.state.connection(&host_id).await?;
+    let session = conn.sftp().await.map_err(|e| to_core("sftp", e))?;
+    sftp::chmod(&session, &path, mode)
+        .await
+        .map_err(|e| to_core("change remote permissions", e))
+}
+
 pub(crate) fn transfer_cancel(app: &App, id: u32) {
     let transfers = &app.transfers;
     if let Some(flag) = transfers.cancel.lock().unwrap().get(&id) {

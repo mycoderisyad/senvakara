@@ -1,10 +1,10 @@
-// Page layout: GroupTitle, Labeled, PageTitle, SectionHeader, EmptyState, Card and CardGrid.
+// Page layout: GroupTitle, Labeled, PageTitle, SectionHeader, EmptyState, PageToolbar, Card and
+// CardGrid.
 
 import { Theme } from "../../theme.slint";
 import { Hint } from "status.slint";
-import { ToolButton } from "form.slint";
 import { SearchField } from "inputs.slint";
-import { Icon } from "../controls.slint";
+import { Icon, IconButton } from "../controls.slint";
 
 // A section heading inside a page or panel ("Hosts", "Health", a host group).
 export component GroupTitle inherits Text {
@@ -114,22 +114,20 @@ export component SectionHeader inherits HorizontalLayout {
     }
 }
 
-// What an empty list says, with the one action that fills it.
+// What an empty list says. It carries no button: the action that fills the list is the first
+// one in the page's `PageToolbar`, so it is in the same corner whether the list is empty or not.
 export component EmptyState inherits Rectangle {
     in property <image> icon;
     in property <string> title;
     in property <string> body;
-    in property <string> action;
-    callback activated();
 
-    height: content.preferred-height + 2 * Theme.space-8;
+    height: content.preferred-height;
     border-radius: Theme.radius-card;
     border-width: 1px;
     border-color: Theme.hairline;
 
     content := VerticalLayout {
-        y: Theme.space-8;
-        width: parent.width;
+        padding: Theme.space-8;
         alignment: center;
         spacing: Theme.space-3;
 
@@ -168,46 +166,25 @@ export component EmptyState inherits Rectangle {
                 wrap: word-wrap;
             }
         }
-
-        // The same button as the page toolbar's, so one action never has two looks.
-        if root.action != "": HorizontalLayout {
-            alignment: center;
-            padding-top: Theme.space-1;
-            ToolButton {
-                icon: @image-url("../../icons/plus.svg");
-                text: root.action;
-                filled: true;
-                clicked => {
-                    root.activated();
-                }
-            }
-        }
     }
 }
 
-// The top of a page: the search field (if any) over a row of actions, then a hairline. Every
-// page puts its own actions here, as filled `ToolButton`s on the left; extras such as Refresh go
-// to the right after a stretching `Rectangle`.
+// The top of a page, the same single row everywhere: the page's own actions on the left (the
+// children, with the filled "New ..." `ToolButton` first), then the search field if the page
+// has one, and Refresh at the far right if the page has one; then a hairline.
 export component PageToolbar inherits VerticalLayout {
     in property <bool> searchable;
     in-out property <string> query;
     in property <string> placeholder;
+    // An action inside the search field ("Connect"); "" for none.
+    in property <string> search-action;
+    in property <bool> search-action-enabled;
+    // What the Refresh button reloads, as its accessible name; "" for no Refresh button.
+    in property <string> refresh-label;
     callback searched(string);
-
-    if root.searchable: HorizontalLayout {
-        padding-left: Theme.space-6;
-        padding-right: Theme.space-6;
-        padding-top: Theme.space-4;
-
-        SearchField {
-            horizontal-stretch: 1;
-            text <=> root.query;
-            placeholder: root.placeholder;
-            edited(text) => {
-                root.searched(text);
-            }
-        }
-    }
+    // Enter in the search field, or a click on its action.
+    callback search-accepted();
+    callback refreshed();
 
     HorizontalLayout {
         padding-left: Theme.space-6;
@@ -217,6 +194,39 @@ export component PageToolbar inherits VerticalLayout {
         spacing: Theme.space-2;
 
         @children
+
+        if root.searchable: SearchField {
+            min-width: 200px;
+            preferred-width: 440px;
+            max-width: 460px;
+            horizontal-stretch: 10;
+            text <=> root.query;
+            placeholder: root.placeholder;
+            action-label: root.search-action;
+            action-enabled: root.search-action-enabled;
+            edited(text) => {
+                root.searched(text);
+            }
+            accepted => {
+                root.search-accepted();
+            }
+            action-clicked => {
+                root.search-accepted();
+            }
+        }
+
+        Rectangle {
+            horizontal-stretch: 1;
+        }
+
+        if root.refresh-label != "": IconButton {
+            size: Theme.row;
+            icon: @image-url("../../icons/refresh.svg");
+            label: root.refresh-label;
+            clicked => {
+                root.refreshed();
+            }
+        }
     }
 
     Rectangle {

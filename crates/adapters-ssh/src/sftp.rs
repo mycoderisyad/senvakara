@@ -3,9 +3,11 @@
 //! partial file under the final name (docs/SECURITY.md §7).
 
 mod between;
+mod manage;
 mod tree;
 
 pub use between::copy_between;
+pub use manage::{chmod, remove, rename};
 pub use tree::{copy_dir_between, download_dir, upload_dir, walk_local, walk_remote, Copied, Plan};
 
 use anyhow::{Context, Result};

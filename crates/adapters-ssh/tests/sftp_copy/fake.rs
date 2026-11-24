@@ -21,6 +21,8 @@ pub enum Node {
 #[derive(Default)]
 pub struct Disk {
     pub nodes: BTreeMap<String, Node>,
+    /// Optional permission override (low 12 bits) per absolute path.
+    pub modes: BTreeMap<String, u32>,
     /// Names a hostile server lists in a folder although no honest one
     /// could hold them: (folder, name).
     pub rogue: Vec<(String, String)>,
@@ -97,6 +99,14 @@ pub fn attrs(node: &Node) -> FileAttributes {
     }
 }
 
+fn attrs_at(disk: &Disk, path: &str, node: &Node) -> FileAttributes {
+    let mut file_attrs = attrs(node);
+    if let (Some(base), Some(mode)) = (file_attrs.permissions, disk.modes.get(path)) {
+        file_attrs.permissions = Some((base & !0o7777) | (mode & 0o7777));
+    }
+    file_attrs
+}
+
 pub fn ok(id: u32) -> Status {
     Status {
         id,
@@ -124,14 +134,12 @@ impl Fake {
     }
 
     fn stat_path(&self, id: u32, path: &str) -> Result<Attrs, StatusCode> {
+        let abs = absolute(path);
         let disk = self.disk.lock().unwrap();
-        let node = disk
-            .nodes
-            .get(&absolute(path))
-            .ok_or(StatusCode::NoSuchFile)?;
+        let node = disk.nodes.get(&abs).ok_or(StatusCode::NoSuchFile)?;
         Ok(Attrs {
             id,
-            attrs: attrs(node),
+            attrs: attrs_at(&disk, &abs, node),
         })
     }
 }
@@ -275,7 +283,8 @@ impl russh_sftp::server::Handler for Fake {
             .iter()
             .filter_map(|(path, node)| {
                 let name = path.strip_prefix(&prefix)?;
-                (!name.is_empty() && !name.contains('/')).then(|| File::new(name, attrs(node)))
+                (!name.is_empty() && !name.contains('/'))
+                    .then(|| File::new(name, attrs_at(&disk, path, node)))
             })
             .collect();
         files.extend(
@@ -290,10 +299,33 @@ impl russh_sftp::server::Handler for Fake {
         Ok(Name { id, files })
     }
 
-    async fn remove(&mut self, id: u32, filename: String) -> Result<Status, Self::Error> {
+    async fn setstat(
+        &mut self,
+        id: u32,
+        path: String,
+        attrs: FileAttributes,
+    ) -> Result<Status, Self::Error> {
+        let abs = absolute(&path);
         let mut disk = self.disk.lock().unwrap();
-        match disk.nodes.remove(&absolute(&filename)) {
-            Some(_) => Ok(ok(id)),
+        if !disk.nodes.contains_key(&abs) {
+            return Err(StatusCode::NoSuchFile);
+        }
+        if let Some(mode) = attrs.permissions {
+            disk.modes.insert(abs, mode & 0o7777);
+        }
+        Ok(ok(id))
+    }
+
+    async fn remove(&mut self, id: u32, filename: String) -> Result<Status, Self::Error> {
+        let abs = absolute(&filename);
+        let mut disk = self.disk.lock().unwrap();
+        match disk.nodes.get(&abs) {
+            Some(Node::Dir) => Err(StatusCode::Failure),
+            Some(_) => {
+                disk.nodes.remove(&abs);
+                disk.modes.remove(&abs);
+                Ok(ok(id))
+            }
             None => Err(StatusCode::NoSuchFile),
         }
     }
@@ -310,6 +342,31 @@ impl russh_sftp::server::Handler for Fake {
             return Err(StatusCode::Failure);
         }
         disk.nodes.insert(path, Node::Dir);
+        Ok(ok(id))
+    }
+
+    async fn rmdir(&mut self, id: u32, path: String) -> Result<Status, Self::Error> {
+        let abs = absolute(&path);
+        let mut disk = self.disk.lock().unwrap();
+        match disk.nodes.get(&abs) {
+            Some(Node::Dir) => {}
+            Some(_) => return Err(StatusCode::Failure),
+            None => return Err(StatusCode::NoSuchFile),
+        }
+        let prefix = if abs == "/" {
+            "/".to_string()
+        } else {
+            format!("{abs}/")
+        };
+        if disk
+            .nodes
+            .keys()
+            .any(|key| key != &abs && key.starts_with(&prefix))
+        {
+            return Err(StatusCode::Failure);
+        }
+        disk.nodes.remove(&abs);
+        disk.modes.remove(&abs);
         Ok(ok(id))
     }
 
@@ -332,7 +389,29 @@ impl russh_sftp::server::Handler for Fake {
             return Err(StatusCode::Failure);
         }
         let node = disk.nodes.remove(&old).ok_or(StatusCode::NoSuchFile)?;
-        disk.nodes.insert(new, node);
+        let is_dir = node == Node::Dir;
+        disk.nodes.insert(new.clone(), node);
+        if let Some(mode) = disk.modes.remove(&old) {
+            disk.modes.insert(new.clone(), mode);
+        }
+        if is_dir {
+            let prefix = format!("{old}/");
+            let keys: Vec<String> = disk
+                .nodes
+                .keys()
+                .filter(|key| key.starts_with(&prefix))
+                .cloned()
+                .collect();
+            for key in keys {
+                if let Some(child) = disk.nodes.remove(&key) {
+                    let dest = format!("{new}/{}", &key[prefix.len()..]);
+                    if let Some(mode) = disk.modes.remove(&key) {
+                        disk.modes.insert(dest.clone(), mode);
+                    }
+                    disk.nodes.insert(dest, child);
+                }
+            }
+        }
         Ok(ok(id))
     }
 }

@@ -270,6 +270,8 @@ export component TabStrip inherits Rectangle {
                 height: parent.height - 2 * Theme.space-1;
                 accessible-label: "Shells and hosts to open";
 
+                // A row tells the strip before it closes the menu: closing destroys the row, and
+                // a callback of the strip called after that is silently dropped.
                 for item[index] in root.quick: Rectangle {
                     height: root.menu-row;
                     border-radius: Theme.radius - 3px;
@@ -279,15 +281,15 @@ export component TabStrip inherits Rectangle {
                     accessible-role: button;
                     accessible-label: item.label == "" ? item.title + ", " + item.detail : item.title + ", " + item.detail + ", " + item.label;
                     accessible-action-default => {
-                        menu.close();
                         root.quick-run(index);
+                        menu.close();
                     }
 
                     row-focus := FocusScope {
                         key-pressed(event) => {
                             if (event.text == Key.Return || event.text == " ") {
-                                menu.close();
                                 root.quick-run(index);
+                                menu.close();
                                 return accept;
                             }
                             return reject;
@@ -297,8 +299,8 @@ export component TabStrip inherits Rectangle {
                     row-touch := TouchArea {
                         mouse-cursor: pointer;
                         clicked => {
-                            menu.close();
                             root.quick-run(index);
+                            menu.close();
                         }
                     }
 

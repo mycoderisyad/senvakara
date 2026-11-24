@@ -61,8 +61,18 @@ export struct FileSide {
     tall: bool,
     // The list of places is shown instead of the files.
     picking: bool,
+    // Whether hidden files (dotfiles and hidden Windows items) are shown.
+    show-hidden: bool,
+    // Name of the single selected item, or "" when 0 or 2+ items are selected.
+    selected-name: string,
+    // POSIX permission bits (0..=0o777) of the single selected remote item, or -1 if unknown.
+    selected-mode: int,
     // Why a folder cannot be made here ("" when it can).
     new-folder-reason: string,
+    // Why the selection cannot be renamed, deleted or have permissions edited ("" when it can).
+    rename-reason: string,
+    delete-reason: string,
+    chmod-reason: string,
 }
 
 // One folder of the path bar.
@@ -123,6 +133,12 @@ export global Files {
     callback sort(id: int, side: int, column: string);
     callback filter(id: int, side: int, text: string);
     callback new-folder(id: int, side: int, name: string);
+    callback rename(id: int, side: int, new-name: string);
+    callback delete-selected(id: int, side: int);
+    callback chmod(id: int, side: int, mode: int);
+    callback toggle-hidden(id: int, side: int);
+    callback select-all(id: int, side: int);
+    callback close-side(id: int, side: int);
     // The pointer is over a side: files dropped from Explorer go to the side it was over last.
     callback hovered(id: int, side: int);
     // What a drag of rows of a side carries.

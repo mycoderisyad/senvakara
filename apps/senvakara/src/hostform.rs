@@ -13,6 +13,8 @@ mod save;
 mod secrets;
 mod validation;
 
+pub(crate) use validation::{address_problem, parse_port};
+
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
@@ -31,6 +33,8 @@ pub enum Next {
     Select(String, String),
     /// Open the form again: for this host, or empty for a new one.
     Open(Option<String>),
+    /// Open a new host form pre-filled from an SSH quick-connect command.
+    Quick(crate::inventory::SshTarget),
 }
 
 #[derive(Default)]
@@ -58,6 +62,11 @@ pub struct State {
 }
 
 impl State {
+    /// Remember to open the host's terminal as soon as its key is accepted.
+    pub fn set_connect_after_trust(&self, host_id: &str) {
+        *self.connect_after_trust.borrow_mut() = Some(host_id.to_string());
+    }
+
     /// Whether accepting the key of `host_id` should go on to open its terminal. Asking
     /// uses the wish up.
     pub fn take_connect_after_trust(&self, host_id: &str) -> bool {

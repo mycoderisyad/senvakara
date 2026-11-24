@@ -11,7 +11,6 @@ export { Keychain, KeyItem }
 
 export component KeychainPage inherits VerticalLayout {
     PageToolbar {
-
         // "New key" and, behind the chevron, starting from a file.
         HorizontalLayout {
             spacing: 2px;
@@ -84,10 +83,6 @@ export component KeychainPage inherits VerticalLayout {
                 Keychain.new-key("fido2");
             }
         }
-
-        Rectangle {
-            horizontal-stretch: 1;
-        }
     }
 
     ScrollView {
@@ -113,10 +108,6 @@ export component KeychainPage inherits VerticalLayout {
                 icon: @image-url("../icons/key.svg");
                 title: "No keys yet";
                 body: "Add a key with New key, or drag a private key file from Explorer onto this window. Any host can then sign in with it.";
-                action: "New key";
-                activated => {
-                    Keychain.new-key("key");
-                }
             }
 
             grid := CardGrid {

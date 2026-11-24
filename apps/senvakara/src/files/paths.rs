@@ -172,6 +172,31 @@ pub(super) fn folder_name_problem(kind: Kind, name: &str) -> &'static str {
     ""
 }
 
+/// Why `name` cannot be the new name of a file or folder, or "" when it can.
+pub(super) fn item_name_problem(kind: Kind, name: &str) -> &'static str {
+    let name = name.trim();
+    if name.is_empty() {
+        return "Type a new name.";
+    }
+    if name == "." || name == ".." {
+        return "This name is reserved by the folder itself.";
+    }
+    let forbidden: &[char] = match kind {
+        Kind::Local => &['\\', '/', ':', '*', '?', '"', '<', '>', '|'],
+        _ => &['/'],
+    };
+    if name.contains(forbidden) || name.contains('\0') {
+        return match kind {
+            Kind::Local => "A name cannot contain \\ / : * ? \" < > or |.",
+            _ => "A name cannot contain a slash.",
+        };
+    }
+    if kind == Kind::Local && name.ends_with('.') {
+        return "A name cannot end with a dot on Windows.";
+    }
+    ""
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

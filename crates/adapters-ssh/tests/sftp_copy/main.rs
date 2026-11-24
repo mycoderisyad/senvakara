@@ -4,6 +4,7 @@
 
 mod fake;
 mod folders;
+mod manage;
 
 use fake::{connect, content, disk, file, paths, Node, HOME};
 use senvakara_adapters_ssh::sftp;

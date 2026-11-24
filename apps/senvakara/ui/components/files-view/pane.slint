@@ -1,79 +1,15 @@
-// One side of the Files tab: what place it shows, the filter and the Actions menu, the path
-// bar, the list, and the Copy button. Or, in place of all that, the invitation to choose a
-// host and the list of places to choose from.
+// One side of the Files tab, top to bottom: the header (header.slint), the path row
+// (path-row.slint), the strip that is open if any (strips.slint), what went wrong, and the list
+// (table.slint). A side that shows no place yet invites to choose one (picker.slint).
 
 import { Theme } from "../../theme.slint";
-import { Icon, IconButton } from "../controls.slint";
-import { Button, Notice, TextField, MenuRow, ToolButton } from "../widgets.slint";
+import { Notice } from "../widgets.slint";
 import { Files, FileRow, FileSide, FileCrumb, FilePlace } from "data.slint";
+import { PaneHeader } from "header.slint";
+import { PathRow } from "path-row.slint";
 import { EmptySide, PlacePicker } from "picker.slint";
+import { ChmodStrip, NameStrip } from "strips.slint";
 import { FileTable } from "table.slint";
-
-// The folders down to the one on screen; each can be clicked. A long path keeps its end in
-// view. A click next to the folders asks for the path to be typed instead.
-component PathBar inherits Rectangle {
-    in property <[FileCrumb]> crumbs;
-    in property <string> side-name;
-    callback picked(index: int);
-    callback edit();
-
-    height: Theme.row;
-    clip: true;
-
-    TouchArea {
-        mouse-cursor: text;
-        clicked => {
-            root.edit();
-        }
-    }
-
-    HorizontalLayout {
-        x: Math.min(0px, parent.width - self.preferred-width);
-        width: self.preferred-width;
-        spacing: 2px;
-
-        for crumb[index] in root.crumbs: HorizontalLayout {
-            spacing: 2px;
-
-            if index > 0: VerticalLayout {
-                alignment: center;
-                Icon {
-                    width: 12px;
-                    height: 12px;
-                    source: @image-url("../../icons/right.svg");
-                    tint: Theme.text-faint;
-                }
-            }
-
-            Rectangle {
-                private property <bool> last: index == root.crumbs.length - 1;
-                width: label.preferred-width + 2 * Theme.space-1;
-                border-radius: Theme.radius - 2px;
-                background: touch.has-hover ? Theme.surface-hover : transparent;
-                accessible-role: button;
-                accessible-label: "Go to " + crumb.label + ", " + root.side-name + " side";
-                accessible-action-default => {
-                    root.picked(index);
-                }
-
-                touch := TouchArea {
-                    mouse-cursor: pointer;
-                    clicked => {
-                        root.picked(index);
-                    }
-                }
-
-                label := Text {
-                    vertical-alignment: center;
-                    text: crumb.label;
-                    color: parent.last ? Theme.text : Theme.text-muted;
-                    font-size: Theme.text-body;
-                    font-weight: parent.last ? 600 : 400;
-                }
-            }
-        }
-    }
-}
 
 export component FilePane inherits Rectangle {
     in property <int> pane;
@@ -88,25 +24,33 @@ export component FilePane inherits Rectangle {
     in property <length> room;
 
     private property <string> side-name: side == 0 ? "left" : "right";
-    // The path is being typed instead of shown as folders.
-    private property <bool> typing;
-    // The name of a new folder is being typed.
-    private property <bool> naming;
-    // Rust decides what the folder field says: after a listing, and when another pane is shown.
-    private property <string> input-key: pane + "/" + info.input-rev + "/" + info.input;
-    private property <string> filter-key: pane + "/" + info.filter-rev;
+    // The strip that is open under the header: "" | "new-folder" | "rename" | "chmod".
+    private property <string> strip;
+    // Another folder or another pane is on screen: what a strip asked about is gone.
+    private property <string> shown: pane + "/" + info.input-rev + "/" + info.input;
 
-    changed input-key => {
-        field.text = info.input;
-        root.typing = false;
+    // The menus and the keys of the list ask for a strip; it opens only when Rust allows the
+    // action behind it.
+    function open-new-folder() {
+        if (root.info.new-folder-reason == "") {
+            root.strip = "new-folder";
+        }
     }
 
-    changed filter-key => {
-        filter.text = "";
+    function open-rename() {
+        if (root.info.rename-reason == "" && root.info.selected-name != "") {
+            root.strip = "rename";
+        }
     }
 
-    init => {
-        field.text = info.input;
+    function open-chmod() {
+        if (root.info.chmod-reason == "" && root.info.selected-name != "") {
+            root.strip = "chmod";
+        }
+    }
+
+    changed shown => {
+        root.strip = "";
     }
 
     hover := TouchArea {
@@ -130,332 +74,123 @@ export component FilePane inherits Rectangle {
 
         VerticalLayout {
             visible: !root.info.picking && root.info.place-kind != "";
-            padding: Theme.space-3;
-            spacing: Theme.space-2;
 
-            HorizontalLayout {
-                spacing: Theme.space-2;
+            Rectangle {
+                background: Theme.surface.mix(Theme.ground, 0.45);
+                height: chrome.preferred-height;
 
-                VerticalLayout {
-                    alignment: center;
+                chrome := VerticalLayout {
+                    PaneHeader {
+                        pane: root.pane;
+                        side: root.side;
+                        info: root.info;
+                        side-name: root.side-name;
+                        alone: root.alone;
+                        has-rows: root.rows.length > 0;
+                        request-rename => {
+                            root.open-rename();
+                        }
+                        request-new-folder => {
+                            root.open-new-folder();
+                        }
+                        request-chmod => {
+                            root.open-chmod();
+                        }
+                    }
+
+                    PathRow {
+                        pane: root.pane;
+                        side: root.side;
+                        info: root.info;
+                        crumbs: root.crumbs;
+                        side-name: root.side-name;
+                    }
+
                     Rectangle {
-                        width: 26px;
-                        height: 26px;
-                        border-radius: Theme.radius;
-                        background: Theme.host-hue(root.info.hue).with-alpha(0.16);
-                        Icon {
-                            source: root.info.place-kind == "local" ? @image-url("../../icons/windows.svg") : root.info.place-kind == "phone" ? @image-url("../../icons/phone.svg") : @image-url("../../icons/server.svg");
-                            tint: Theme.host-hue(root.info.hue);
-                        }
-                    }
-                }
-
-                Text {
-                    vertical-alignment: center;
-                    text: root.info.place;
-                    color: Theme.text;
-                    font-size: Theme.text-body;
-                    font-weight: Theme.weight-strong;
-                    overflow: elide;
-                }
-
-                Button {
-                    text: "Change";
-                    kind: "ghost";
-                    accessible-label: "Show another host, phone or this PC on the " + root.side-name + " side";
-                    clicked => {
-                        Files.pick-show(root.pane, root.side, true);
-                    }
-                }
-
-                Rectangle {
-                    horizontal-stretch: 1;
-                }
-
-                filter := TextField {
-                    width: 150px;
-                    label: "Filter the names on the " + root.side-name + " side";
-                    placeholder: "Filter";
-                    edited(text) => {
-                        Files.filter(root.pane, root.side, text);
-                    }
-                }
-
-                Rectangle {
-                    width: actions.min-width;
-                    height: Theme.row;
-
-                    actions := ToolButton {
-                        width: parent.width;
-                        icon: @image-url("../../icons/chevron-down.svg");
-                        text: "Actions";
-                        filled: true;
-                        label: "Actions for the " + root.side-name + " side";
-                        clicked => {
-                            menu.show();
-                        }
-                    }
-
-                    // Closes on any click, also on one of its own rows.
-                    menu := PopupWindow {
-                        x: parent.width - self.width;
-                        y: parent.height + Theme.space-1;
-                        width: 230px;
-
-                        Rectangle {
-                            border-radius: Theme.radius;
-                            border-width: 1px;
-                            border-color: Theme.hairline-strong;
-                            background: Theme.surface;
-                            drop-shadow-blur: 30px;
-                            drop-shadow-offset-y: 12px;
-                            drop-shadow-color: #00000059;
-
-                            VerticalLayout {
-                                padding: Theme.space-1;
-                                spacing: 2px;
-
-                                MenuRow {
-                                    icon: @image-url("../../icons/refresh.svg");
-                                    title: "Refresh";
-                                    activated => {
-                                        Files.refresh(root.pane, root.side);
-                                    }
-                                }
-
-                                MenuRow {
-                                    icon: @image-url("../../icons/folder.svg");
-                                    title: "New folder...";
-                                    detail: root.info.new-folder-reason;
-                                    activated => {
-                                        if (root.info.new-folder-reason == "") {
-                                            root.naming = true;
-                                        }
-                                    }
-                                }
-
-                                if !root.alone: MenuRow {
-                                    icon: @image-url("../../icons/import.svg");
-                                    title: "Copy to other side";
-                                    detail: root.info.copy-reason;
-                                    activated => {
-                                        if (root.info.copy-reason == "") {
-                                            Files.copy(root.pane, root.side);
-                                        }
-                                    }
-                                }
-
-                                MenuRow {
-                                    icon: @image-url("../../icons/search.svg");
-                                    title: "Type a path...";
-                                    activated => {
-                                        root.typing = true;
-                                    }
-                                }
-                            }
-                        }
+                        height: 1px;
+                        background: Theme.hairline;
                     }
                 }
             }
 
-            HorizontalLayout {
-                spacing: Theme.space-1;
-
-                VerticalLayout {
-                    alignment: center;
-                    IconButton {
-                        icon: @image-url("../../icons/left.svg");
-                        label: "Back, " + root.side-name + " side";
-                        enabled: root.info.can-back;
-                        clicked => {
-                            Files.travel(root.pane, root.side, true);
-                        }
-                    }
+            if root.strip == "new-folder": NameStrip {
+                placeholder: "New folder name";
+                field-label: "Name of the new folder on the " + root.side-name + " side";
+                confirm-text: "Create";
+                confirm-label: "Create the folder, " + root.side-name + " side";
+                cancel-label: "Do not create a folder, " + root.side-name + " side";
+                accepted(name) => {
+                    root.strip = "";
+                    Files.new-folder(root.pane, root.side, name);
                 }
-
-                VerticalLayout {
-                    alignment: center;
-                    IconButton {
-                        icon: @image-url("../../icons/right.svg");
-                        label: "Forward, " + root.side-name + " side";
-                        enabled: root.info.can-forward;
-                        clicked => {
-                            Files.travel(root.pane, root.side, false);
-                        }
-                    }
-                }
-
-                VerticalLayout {
-                    alignment: center;
-                    IconButton {
-                        icon: @image-url("../../icons/up.svg");
-                        label: "Up one folder, " + root.side-name + " side";
-                        enabled: root.info.can-up;
-                        clicked => {
-                            Files.up(root.pane, root.side);
-                        }
-                    }
-                }
-
-                if !root.typing: PathBar {
-                    horizontal-stretch: 1;
-                    crumbs: root.crumbs;
-                    side-name: root.side-name;
-                    picked(index) => {
-                        Files.crumb(root.pane, root.side, index);
-                    }
-                    edit => {
-                        root.typing = true;
-                    }
-                }
-
-                field := TextField {
-                    visible: root.typing;
-                    horizontal-stretch: root.typing ? 1 : 0;
-                    width: root.typing ? self.preferred-width : 0px;
-                    mono: true;
-                    label: "Folder on the " + root.side-name + " side";
-                    placeholder: root.info.loaded ? root.info.path : "Folder path";
-                    accepted => {
-                        root.typing = false;
-                        Files.go(root.pane, root.side, self.text);
-                    }
-                }
-
-                if root.typing: Button {
-                    text: "Go";
-                    accessible-label: "Go to the typed folder, " + root.side-name + " side";
-                    clicked => {
-                        root.typing = false;
-                        Files.go(root.pane, root.side, field.text);
-                    }
-                }
-
-                if root.typing: Button {
-                    text: "Cancel";
-                    kind: "ghost";
-                    accessible-label: "Show the folders again, " + root.side-name + " side";
-                    clicked => {
-                        field.text = root.info.input;
-                        root.typing = false;
-                    }
+                cancelled => {
+                    root.strip = "";
                 }
             }
 
-            if root.naming: HorizontalLayout {
-                spacing: Theme.space-2;
-
-                name := TextField {
-                    horizontal-stretch: 1;
-                    label: "Name of the new folder on the " + root.side-name + " side";
-                    placeholder: "Name of the new folder";
-                    init => {
-                        self.focus-input();
-                    }
-                    accepted => {
-                        root.naming = false;
-                        Files.new-folder(root.pane, root.side, self.text);
-                    }
+            if root.strip == "rename": NameStrip {
+                value: root.info.selected-name;
+                placeholder: "New name";
+                field-label: "New name on the " + root.side-name + " side";
+                confirm-text: "Rename";
+                confirm-label: "Rename item, " + root.side-name + " side";
+                cancel-label: "Cancel rename, " + root.side-name + " side";
+                accepted(name) => {
+                    root.strip = "";
+                    Files.rename(root.pane, root.side, name);
                 }
-
-                Button {
-                    text: "Create";
-                    kind: "primary";
-                    accessible-label: "Create the folder, " + root.side-name + " side";
-                    clicked => {
-                        root.naming = false;
-                        Files.new-folder(root.pane, root.side, name.text);
-                    }
-                }
-
-                Button {
-                    text: "Cancel";
-                    kind: "ghost";
-                    accessible-label: "Do not create a folder, " + root.side-name + " side";
-                    clicked => {
-                        root.naming = false;
-                    }
+                cancelled => {
+                    root.strip = "";
                 }
             }
 
-            if root.info.error != "": Notice {
-                kind: "danger";
-                text: root.info.error;
+            if root.strip == "chmod": ChmodStrip {
+                item-name: root.info.selected-name;
+                side-name: root.side-name;
+                // An item whose permissions are not known starts from rw-r--r-- (0o644).
+                mode: root.info.selected-mode >= 0 ? root.info.selected-mode : 420;
+                applied(mode) => {
+                    root.strip = "";
+                    Files.chmod(root.pane, root.side, mode);
+                }
+                cancelled => {
+                    root.strip = "";
+                }
             }
 
-            if root.info.note != "": Notice {
-                kind: "info";
-                text: root.info.note;
+            if root.info.error != "": VerticalLayout {
+                padding: Theme.space-2;
+                Notice {
+                    kind: "danger";
+                    text: root.info.error;
+                }
             }
 
-            table := FileTable {
+            if root.info.note != "": VerticalLayout {
+                padding: Theme.space-2;
+                Notice {
+                    kind: "info";
+                    text: root.info.note;
+                }
+            }
+
+            FileTable {
                 vertical-stretch: 1;
                 pane: root.pane;
                 side: root.side;
+                alone: root.alone;
                 info: root.info;
                 rows: root.rows;
                 show-time: root.room >= 380px;
                 show-kind: root.room >= 480px;
-            }
-
-            if root.alone: Text {
-                text: root.info.loading && root.rows.length > 0 ? "Reading " + root.info.place : root.info.summary == "" ? "Widen the panel to see this PC next to it and copy files across." : root.info.summary + ". Widen the panel to copy files to or from this PC.";
-                color: Theme.text-muted;
-                font-size: Theme.text-small;
-                overflow: elide;
-            }
-
-            if !root.alone: HorizontalLayout {
-                spacing: Theme.space-2;
-
-                VerticalLayout {
-                    horizontal-stretch: 1;
-                    alignment: center;
-                    spacing: 2px;
-
-                    Text {
-                        text: root.info.loading && root.rows.length > 0 ? "Reading " + root.info.place : root.info.summary;
-                        color: Theme.text-muted;
-                        font-size: Theme.text-small;
-                        overflow: elide;
-                    }
-
-                    Text {
-                        text: root.info.copy-target;
-                        color: Theme.text-faint;
-                        font-size: Theme.text-small;
-                        font-family: Theme.mono;
-                        overflow: elide;
-                    }
+                request-rename => {
+                    root.open-rename();
                 }
-
-                VerticalLayout {
-                    alignment: center;
-                    Button {
-                        text: "Copy to other side";
-                        kind: root.info.copy-reason == "" ? "primary" : "secondary";
-                        enabled: root.info.copy-reason == "";
-                        reason: root.info.copy-reason;
-                        accessible-label: root.info.copy-reason == "" ? "Copy to other side, from the " + root.side-name : "Copy to other side, from the " + root.side-name + ". Unavailable: " + root.info.copy-reason;
-                        clicked => {
-                            Files.copy(root.pane, root.side);
-                        }
-                    }
+                request-new-folder => {
+                    root.open-new-folder();
                 }
-            }
-
-            // Always one line high at least, so both lists keep the same height.
-            if !root.alone: Rectangle {
-                height: Math.max(16px, reason.preferred-height);
-                reason := Text {
-                    x: 0;
-                    y: 0;
-                    width: parent.width;
-                    horizontal-alignment: right;
-                    text: root.info.copy-reason;
-                    color: Theme.text-faint;
-                    font-size: Theme.text-small;
-                    wrap: word-wrap;
+                request-chmod => {
+                    root.open-chmod();
                 }
             }
         }

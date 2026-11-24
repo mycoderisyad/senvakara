@@ -75,6 +75,30 @@ impl App {
             let app = self.clone();
             move |id, side, name| app.files_new_folder(id, side as usize, &name)
         });
+        files.on_rename({
+            let app = self.clone();
+            move |id, side, name| app.files_rename(id, side as usize, &name)
+        });
+        files.on_delete_selected({
+            let app = self.clone();
+            move |id, side| app.files_delete_ask(id, side as usize)
+        });
+        files.on_chmod({
+            let app = self.clone();
+            move |id, side, mode| app.files_chmod(id, side as usize, mode)
+        });
+        files.on_toggle_hidden({
+            let app = self.clone();
+            move |id, side| app.files_toggle_hidden(id, side as usize)
+        });
+        files.on_select_all({
+            let app = self.clone();
+            move |id, side| app.files_select_all(id, side as usize)
+        });
+        files.on_close_side({
+            let app = self.clone();
+            move |id, side| app.files_close_side(id, side as usize)
+        });
         files.on_hovered({
             let app = self.clone();
             move |id, side| app.files.hover.set((id, side as usize))

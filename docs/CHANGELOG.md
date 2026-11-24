@@ -4,6 +4,22 @@ Changes to documentation and (later) shipped product are tracked separately. For
 
 ## [Unreleased]
 
+### Changed — 2026-11-24 (toolbar, SSH quick connect, empty states, SFTP overhaul; not yet released)
+
+- **Single-row toolbar & SSH quick connect**: `PageToolbar` is one row with the same order on every page: the page's actions on the left with the filled add button first (New host, Add over Wi-Fi, New key, New workspace, New recipe), then the compact search field, and Refresh at the far right. On Hosts, the search bar doubles as a Termius-style SSH quick-connect bar (`Find a host or ssh user@hostname...`) with an inline **Connect** pill that accepts `ssh user@host`, `ssh -p port user@host`, `ssh -l user host`, `user@host[:port]`, and IPv6 targets. Matching saved SSH hosts open straight into a terminal (after host-key verification if untrusted); new targets open the Quick Connect host form pre-filled with address, port, and username.
+- **Empty states without a button**: the empty views of Hosts, Devices, Keychain and Workspaces no longer carry a button. The add button stays in the toolbar, in the same corner whether the list is empty or not, and the empty state names it in its sentence. The empty state is also centred in its frame now (its content used to sit 32 px low, down to the bottom border).
+- **SFTP UI/UX overhaul**: Redesigned the dual-pane SFTP view for a cleaner edge-to-edge layout modeled on Termius — clickable host-switcher pill (replacing the separate **Change** button), toggleable compact inline **Filter**, quiet **Actions** dropdown, tinted folder breadcrumbs, full-bleed file table, and removal of the bottom **Copy to other side** footer bar.
+- **SFTP file management, right-click menu & full Actions dropdown**: Added backend and local support for **Rename** (`F2`), **Delete** (`Delete`, recursive on folders without following symlinks, always gated by a confirmation dialog), **Edit Permissions** (`chmod` with Owner/Group/Public R/W/X checkboxes and live octal preview on SSH hosts), **Hide/Show Hidden Files** (`Ctrl+H`), **Select All** (`Ctrl+A`), and **Close** (disconnect side back to host picker), available from both the right-click context menu and the **Actions** dropdown.
+
+### Fixed — 2026-11-24
+
+- **The menu next to "+" opens what is picked**: a click on a shell or host in the tab strip's menu closed the menu and opened nothing, because the row closed the menu before it told the strip what was picked. The same order was in the `Select` drop-down (Settings, Automations), which is fixed too. Ctrl+Shift+1 to 9 were not affected.
+- **A delete that fails says so**: when a file or folder could not be deleted in the SFTP pane, the message was cleared by the listing that follows the delete. It now stays over the new listing.
+
+### Internal — 2026-11-24
+
+- `files-view/pane.slint` (1,050 lines) is split by what each part draws: `header.slint` (place, filter, Actions menu), `path-row.slint` (Back, Forward, Up, path), `strips.slint` (new folder, rename, permissions); `pane.slint` only puts them together. `files/manage.rs` and `inventory/quick_connect.rs` lost their repeated blocks; renaming and deleting on this PC are plain functions with tests in `files/local.rs`.
+
 ### Documentation — 2026-11-21
 
 - Established project name **Senvakara** (working name, availability checks pending).

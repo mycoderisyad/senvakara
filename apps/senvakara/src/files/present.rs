@@ -9,6 +9,7 @@ use crate::{App, FileCrumb, FileSide, Pane, Place};
 use super::copy::{copy_problem, Route};
 use super::entries::{size_text, Entry};
 use super::folders::new_folder_problem;
+use super::manage::{chmod_problem, delete_problem, parse_permissions, rename_problem};
 use super::paths::{crumbs, parent, same_dir};
 use super::{FilesPane, Kind, Source};
 
@@ -167,7 +168,23 @@ impl App {
                 sort_descending: side.sort.descending,
                 tall: side.tall(),
                 picking: side.picking,
+                show_hidden: side.show_hidden,
+                selected_name: if selected.len() == 1 {
+                    selected[0].name.as_str().into()
+                } else {
+                    SharedString::new()
+                },
+                selected_mode: if selected.len() == 1 {
+                    parse_permissions(&selected[0].permissions)
+                        .map(|mode| mode as i32)
+                        .unwrap_or(-1)
+                } else {
+                    -1
+                },
                 new_folder_reason: new_folder_problem(kind, side.loaded, top).into(),
+                rename_reason: rename_problem(kind, side.loaded, top, &selected).into(),
+                delete_reason: delete_problem(kind, side.loaded, top, &selected).into(),
+                chmod_reason: chmod_problem(kind, side.loaded, &selected).into(),
             };
             if pane.info.row_data(index).as_ref() != Some(&info) {
                 pane.info.set_row_data(index, info);

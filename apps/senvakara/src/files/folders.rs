@@ -5,6 +5,7 @@ use std::rc::Rc;
 use crate::inventory::friendly_with;
 use crate::App;
 
+use super::local::TAKEN;
 use super::paths::{folder_name_problem, join};
 use super::{Kind, Source};
 
@@ -18,8 +19,6 @@ pub(super) fn new_folder_problem(kind: Kind, loaded: bool, top: bool) -> &'stati
         _ => "",
     }
 }
-
-const TAKEN: &str = "A file or folder with that name is already here.";
 
 impl App {
     /// Make the folder `name` in the folder on screen, then list it again.
@@ -66,20 +65,12 @@ impl App {
                     Source::None | Source::Device(_) => Ok(()),
                 }
             },
-            move |app, result: Result<(), String>| match result {
-                Ok(()) => {
-                    // Only if the side still shows that folder.
-                    if app.files_side(id, side) == Some((id, source.clone(), path.clone())) {
-                        app.files_load(id, side, source, path);
-                    }
-                }
-                Err(message) => app.files_fail(id, side, message),
-            },
+            move |app, result| app.files_changed(id, side, source, path, result),
         );
     }
 
     /// Show an error on a side.
-    fn files_fail(&self, id: i32, side: usize, message: String) {
+    pub(super) fn files_fail(&self, id: i32, side: usize, message: String) {
         self.with_files(id, |pane| {
             if let Some(state) = pane.sides.get(side) {
                 state.borrow_mut().error = message;

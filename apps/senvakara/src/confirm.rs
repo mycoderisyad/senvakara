@@ -53,6 +53,14 @@ pub enum Pending {
     ReplaceFile(String, jobs::JobSpec),
     /// Copies to or from a phone the dialog named: (label, job) each.
     CopyFiles(Vec<(String, jobs::JobSpec)>),
+    /// Delete the confirmed files or folders on one side of a Files pane.
+    DeleteFiles {
+        pane: i32,
+        side: usize,
+        source: crate::files::Source,
+        dir: String,
+        names: Vec<String>,
+    },
     /// Close the host form although the user typed in it, then go on to something else.
     DiscardHostForm(hostform::Next),
     /// Close the key form although the user typed in it, then go on to something else.
@@ -193,6 +201,13 @@ impl App {
                     self.job_start(label, spec);
                 }
             }
+            Pending::DeleteFiles {
+                pane,
+                side,
+                source,
+                dir,
+                names,
+            } => self.files_delete_run(pane, side, source, dir, names),
             Pending::DiscardHostForm(next) => self.host_form_discard(next),
             Pending::DiscardKeyForm(next) => self.keychain_discard(next),
             Pending::DeleteKey(id) => self.keychain_delete(id),

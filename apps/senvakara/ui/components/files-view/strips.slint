@@ -1,0 +1,243 @@
+// The strips that open under the header of one side of the Files tab to ask for one thing: the
+// name of a new folder, the new name of an item, or the permissions of an item. Escape closes
+// a strip without doing anything.
+
+import { Theme } from "../../theme.slint";
+import { Button, BoundField, CheckBox } from "../widgets.slint";
+
+// What every strip shares: the surface, the hairline under it and Escape.
+component Strip inherits Rectangle {
+    callback cancelled();
+
+    public function take-keys() {
+        scope.focus();
+    }
+
+    background: Theme.surface;
+    height: body.preferred-height;
+
+    scope := FocusScope {
+        capture-key-pressed(event) => {
+            if (event.text == Key.Escape) {
+                root.cancelled();
+                return accept;
+            }
+            return reject;
+        }
+
+        body := VerticalLayout {
+            padding-left: Theme.space-3;
+            padding-right: Theme.space-3;
+            padding-top: Theme.space-2;
+            padding-bottom: Theme.space-2;
+            spacing: Theme.space-2;
+
+            @children
+        }
+    }
+
+    Rectangle {
+        y: parent.height - 1px;
+        height: 1px;
+        background: Theme.hairline;
+    }
+}
+
+// Asks for a name: of a new folder (`value` empty) or of the item being renamed.
+export component NameStrip inherits Strip {
+    // The name the field starts with.
+    in property <string> value;
+    in property <string> placeholder;
+    // The accessible names of the field and the two buttons, which say the side they act on.
+    in property <string> field-label;
+    in property <string> confirm-text;
+    in property <string> confirm-label;
+    in property <string> cancel-label;
+    callback accepted(string);
+
+    HorizontalLayout {
+        spacing: Theme.space-2;
+
+        field := BoundField {
+            horizontal-stretch: 1;
+            value: root.value;
+            label: root.field-label;
+            placeholder: root.placeholder;
+            accepted => {
+                root.accepted(self.text);
+            }
+        }
+
+        Button {
+            text: root.confirm-text;
+            kind: "primary";
+            accessible-label: root.confirm-label;
+            clicked => {
+                root.accepted(field.text);
+            }
+        }
+
+        Button {
+            text: "Cancel";
+            kind: "ghost";
+            accessible-label: root.cancel-label;
+            clicked => {
+                root.cancelled();
+            }
+        }
+    }
+
+    init => {
+        field.focus-input();
+    }
+}
+
+// POSIX permission bits, three to a digit: read 4, write 2, execute 1.
+global Permission {
+    pure public function has(digit: int, bit: int) -> bool {
+        return Math.mod(Math.floor(digit / bit), 2) == 1;
+    }
+
+    // One digit as `ls -l` writes it ("rw-").
+    pure public function letters(digit: int) -> string {
+        return (has(digit, 4) ? "r" : "-") + (has(digit, 2) ? "w" : "-") + (has(digit, 1) ? "x" : "-");
+    }
+}
+
+// The three permissions of the owner, the group or everyone else.
+component PermissionGroup inherits VerticalLayout {
+    in property <string> title;
+    // 0 to 7.
+    in-out property <int> digit;
+
+    function put(bit: int, on: bool) {
+        if (on != Permission.has(root.digit, bit)) {
+            root.digit += on ? bit : -bit;
+        }
+    }
+
+    spacing: 2px;
+
+    Text {
+        text: root.title;
+        color: Theme.text-muted;
+        font-size: Theme.text-small;
+        font-weight: Theme.weight-medium;
+    }
+
+    HorizontalLayout {
+        spacing: Theme.space-2;
+
+        CheckBox {
+            text: "R";
+            checked: Permission.has(root.digit, 4);
+            toggled(on) => {
+                root.put(4, on);
+            }
+        }
+
+        CheckBox {
+            text: "W";
+            checked: Permission.has(root.digit, 2);
+            toggled(on) => {
+                root.put(2, on);
+            }
+        }
+
+        CheckBox {
+            text: "X";
+            checked: Permission.has(root.digit, 1);
+            toggled(on) => {
+                root.put(1, on);
+            }
+        }
+    }
+}
+
+// Edits the permissions of one item on an SSH host: three boxes each for the owner, the group
+// and everyone else, with the mode they add up to in octal and as `ls -l` writes it.
+export component ChmodStrip inherits Strip {
+    in property <string> item-name;
+    in property <string> side-name;
+    // The permission bits the boxes start from (0 to 0o777).
+    in property <int> mode;
+    // The permission bits to set.
+    callback applied(int);
+
+    private property <int> owner;
+    private property <int> group;
+    private property <int> other;
+    private property <string> octal: "0" + owner + group + other;
+
+    init => {
+        root.owner = Math.mod(Math.floor(root.mode / 64), 8);
+        root.group = Math.mod(Math.floor(root.mode / 8), 8);
+        root.other = Math.mod(root.mode, 8);
+        root.take-keys();
+    }
+
+    HorizontalLayout {
+        spacing: Theme.space-2;
+
+        Text {
+            horizontal-stretch: 1;
+            vertical-alignment: center;
+            text: "Permissions for " + root.item-name;
+            color: Theme.text;
+            font-size: Theme.text-small + 1px;
+            font-weight: Theme.weight-medium;
+            overflow: elide;
+        }
+
+        Text {
+            vertical-alignment: center;
+            text: root.octal + "  " + Permission.letters(root.owner) + Permission.letters(root.group) + Permission.letters(root.other);
+            color: Theme.accent;
+            font-size: Theme.text-small;
+            font-family: Theme.mono;
+            font-weight: Theme.weight-medium;
+        }
+    }
+
+    HorizontalLayout {
+        spacing: Theme.space-4;
+
+        PermissionGroup {
+            title: "Owner";
+            digit <=> root.owner;
+        }
+
+        PermissionGroup {
+            title: "Group";
+            digit <=> root.group;
+        }
+
+        PermissionGroup {
+            title: "Public";
+            digit <=> root.other;
+        }
+    }
+
+    HorizontalLayout {
+        alignment: end;
+        spacing: Theme.space-2;
+
+        Button {
+            text: "Cancel";
+            kind: "ghost";
+            accessible-label: "Cancel permission changes, " + root.side-name + " side";
+            clicked => {
+                root.cancelled();
+            }
+        }
+
+        Button {
+            text: "Apply";
+            kind: "primary";
+            accessible-label: "Apply permissions " + root.octal + " to " + root.item-name;
+            clicked => {
+                root.applied(root.owner * 64 + root.group * 8 + root.other);
+            }
+        }
+    }
+}

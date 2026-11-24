@@ -98,6 +98,9 @@ export global Inventory {
     in property <bool> loading;
     in property <string> error;
     in-out property <string> query;
+    // The query parses as an SSH target (`ssh user@host` or `user@host`).
+    in property <bool> can-connect;
+    in property <string> connect-target;
     // "" | "host" | "device"
     in-out property <string> selected-kind;
     in-out property <string> selected-id;
@@ -105,6 +108,7 @@ export global Inventory {
     in property <DeviceItem> selected-device;
 
     callback search(text: string);
+    callback quick-connect();
     callback select(kind: string, id: string);
     callback host-action(id: string, action: string);
     callback device-action(id: string, action: string);

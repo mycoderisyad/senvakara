@@ -1,0 +1,220 @@
+// The second row of one side of the Files tab: Back, Forward, Up, and the folder on screen, as
+// folders to click or as a path to type.
+
+import { Theme } from "../../theme.slint";
+import { Icon, IconButton } from "../controls.slint";
+import { Button, TextField } from "../widgets.slint";
+import { Files, FileCrumb, FileSide } from "data.slint";
+
+// The folders down to the one on screen; each can be clicked. A long path keeps its end in
+// view. A click next to the folders asks for the path to be typed instead.
+component PathBar inherits Rectangle {
+    in property <[FileCrumb]> crumbs;
+    in property <string> side-name;
+    callback picked(index: int);
+    callback edit();
+
+    height: 30px;
+    clip: true;
+
+    TouchArea {
+        mouse-cursor: text;
+        clicked => {
+            root.edit();
+        }
+    }
+
+    HorizontalLayout {
+        x: Math.min(0px, parent.width - self.preferred-width);
+        width: self.preferred-width;
+        spacing: 2px;
+
+        for crumb[index] in root.crumbs: HorizontalLayout {
+            spacing: 2px;
+
+            if index > 0: VerticalLayout {
+                alignment: center;
+                Icon {
+                    width: 11px;
+                    height: 11px;
+                    source: @image-url("../../icons/right.svg");
+                    tint: Theme.text-faint;
+                }
+            }
+
+            crumb-box := Rectangle {
+                private property <bool> last: index == root.crumbs.length - 1;
+                width: inner.preferred-width;
+                border-radius: Theme.radius-small;
+                background: touch.has-hover ? Theme.surface-hover : transparent;
+                accessible-role: button;
+                accessible-label: "Go to " + crumb.label + ", " + root.side-name + " side";
+                accessible-action-default => {
+                    root.picked(index);
+                }
+
+                touch := TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => {
+                        root.picked(index);
+                    }
+                }
+
+                inner := HorizontalLayout {
+                    padding-left: Theme.space-1 + 2px;
+                    padding-right: Theme.space-1 + 2px;
+                    spacing: Theme.space-1;
+
+                    VerticalLayout {
+                        alignment: center;
+                        Icon {
+                            width: 13px;
+                            height: 13px;
+                            source: @image-url("../../icons/folder.svg");
+                            tint: Theme.info;
+                        }
+                    }
+
+                    Text {
+                        vertical-alignment: center;
+                        text: crumb.label;
+                        color: crumb-box.last ? Theme.text : Theme.text-muted;
+                        font-size: Theme.text-small + 1px;
+                        font-weight: crumb-box.last ? Theme.weight-medium : Theme.weight-regular;
+                    }
+                }
+            }
+        }
+    }
+}
+
+// A Back, Forward or Up button of the row.
+component TravelButton inherits VerticalLayout {
+    in property <image> icon;
+    in property <string> label;
+    in property <bool> enabled;
+    callback clicked();
+
+    alignment: center;
+
+    IconButton {
+        size: 26px;
+        icon: root.icon;
+        label: root.label;
+        enabled: root.enabled;
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+export component PathRow inherits HorizontalLayout {
+    in property <int> pane;
+    in property <int> side;
+    in property <FileSide> info;
+    in property <[FileCrumb]> crumbs;
+    in property <string> side-name;
+
+    // The path is being typed instead of shown as folders.
+    private property <bool> typing;
+    // Rust decides what the folder field says: after a listing, and when another pane is shown.
+    private property <string> input-key: pane + "/" + info.input-rev + "/" + info.input;
+
+    function go(path: string) {
+        root.typing = false;
+        Files.go(root.pane, root.side, path);
+    }
+
+    changed input-key => {
+        field.text = info.input;
+        root.typing = false;
+    }
+
+    init => {
+        field.text = info.input;
+    }
+
+    padding-left: Theme.space-2;
+    padding-right: Theme.space-3;
+    padding-top: 3px;
+    padding-bottom: 3px;
+    spacing: 2px;
+
+    TravelButton {
+        icon: @image-url("../../icons/left.svg");
+        label: "Back, " + root.side-name + " side";
+        enabled: root.info.can-back;
+        clicked => {
+            Files.travel(root.pane, root.side, true);
+        }
+    }
+
+    TravelButton {
+        icon: @image-url("../../icons/right.svg");
+        label: "Forward, " + root.side-name + " side";
+        enabled: root.info.can-forward;
+        clicked => {
+            Files.travel(root.pane, root.side, false);
+        }
+    }
+
+    TravelButton {
+        icon: @image-url("../../icons/up.svg");
+        label: "Up one folder, " + root.side-name + " side";
+        enabled: root.info.can-up;
+        clicked => {
+            Files.up(root.pane, root.side);
+        }
+    }
+
+    if !root.typing: VerticalLayout {
+        horizontal-stretch: 1;
+        alignment: center;
+        PathBar {
+            crumbs: root.crumbs;
+            side-name: root.side-name;
+            picked(index) => {
+                Files.crumb(root.pane, root.side, index);
+            }
+            edit => {
+                root.typing = true;
+                field.focus-input();
+            }
+        }
+    }
+
+    // Always there, so that it can take the keyboard the moment the folders give way to it.
+    field := TextField {
+        visible: root.typing;
+        enabled: root.typing;
+        horizontal-stretch: root.typing ? 1 : 0;
+        width: root.typing ? self.preferred-width : 0px;
+        height: 28px;
+        mono: true;
+        label: "Folder on the " + root.side-name + " side";
+        placeholder: root.info.loaded ? root.info.path : "Folder path";
+        accepted => {
+            root.go(self.text);
+        }
+    }
+
+    if root.typing: Button {
+        height: 28px;
+        text: "Go";
+        accessible-label: "Go to the typed folder, " + root.side-name + " side";
+        clicked => {
+            root.go(field.text);
+        }
+    }
+
+    if root.typing: Button {
+        height: 28px;
+        text: "Cancel";
+        kind: "ghost";
+        accessible-label: "Show the folders again, " + root.side-name + " side";
+        clicked => {
+            field.text = root.info.input;
+            root.typing = false;
+        }
+    }
+}

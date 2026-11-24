@@ -8,6 +8,7 @@ use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
 use crate::{App, DeviceItem, HostGroup, HostItem, Inventory, KeyValue};
 
 use super::groups::{grouped, host_matches};
+use super::quick_connect::parse_ssh_target;
 use super::text::{fact, friendly};
 
 impl App {
@@ -31,9 +32,13 @@ impl App {
         inventory.on_search({
             let app = self.clone();
             move |text| {
-                *app.inv.query.borrow_mut() = text.to_lowercase();
+                *app.inv.query.borrow_mut() = text.to_string();
                 app.rebuild();
             }
+        });
+        inventory.on_quick_connect({
+            let app = self.clone();
+            move || app.inventory_quick_connect()
         });
         inventory.on_refresh({
             let app = self.clone();
@@ -122,7 +127,9 @@ impl App {
     /// Rebuild the view models from the cached backend data.
     pub(super) fn rebuild(self: &Rc<Self>) {
         let Some(ui) = self.ui.upgrade() else { return };
-        let query = self.inv.query.borrow().clone();
+        let raw_query = self.inv.query.borrow().clone();
+        let query = raw_query.to_lowercase();
+        let quick = parse_ssh_target(&raw_query);
         let hosts = self.inv.hosts.borrow();
         let devices = self.inv.devices.borrow();
 
@@ -181,6 +188,13 @@ impl App {
             .filter(|host| host.is_local || host.connected)
             .count();
         let inventory = ui.global::<Inventory>();
+        inventory.set_can_connect(quick.is_some());
+        inventory.set_connect_target(
+            quick
+                .as_ref()
+                .map(|target| target.display().into())
+                .unwrap_or_default(),
+        );
         let plural =
             |n: usize, one: &str, many: &str| format!("{n} {}", if n == 1 { one } else { many });
         let (available, unauthorized) = (count("available"), count("unauthorized"));

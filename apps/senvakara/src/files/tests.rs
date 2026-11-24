@@ -36,6 +36,7 @@ fn file(name: &str) -> Entry {
         is_dir: false,
         is_symlink: false,
         is_drive: false,
+        is_hidden: name.starts_with('.'),
         size: 10,
         modified: None,
         permissions: String::new(),
@@ -272,13 +273,27 @@ fn a_header_click_starts_ascending_and_a_second_click_turns_around() {
 #[test]
 fn the_filter_keeps_names_that_contain_the_text_whatever_the_case() {
     let all = sample();
-    assert_eq!(view(&all, "", Sort::default()).len(), 5);
-    assert_eq!(names(&view(&all, " PDF ", Sort::default())), ["A.PDF"]);
+    assert_eq!(view(&all, "", true, Sort::default()).len(), 5);
     assert_eq!(
-        names(&view(&all, "a", Sort::default())),
+        names(&view(&all, " PDF ", true, Sort::default())),
+        ["A.PDF"]
+    );
+    assert_eq!(
+        names(&view(&all, "a", true, Sort::default())),
         ["Alpha", "zeta", "A.PDF"]
     );
-    assert!(view(&all, "nothing", Sort::default()).is_empty());
+    assert!(view(&all, "nothing", true, Sort::default()).is_empty());
+}
+
+#[test]
+fn hiding_hidden_files_omits_dotfiles_and_keeps_visible_entries() {
+    let mut all = sample();
+    all.push(file(".env"));
+    all.push(folder(".ssh"));
+    assert_eq!(view(&all, "", true, Sort::default()).len(), 7);
+    let visible = view(&all, "", false, Sort::default());
+    assert_eq!(visible.len(), 5);
+    assert!(!visible.iter().any(|entry| entry.name.starts_with('.')));
 }
 
 #[test]
@@ -333,6 +348,18 @@ fn a_side_keeps_the_selection_through_sorting_and_remembers_where_it_was() {
     side.show("/home/me".into(), sample());
     assert_eq!(side.back.len(), 1);
     assert!(!side.travelling);
+}
+
+#[test]
+fn what_went_wrong_in_an_action_is_shown_over_the_listing_that_follows_it() {
+    let mut side = Side::new(Source::Host("h".into()));
+    side.show("/home/me".into(), sample());
+    side.outcome = "Could not delete notes.txt.".into();
+    side.show("/home/me".into(), sample());
+    assert_eq!(side.error, "Could not delete notes.txt.");
+    // The next listing has nothing to report.
+    side.show("/home/me".into(), sample());
+    assert_eq!(side.error, "");
 }
 
 #[test]

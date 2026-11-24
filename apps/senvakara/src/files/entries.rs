@@ -17,6 +17,8 @@ pub struct Entry {
     pub is_symlink: bool,
     /// A drive of this PC ("C:\").
     pub is_drive: bool,
+    /// A dotfile or an item with the Windows Hidden attribute.
+    pub is_hidden: bool,
     pub size: u64,
     /// Unix seconds.
     pub modified: Option<i64>,
@@ -131,12 +133,13 @@ pub fn sort_entries(entries: &mut [Entry], sort: Sort) {
     });
 }
 
-/// The rows of a list: the entries whose name contains `filter` (case does not matter), in
-/// the order of `sort`.
-pub fn view(all: &[Entry], filter: &str, sort: Sort) -> Vec<Entry> {
+/// The rows of a list: the entries whose name contains `filter` (case does not matter), with
+/// hidden items omitted when `show_hidden` is false, in the order of `sort`.
+pub fn view(all: &[Entry], filter: &str, show_hidden: bool, sort: Sort) -> Vec<Entry> {
     let needle = filter.trim().to_lowercase();
     let mut entries: Vec<Entry> = all
         .iter()
+        .filter(|entry| show_hidden || !entry.is_hidden)
         .filter(|entry| needle.is_empty() || entry.name.to_lowercase().contains(&needle))
         .cloned()
         .collect();
@@ -181,6 +184,7 @@ fn list_drives() -> Vec<Entry> {
             is_dir: true,
             is_symlink: false,
             is_drive: true,
+            is_hidden: false,
             size: 0,
             modified: None,
             permissions: String::new(),
@@ -220,11 +224,13 @@ pub fn list_local(path: &str) -> Result<(String, Vec<Entry>), String> {
             .ok()
             .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
             .map(|since| since.as_secs() as i64);
+        let is_hidden = is_local_hidden(&name, &meta);
         entries.push(Entry {
             name,
             is_dir: meta.is_dir(),
             is_symlink,
             is_drive: false,
+            is_hidden,
             size: if meta.is_dir() { 0 } else { meta.len() },
             modified,
             permissions: String::new(),
@@ -232,6 +238,23 @@ pub fn list_local(path: &str) -> Result<(String, Vec<Entry>), String> {
     }
     sort_entries(&mut entries, Sort::default());
     Ok((path, entries))
+}
+
+fn is_local_hidden(name: &str, meta: &std::fs::Metadata) -> bool {
+    if name.starts_with('.') {
+        return true;
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::MetadataExt;
+        // FILE_ATTRIBUTE_HIDDEN = 0x2.
+        (meta.file_attributes() & 0x2) != 0
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = meta;
+        false
+    }
 }
 
 /// The row of an entry. `tall` rows have a second line under the name, for the permissions.

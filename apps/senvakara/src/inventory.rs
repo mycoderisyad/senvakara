@@ -7,11 +7,13 @@ mod groups;
 mod host_actions;
 mod hosts;
 mod metrics;
+mod quick_connect;
 mod refresh;
 mod selection;
 mod text;
 
 pub use hosts::{desktop_problem, host_subtitle};
+pub use quick_connect::SshTarget;
 pub use text::{fact, friendly, friendly_with, transport_label};
 
 use std::cell::{Cell, RefCell};

@@ -7,8 +7,12 @@ import { Icon } from "../controls.slint";
 export component SearchField inherits Rectangle {
     in-out property <string> text;
     in property <string> placeholder;
+    // Optional inline action pill on the right edge (e.g. "Connect" for quick SSH).
+    in property <string> action-label;
+    in property <bool> action-enabled;
     callback edited(string);
     callback accepted();
+    callback action-clicked();
 
     public function focus-input() {
         input.focus();
@@ -31,7 +35,7 @@ export component SearchField inherits Rectangle {
 
     HorizontalLayout {
         padding-left: Theme.space-3;
-        padding-right: Theme.space-3;
+        padding-right: root.action-label != "" ? 4px : Theme.space-3;
         spacing: Theme.space-2;
 
         VerticalLayout {
@@ -43,6 +47,7 @@ export component SearchField inherits Rectangle {
 
         Rectangle {
             horizontal-stretch: 1;
+            clip: true;
             if root.text == "": Text {
                 x: 0;
                 width: parent.width;
@@ -68,6 +73,54 @@ export component SearchField inherits Rectangle {
                 }
                 accepted => {
                     root.accepted();
+                }
+            }
+        }
+
+        if root.action-label != "": VerticalLayout {
+            alignment: center;
+            Rectangle {
+                height: 28px;
+                min-width: action-text.preferred-width + 2 * Theme.space-3;
+                border-radius: Theme.radius - 3px;
+                border-width: action-focus.has-focus ? 1px : 0px;
+                border-color: Theme.text;
+                background: !root.action-enabled ? Theme.surface-hover : action-touch.pressed ? Theme.accent-hover.darker(0.1) : action-touch.has-hover ? Theme.accent-hover : Theme.accent;
+                opacity: root.action-enabled ? 1 : 0.65;
+                accessible-role: button;
+                accessible-label: root.action-label;
+                accessible-enabled: root.action-enabled;
+                accessible-action-default => {
+                    if (root.action-enabled) {
+                        root.action-clicked();
+                    }
+                }
+                animate background { duration: Theme.quick; }
+
+                action-focus := FocusScope {
+                    enabled: root.action-enabled;
+                    key-pressed(event) => {
+                        if (event.text == Key.Return || event.text == " ") {
+                            root.action-clicked();
+                            return accept;
+                        }
+                        return reject;
+                    }
+                }
+
+                action-touch := TouchArea {
+                    enabled: root.action-enabled;
+                    mouse-cursor: root.action-enabled ? MouseCursor.pointer : MouseCursor.default;
+                    clicked => {
+                        root.action-clicked();
+                    }
+                }
+
+                action-text := Text {
+                    text: root.action-label;
+                    color: root.action-enabled ? Theme.accent-ink : Theme.text-faint;
+                    font-size: Theme.text-small;
+                    font-weight: root.action-enabled ? Theme.weight-strong : Theme.weight-medium;
                 }
             }
         }
@@ -394,6 +447,8 @@ export component Select inherits Rectangle {
                 height: parent.height - 2 * Theme.space-1;
                 accessible-label: root.label;
 
+                // A row tells the field before it closes the menu: closing destroys the row, and
+                // a callback of the field called after that is silently dropped.
                 for entry[i] in root.model: Rectangle {
                     height: root.menu-row;
                     border-radius: Theme.radius - 3px;
@@ -402,15 +457,15 @@ export component Select inherits Rectangle {
                     accessible-label: entry;
                     accessible-item-selected: i == root.index;
                     accessible-action-default => {
-                        menu.close();
                         root.picked(i);
+                        menu.close();
                     }
 
                     row-touch := TouchArea {
                         mouse-cursor: pointer;
                         clicked => {
-                            menu.close();
                             root.picked(i);
+                            menu.close();
                         }
                     }
 
