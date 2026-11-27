@@ -1,0 +1,23 @@
+id = "networking.caddy"
+name = "Caddy web server"
+category = "networking"
+summary = "Installs Caddy from its official apt repository and keeps it running. Optionally reverse-proxies one domain to a local app with automatic HTTPS. Allow ports 80/tcp and 443/tcp in the firewall node yourself."
+version = 1
+executor = "ssh_script"
+os = ["debian>=12", "ubuntu>=22.04"]
+needs = ["root", "install", "network"]
+timeout_secs = 900
+docs_url = "https://caddyserver.com/docs/install"
+
+[[params]]
+name = "domain"
+label = "Domain to serve (optional)"
+kind = "hostname"
+help = "Its DNS record must already point at this server and ports 80 and 443 must be reachable, or Caddy cannot get a certificate. Leave empty for a plain install."
+
+[[params]]
+name = "upstream"
+label = "Proxy to (host:port)"
+kind = "text"
+max_len = 80
+help = "For example 127.0.0.1:3001. Used only when a domain is set."

@@ -1,0 +1,32 @@
+id = "app.forgejo"
+name = "Forgejo"
+category = "app"
+summary = "Forgejo, a self-hosted Git forge (repositories, issues, pull requests) with a SQLite database, run as a Docker container. Needs the Docker Engine node first."
+version = 1
+executor = "ssh_script"
+os = ["debian>=12", "ubuntu>=22.04"]
+needs = ["root", "install"]
+timeout_secs = 1200
+docs_url = "https://forgejo.org/docs/latest/admin/installation/docker/"
+
+[[params]]
+name = "bind"
+label = "Listen on"
+kind = "choice"
+options = ["127.0.0.1", "0.0.0.0"]
+default = "127.0.0.1"
+help = "127.0.0.1: only this server (put Caddy or Nginx in front). 0.0.0.0: every network interface; Docker published ports bypass ufw, so anyone who can reach the ports can reach Forgejo. Applies to the web port and the Git SSH port."
+
+[[params]]
+name = "port"
+label = "Web port on the host"
+kind = "port"
+default = 3000
+help = "The first visit shows Forgejo's install page, where you create the admin account; do that right after the install."
+
+[[params]]
+name = "ssh_port"
+label = "Git SSH port on the host"
+kind = "port"
+default = 2222
+help = "Forgejo's own Git-over-SSH server (container port 22). Keep it different from this host's sshd port. Enter the same port on Forgejo's install page so clone URLs are right."

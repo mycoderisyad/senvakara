@@ -1,0 +1,31 @@
+id = "app.meilisearch"
+name = "Meilisearch"
+category = "app"
+summary = "Meilisearch search engine run as a Docker container in production mode with a master key. Needs the Docker Engine node first."
+version = 1
+executor = "ssh_script"
+os = ["debian>=12", "ubuntu>=22.04"]
+needs = ["root", "install"]
+timeout_secs = 1200
+docs_url = "https://www.meilisearch.com/docs/guides/misc/docker"
+
+[[params]]
+name = "bind"
+label = "Listen on"
+kind = "choice"
+options = ["127.0.0.1", "0.0.0.0"]
+default = "127.0.0.1"
+help = "127.0.0.1 keeps it on this server (reach it through Caddy/Nginx or an SSH tunnel). 0.0.0.0 exposes the port to the network, and Docker ports bypass ufw."
+
+[[params]]
+name = "port"
+label = "Port on the host"
+kind = "port"
+default = 7700
+
+[[params]]
+name = "master_key"
+label = "Master key"
+kind = "secret"
+required = true
+help = "At least 16 bytes of UTF-8, one line, no single quote."

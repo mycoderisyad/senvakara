@@ -264,6 +264,20 @@ impl Module {
     pub fn param(&self, name: &str) -> Option<&ParamSpec> {
         self.manifest.params.iter().find(|p| p.name == name)
     }
+
+    /// Files besides the scripts (`compose.yml`, ...) that a run uploads
+    /// for the scripts to read from `$SV_MODULE_DIR`.
+    pub fn extra_files(&self) -> impl Iterator<Item = (&str, &str)> {
+        self.files
+            .iter()
+            .filter(|(name, _)| !name.ends_with(".sh"))
+            .map(|(name, text)| (name.as_str(), text.as_str()))
+    }
+
+    /// Whether the module can report the health of what it installed.
+    pub fn has_health(&self) -> bool {
+        self.files.contains_key("health.sh")
+    }
 }
 
 pub(crate) fn valid_ident(s: &str) -> bool {

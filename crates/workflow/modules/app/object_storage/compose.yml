@@ -1,0 +1,17 @@
+name: sv-object_storage
+
+services:
+  seaweedfs:
+    image: chrislusf/seaweedfs:4.55
+    restart: unless-stopped
+    command: server -s3 -dir=/data
+    environment:
+      AWS_ACCESS_KEY_ID: ${ACCESS_KEY}
+      AWS_SECRET_ACCESS_KEY: ${SECRET_KEY}
+    ports:
+      - "${BIND}:${PORT}:8333"
+    volumes:
+      - data:/data
+
+volumes:
+  data:

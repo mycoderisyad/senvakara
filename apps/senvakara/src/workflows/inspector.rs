@@ -85,11 +85,15 @@ fn field_rows(catalog: &Catalog, node: &Node) -> Vec<WfField> {
                 _ => "text",
             };
             let options: Vec<SharedString> = p.options.iter().map(|o| o.as_str().into()).collect();
+            // A secret shows only whether one is stored; its reference stays in Rust.
+            let secret = p.kind == ParamKind::Secret;
+            let stored = secret && text.starts_with("secret-");
+            let text = if secret { String::new() } else { text };
             WfField {
                 name: p.name.clone().into(),
                 label: p.label.clone().into(),
                 kind: kind.into(),
-                checked: value.and_then(|v| v.as_bool()).unwrap_or(false),
+                checked: stored || value.and_then(|v| v.as_bool()).unwrap_or(false),
                 index: p
                     .options
                     .iter()
@@ -185,6 +189,7 @@ impl App {
         };
         let module = catalog.get(&node.module);
         self.workflows_fill_security(&node);
+        self.workflows_fill_service(&node);
         self.with_view(|v| {
             if let Some(row) = row {
                 v.set_sel(row);

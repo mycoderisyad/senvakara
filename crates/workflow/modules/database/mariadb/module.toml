@@ -1,0 +1,18 @@
+id = "database.mariadb"
+name = "MariaDB"
+category = "database"
+summary = "Installs MariaDB Server from the MariaDB Foundation apt repository for the long-term-support series you choose; it listens on localhost only."
+version = 1
+executor = "ssh_script"
+os = ["debian>=12", "ubuntu>=22.04"]
+needs = ["root", "install"]
+timeout_secs = 1200
+docs_url = "https://mariadb.org/download/?t=repo-config"
+
+[[params]]
+name = "series"
+label = "Release series (long term support)"
+kind = "choice"
+options = ["11.4", "11.8", "12.3"]
+default = "11.8"
+help = "All three are long-term-support series. Switching series later upgrades the server in place the next time packages are installed; take a backup first."

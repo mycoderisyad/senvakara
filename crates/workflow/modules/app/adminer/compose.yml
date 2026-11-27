@@ -1,0 +1,8 @@
+name: sv-adminer
+
+services:
+  adminer:
+    image: adminer:6.3.1
+    restart: unless-stopped
+    ports:
+      - "${BIND}:${PORT}:8080"

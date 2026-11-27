@@ -1,0 +1,39 @@
+id = "networking.wireguard"
+name = "WireGuard VPN server"
+category = "networking"
+summary = "Installs WireGuard from the distribution and brings up interface wg0 with a server key generated once on the host. Optionally adds one peer. The server public key is printed in the output for the client. Allow the listen port (default 51820/udp) in the firewall node yourself. No forwarding or NAT is changed."
+version = 1
+executor = "ssh_script"
+os = ["debian>=12", "ubuntu>=22.04"]
+needs = ["root", "install", "network"]
+timeout_secs = 900
+docs_url = "https://www.wireguard.com/install/"
+
+[[params]]
+name = "listen_port"
+label = "Listen port (UDP)"
+kind = "port"
+default = 51820
+
+[[params]]
+name = "address"
+label = "Server address on wg0 (CIDR)"
+kind = "text"
+required = true
+default = "10.8.0.1/24"
+max_len = 18
+help = "An IPv4 address with prefix length, for example 10.8.0.1/24."
+
+[[params]]
+name = "peer_public_key"
+label = "Peer public key (optional)"
+kind = "text"
+max_len = 44
+help = "The 44-character public key from the client. Leave empty to add no peer yet."
+
+[[params]]
+name = "peer_allowed_ips"
+label = "Peer allowed IPs"
+kind = "text"
+max_len = 120
+help = "The address(es) the peer may use, comma separated, for example 10.8.0.2/32. Required when a peer key is set."

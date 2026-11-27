@@ -9,9 +9,12 @@
 
 mod device;
 mod guard;
+pub(crate) mod health;
 mod host;
 mod log;
 mod remote;
+mod remove;
+pub(crate) mod secrets;
 
 use crate::flow::FlowEvent;
 use crate::logging;
@@ -38,6 +41,15 @@ pub struct WorkflowRunRequest {
     pub serials: HashMap<String, String>,
 }
 
+/// A confirmed Remove of one installed node (ADR-033): its `remove.sh`
+/// runs as a one-step run, recorded like any other.
+pub struct WorkflowRemoveRequest {
+    pub workflow_id: String,
+    pub node_id: String,
+    /// Sudo password, asked for this removal only.
+    pub sudo: Option<Secret>,
+}
+
 /// What a finished action reports.
 pub(crate) struct Outcome {
     pub detail: String,
@@ -57,11 +69,29 @@ pub(crate) struct RunCtx {
     pub sudo: Option<Secret>,
     pub serials: HashMap<String, String>,
     pub graph: Workflow,
+    /// Set for a Remove: the node whose `remove.sh` runs instead of an apply.
+    pub removing: Option<String>,
+    /// Secret values of this run (and the sudo password), masked in every
+    /// line the run shows or writes (ADR-033).
+    pub masks: std::sync::Mutex<Vec<String>>,
 }
 
 impl RunCtx {
     pub fn log(&self, text: impl Into<String>) {
-        (self.sink)(FlowEvent::Log { text: text.into() });
+        let text = secrets::apply_masks(&text.into(), &self.masks());
+        (self.sink)(FlowEvent::Log { text });
+    }
+
+    /// Adds a secret value to mask from now on.
+    pub fn mask(&self, value: &str) {
+        let mut masks = self.masks.lock().unwrap();
+        masks.extend(secrets::mask_parts(value));
+        masks.sort_by_key(|m| std::cmp::Reverse(m.len()));
+        masks.dedup();
+    }
+
+    pub fn masks(&self) -> Vec<String> {
+        self.masks.lock().unwrap().clone()
     }
 
     pub fn cancelled(&self) -> bool {
@@ -96,6 +126,29 @@ pub(crate) async fn workflow_run(
     req: WorkflowRunRequest,
     sink: Sink<FlowEvent>,
 ) -> CmdResult<String> {
+    start(app, req, None, sink).await
+}
+
+/// Checks and starts a Remove of one node; returns the run id.
+pub(crate) async fn workflow_remove(
+    app: &Arc<App>,
+    req: WorkflowRemoveRequest,
+    sink: Sink<FlowEvent>,
+) -> CmdResult<String> {
+    let run = WorkflowRunRequest {
+        workflow_id: req.workflow_id,
+        sudo: req.sudo,
+        serials: HashMap::new(),
+    };
+    start(app, run, Some(req.node_id), sink).await
+}
+
+async fn start(
+    app: &Arc<App>,
+    req: WorkflowRunRequest,
+    removing: Option<String>,
+    sink: Sink<FlowEvent>,
+) -> CmdResult<String> {
     let record = app
         .state
         .db
@@ -115,6 +168,10 @@ pub(crate) async fn workflow_run(
             problems.len()
         ))
     })?;
+    let plan = match &removing {
+        Some(node_id) => remove::plan_for(plan, node_id)?,
+        None => plan,
+    };
     if plan.steps.is_empty() {
         return Err(invalid("this workflow has no actions to run"));
     }
@@ -155,6 +212,11 @@ pub(crate) async fn workflow_run(
     let cancel = Arc::new(AtomicBool::new(false));
     app.flows.insert(&run_id, cancel.clone());
     let (cancel_tx, cancel_rx) = watch::channel(false);
+    let masks = req
+        .sudo
+        .as_ref()
+        .map(|p| secrets::mask_parts(p.as_str()))
+        .unwrap_or_default();
     let ctx = RunCtx {
         app: app.clone(),
         run_id: run_id.clone(),
@@ -164,6 +226,8 @@ pub(crate) async fn workflow_run(
         sudo: req.sudo,
         serials: req.serials,
         graph,
+        removing,
+        masks: std::sync::Mutex::new(masks),
     };
     logging::info(&format!("workflow {} run {run_id} started", record.id));
 
@@ -247,6 +311,9 @@ async fn execute(ctx: &RunCtx, plan: &senvakara_workflow::Plan) -> (&'static str
         let module = catalog().get(&node.module);
         let executor = module.map(|m| m.manifest.executor);
         let result = match executor {
+            Some(Executor::SshScript) if ctx.removing.is_some() => {
+                remove::remove_node(ctx, &mut hosts, node).await
+            }
             Some(Executor::SshScript) => remote::run_node(ctx, &mut hosts, node).await,
             Some(Executor::Adb) | Some(Executor::LocalFlutter) => device::run_node(ctx, node).await,
             Some(Executor::Builtin) => wait(ctx, node).await,

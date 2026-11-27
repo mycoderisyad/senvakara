@@ -1,0 +1,39 @@
+id = "app.monitoring"
+name = "Grafana + Prometheus monitoring"
+category = "app"
+summary = "Grafana dashboards backed by Prometheus and node-exporter, which records this server's CPU, memory, disk and network, run as one Docker compose project. Needs the Docker Engine node first."
+version = 1
+executor = "ssh_script"
+os = ["debian>=12", "ubuntu>=22.04"]
+needs = ["root", "install"]
+timeout_secs = 1200
+docs_url = "https://grafana.com/docs/grafana/latest/setup-grafana/installation/docker/"
+
+[[params]]
+name = "bind"
+label = "Grafana listens on"
+kind = "choice"
+options = ["127.0.0.1", "0.0.0.0"]
+default = "127.0.0.1"
+help = "127.0.0.1: only this server (put Caddy or Nginx in front). 0.0.0.0: every network interface, so open the port in ufw only for the networks you trust. Prometheus (127.0.0.1:9090) and node-exporter (127.0.0.1:9100) always stay on this server and need those two ports free."
+
+[[params]]
+name = "port"
+label = "Grafana port on the host"
+kind = "port"
+default = 3000
+
+[[params]]
+name = "admin_password"
+label = "Grafana admin password"
+kind = "secret"
+required = true
+help = "Password of the Grafana user admin. Grafana reads it only when it first creates its database; to change it later use Grafana's own profile page. No single quotes."
+
+[[params]]
+name = "retention_days"
+label = "Keep metrics for (days)"
+kind = "int"
+default = 15
+min = 1
+max = 3650

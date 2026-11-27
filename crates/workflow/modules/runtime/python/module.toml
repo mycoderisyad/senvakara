@@ -1,0 +1,17 @@
+id = "runtime.python"
+name = "Python 3"
+category = "runtime"
+summary = "Installs Python 3 from the distribution with venv and pip support, and optionally pipx for isolated command-line tools."
+version = 1
+executor = "ssh_script"
+os = ["debian>=12", "ubuntu>=22.04"]
+needs = ["root", "install"]
+timeout_secs = 900
+docs_url = "https://docs.python.org/3/using/unix.html"
+
+[[params]]
+name = "pipx"
+label = "Also install pipx"
+kind = "bool"
+default = false
+help = "pipx installs Python command-line tools in their own virtual environments."

@@ -1,0 +1,45 @@
+id = "app.vaultwarden"
+name = "Vaultwarden"
+category = "app"
+summary = "Vaultwarden, a lightweight Bitwarden-compatible password server, run as a Docker container. Needs the Docker Engine node first. The web vault only works over HTTPS, so put Caddy in front of it."
+version = 1
+executor = "ssh_script"
+os = ["debian>=12", "ubuntu>=22.04"]
+needs = ["root", "install"]
+timeout_secs = 1200
+docs_url = "https://github.com/dani-garcia/vaultwarden/wiki/Using-Docker-Compose"
+
+[[params]]
+name = "bind"
+label = "Listen on"
+kind = "choice"
+options = ["127.0.0.1", "0.0.0.0"]
+default = "127.0.0.1"
+help = "127.0.0.1 keeps it on this server (reach it through Caddy/Nginx or an SSH tunnel). 0.0.0.0 exposes the port to the network, and Docker ports bypass ufw."
+
+[[params]]
+name = "port"
+label = "Port on the host"
+kind = "port"
+default = 8080
+
+[[params]]
+name = "domain"
+label = "Public address"
+kind = "text"
+required = true
+max_len = 200
+help = "The https address users open it at, for example https://vault.example.com."
+
+[[params]]
+name = "signups"
+label = "Allow new sign-ups"
+kind = "bool"
+default = false
+help = "Turn on only while creating accounts, then turn it off again."
+
+[[params]]
+name = "admin_token"
+label = "Admin page token"
+kind = "secret"
+help = "Leave empty to keep the admin page off. The docs recommend an Argon2 PHC string (made with vaultwarden hash) instead of a plain password. One line, no single quote."

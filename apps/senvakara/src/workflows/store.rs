@@ -49,6 +49,7 @@ impl App {
         if pick.map(|w| &w.id) != was.as_ref() {
             self.wf.selected.borrow_mut().clear();
             self.wf.script.set(0);
+            self.wf.health.borrow_mut().clear();
         }
         *self.wf.open.borrow_mut() = pick.map(|w| {
             let v = w.graph.viewport;
@@ -69,6 +70,7 @@ impl App {
         self.workflows_postures_load();
         self.workflows_refresh(true);
         self.workflows_postures_auto(false);
+        self.workflows_health_auto(false);
     }
 
     /// The latest runs of the open workflow, for the workflow panel. Called on open and
@@ -120,6 +122,7 @@ impl App {
         self.workflows_refresh(false);
         // A run may have changed what the posture check sees.
         self.workflows_postures_auto(true);
+        self.workflows_health_auto(true);
     }
 
     /// Hosts or phones changed in the inventory: names and states on the cards follow.

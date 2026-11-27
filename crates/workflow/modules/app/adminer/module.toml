@@ -1,0 +1,24 @@
+id = "app.adminer"
+name = "Adminer"
+category = "app"
+summary = "Adminer, a single-page database admin tool, run as a Docker container. Needs the Docker Engine node first. It is a database admin page: keep it on 127.0.0.1 and reach it over an SSH tunnel."
+version = 1
+executor = "ssh_script"
+os = ["debian>=12", "ubuntu>=22.04"]
+needs = ["root", "install"]
+timeout_secs = 1200
+docs_url = "https://hub.docker.com/_/adminer"
+
+[[params]]
+name = "bind"
+label = "Listen on"
+kind = "choice"
+options = ["127.0.0.1", "0.0.0.0"]
+default = "127.0.0.1"
+help = "Keep 127.0.0.1 and use an SSH tunnel. 0.0.0.0 exposes a database login page to the network, and Docker ports bypass ufw."
+
+[[params]]
+name = "port"
+label = "Port on the host"
+kind = "port"
+default = 8081

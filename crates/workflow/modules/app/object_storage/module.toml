@@ -1,0 +1,39 @@
+id = "app.object_storage"
+name = "S3 object storage (SeaweedFS)"
+category = "app"
+summary = "An S3-compatible object store (SeaweedFS with its S3 gateway) run as a Docker container, for buckets used by apps and backups. Needs the Docker Engine node first. MinIO's community edition is archived, so this uses SeaweedFS."
+version = 1
+executor = "ssh_script"
+os = ["debian>=12", "ubuntu>=22.04"]
+needs = ["root", "install"]
+timeout_secs = 1200
+docs_url = "https://github.com/seaweedfs/seaweedfs/wiki/S3-Credentials"
+
+[[params]]
+name = "bind"
+label = "Listen on"
+kind = "choice"
+options = ["127.0.0.1", "0.0.0.0"]
+default = "127.0.0.1"
+help = "127.0.0.1: only this server (put Caddy or Nginx in front for TLS). 0.0.0.0: every network interface; Docker published ports bypass ufw, so anyone who can reach the port can try the keys, and S3 traffic is plain HTTP."
+
+[[params]]
+name = "port"
+label = "S3 API port on the host"
+kind = "port"
+default = 8333
+
+[[params]]
+name = "access_key"
+label = "Access key"
+kind = "text"
+required = true
+max_len = 64
+help = "The S3 access key id, for example a short name. Letters and digits are safest; no single quotes."
+
+[[params]]
+name = "secret_key"
+label = "Secret key"
+kind = "secret"
+required = true
+help = "The S3 secret access key. Use a long random value; no single quotes. The key pair gets full admin rights on every bucket."

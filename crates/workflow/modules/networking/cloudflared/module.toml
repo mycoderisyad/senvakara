@@ -1,0 +1,17 @@
+id = "networking.cloudflared"
+name = "Cloudflare Tunnel connector"
+category = "networking"
+summary = "Installs cloudflared from Cloudflare's apt repository and runs a remotely-managed tunnel with the token you provide. The token is kept in a root-only file and never appears on a command line. The tunnel dials out, so no inbound port needs opening; set the public hostnames in the Cloudflare dashboard."
+version = 1
+executor = "ssh_script"
+os = ["debian>=12", "ubuntu>=22.04"]
+needs = ["root", "install", "network"]
+timeout_secs = 900
+docs_url = "https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/downloads/"
+
+[[params]]
+name = "token"
+label = "Tunnel token"
+kind = "secret"
+required = true
+help = "Create a remotely-managed tunnel in the Cloudflare dashboard and copy its token."

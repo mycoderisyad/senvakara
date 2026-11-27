@@ -1,0 +1,18 @@
+id = "database.postgresql"
+name = "PostgreSQL"
+category = "database"
+summary = "Installs PostgreSQL from the PostgreSQL project's own apt repository (PGDG) for the major version you choose; it listens on localhost only."
+version = 1
+executor = "ssh_script"
+os = ["debian>=12", "ubuntu>=22.04"]
+needs = ["root", "install"]
+timeout_secs = 1200
+docs_url = "https://www.postgresql.org/download/linux/debian/"
+
+[[params]]
+name = "major"
+label = "Major version"
+kind = "choice"
+options = ["16", "17", "18", "19"]
+default = "18"
+help = "Pick a version PostgreSQL still supports. 18 is the default; 19 is the newest. Changing the major later installs a second server beside the first; it does not upgrade your data."

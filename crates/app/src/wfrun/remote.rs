@@ -11,6 +11,7 @@
 use super::guard::{self, Armed};
 use super::host::{check_os, follow_port, moved_port};
 use super::log::NodeLog;
+use super::secrets::{self as node_secrets, NodeSecrets, LAUNCHER_WITH_SECRETS};
 use super::{Outcome, RunCtx};
 use crate::state::CmdResult;
 use crate::workflows::catalog;
@@ -18,7 +19,10 @@ use senvakara_adapters_ssh::sftp::{ensure_private_dir, remove, upload_bytes};
 use senvakara_adapters_ssh::{ExecEnd, ExecEvent, ExecLimits, Secret, SshConnection};
 use senvakara_core::{CoreError, ErrorCode};
 use senvakara_storage::SshAuth;
-use senvakara_workflow::{preamble, session_exports, Binding, CheckedNode, ParamValue, Session};
+use senvakara_workflow::{
+    preamble, session_exports, shell_quote, without_secrets, Binding, CheckedNode, HealthState,
+    Module, Session, AFTER_APPLY_WAIT_SECS,
+};
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 use std::time::Duration;
@@ -70,8 +74,9 @@ pub(super) struct HostRun {
 
 #[derive(Default)]
 pub(crate) struct Hosts {
-    by_id: HashMap<String, HostRun>,
-    scripts: usize,
+    pub(super) by_id: HashMap<String, HostRun>,
+    /// Scripts uploaded so far in this run, for unique file names.
+    pub(super) scripts: usize,
     /// Guarded changes so far in this run, for unique timer names.
     guards: usize,
 }
@@ -97,11 +102,11 @@ impl Hosts {
     }
 }
 
-fn err(code: ErrorCode, message: impl Into<String>) -> CoreError {
+pub(super) fn err(code: ErrorCode, message: impl Into<String>) -> CoreError {
     CoreError::new(code, message)
 }
 
-async fn prepare<'a>(
+pub(super) async fn prepare<'a>(
     ctx: &RunCtx,
     by_id: &'a mut HashMap<String, HostRun>,
     host_id: &str,
@@ -190,7 +195,7 @@ fn never_cancelled() -> watch::Receiver<bool> {
 }
 
 /// Checks the sudo password once per host with a no-op.
-async fn check_sudo(ctx: &RunCtx, host: &mut HostRun) -> CmdResult<()> {
+pub(super) async fn check_sudo(ctx: &RunCtx, host: &mut HostRun) -> CmdResult<()> {
     if host.sudo_ok == Some(true) {
         return Ok(());
     }
@@ -230,7 +235,7 @@ async fn check_sudo(ctx: &RunCtx, host: &mut HostRun) -> CmdResult<()> {
 }
 
 /// The text of one script file: the node's edit, else the bundled file.
-fn script_text(node_id: &str, ctx: &RunCtx, module: &str, file: &str) -> Option<String> {
+pub(super) fn script_text(node_id: &str, ctx: &RunCtx, module: &str, file: &str) -> Option<String> {
     let edited = ctx
         .graph
         .node(node_id)
@@ -256,21 +261,13 @@ pub(crate) async fn run_node(
             "this step runs on an SSH host",
         ));
     };
-    if node
-        .params
-        .values()
-        .any(|v| matches!(v, ParamValue::SecretRef(_)))
-    {
-        return Err(err(
-            ErrorCode::InvalidInput,
-            "settings kept in Credential Manager are not supported yet",
-        ));
-    }
     let module = catalog()
         .get(&node.module)
         .ok_or_else(|| err(ErrorCode::InvalidInput, "this step's module is unknown"))?;
-    let settings =
-        preamble(&node.params, &BTreeMap::new()).map_err(|e| err(ErrorCode::InvalidInput, e))?;
+    // Secrets go to the launcher on stdin, never into the script file.
+    let secrets = node_secrets::resolve(ctx, node).await?;
+    let settings = preamble(&without_secrets(&node.params), &BTreeMap::new())
+        .map_err(|e| err(ErrorCode::InvalidInput, e))?;
     let timeout = Duration::from_secs(module.manifest.timeout_secs.into());
     let apply = script_text(&node.id, ctx, &node.module, "apply.sh")
         .ok_or_else(|| err(ErrorCode::InvalidInput, "this step has no apply script"))?;
@@ -286,13 +283,14 @@ pub(crate) async fn run_node(
     if node.needs_root {
         check_sudo(ctx, host).await?;
     }
+    let module_dir = upload_module_files(host, node, module).await?;
     let guard = module.manifest.guard.clone();
     let unit = guard.as_ref().map(|_| {
         *guards += 1;
         guard::unit_name(&ctx.run_id, *guards)
     });
     let head = format!(
-        "{settings}{}",
+        "{settings}{}{module_dir}",
         session_exports(
             &host.session,
             unit.as_deref().map(guard::guard_dir).as_deref()
@@ -306,7 +304,10 @@ pub(crate) async fn run_node(
 
     if let Some(check) = &check {
         let (file, n) = script("check.sh");
-        match run_script(ctx, host, node, file, n, &head, check, &title, timeout).await? {
+        let code = run_script(
+            ctx, host, node, file, n, &head, check, &title, timeout, &secrets,
+        );
+        match code.await? {
             0 => {
                 return Ok(Outcome {
                     detail: "already up to date".into(),
@@ -337,7 +338,10 @@ pub(crate) async fn run_node(
 
     let mut applied = async {
         let (file, n) = script("apply.sh");
-        let code = run_script(ctx, host, node, file, n, &head, &apply, &title, timeout).await?;
+        let code = run_script(
+            ctx, host, node, file, n, &head, &apply, &title, timeout, &secrets,
+        )
+        .await?;
         if code != 0 {
             return Err(err(
                 ErrorCode::InternalError,
@@ -346,7 +350,10 @@ pub(crate) async fn run_node(
         }
         if let Some(check) = &check {
             let (file, n) = script("check.sh");
-            let code = run_script(ctx, host, node, file, n, &head, check, &title, timeout).await?;
+            let code = run_script(
+                ctx, host, node, file, n, &head, check, &title, timeout, &secrets,
+            )
+            .await?;
             if code != 0 {
                 return Err(err(
                     ErrorCode::InternalError,
@@ -371,16 +378,67 @@ pub(crate) async fn run_node(
             }
         }
     }
-    applied.map(|()| Outcome {
-        detail: "applied".into(),
+    applied?;
+    let detail =
+        match super::health::health_after(ctx, host, node, &title, AFTER_APPLY_WAIT_SECS).await {
+            None => "applied".to_string(),
+            Some((HealthState::Stopped, detail)) => {
+                return Err(err(
+                    ErrorCode::InternalError,
+                    format!("applied, but the service is stopped: {detail}"),
+                ))
+            }
+            Some((state, detail)) => format!("applied; {}: {detail}", state.label()),
+        };
+    Ok(Outcome {
+        detail,
         changed: Some(true),
         exit_code: Some(0),
     })
 }
 
+/// Uploads the module's other files (`compose.yml`, ...) into a folder of
+/// its own in the run folder; returns the `export SV_MODULE_DIR=` line, or
+/// nothing when the module has none.
+pub(super) async fn upload_module_files(
+    host: &HostRun,
+    node: &CheckedNode,
+    module: &Module,
+) -> CmdResult<String> {
+    let files: Vec<(&str, &str)> = module.extra_files().collect();
+    if files.is_empty() {
+        return Ok(String::new());
+    }
+    let dir = format!("{}/{}-files", host.dir, node.id);
+    let upload = async {
+        ensure_private_dir(&host.sftp, &dir, 0o700)
+            .await
+            .map_err(|e| crate::state::to_core("create the module folder", e))?;
+        for (name, text) in &files {
+            let path = format!("{dir}/{name}");
+            upload_bytes(&host.sftp, &path, text.as_bytes(), 0o600)
+                .await
+                .map_err(|e| crate::state::to_core("upload a module file", e))?;
+        }
+        CmdResult::Ok(())
+    };
+    tokio::time::timeout(SFTP_TIMEOUT, upload)
+        .await
+        .map_err(|_| {
+            err(
+                ErrorCode::Timeout,
+                format!(
+                    "{} did not answer while receiving the module files",
+                    host.name
+                ),
+            )
+        })??;
+    Ok(format!("export SV_MODULE_DIR={}\n", shell_quote(&dir)))
+}
+
 /// Uploads and runs one script; returns its exit status.
 #[allow(clippy::too_many_arguments)]
-async fn run_script(
+pub(super) async fn run_script(
     ctx: &RunCtx,
     host: &mut HostRun,
     node: &CheckedNode,
@@ -390,6 +448,7 @@ async fn run_script(
     body: &str,
     title: &str,
     timeout: Duration,
+    secrets: &NodeSecrets,
 ) -> CmdResult<u32> {
     let stem = format!("{}-{n}-{}", node.id, file.trim_end_matches(".sh"));
     let path = format!("{}/{stem}.sh", host.dir);
@@ -412,18 +471,39 @@ async fn run_script(
     if node.needs_root {
         argv.extend(SUDO);
     }
-    argv.extend([
-        "setsid", "-w", "bash", "-c", LAUNCHER, "sv-run", &pidfile, &path,
-    ]);
-    let stdin = if node.needs_root {
+    let password = if node.needs_root {
         password_line(&ctx.sudo)
     } else {
         None
     };
+    let stdin = match &secrets.block {
+        // The block follows the password line, which sudo reads first.
+        Some(block) => {
+            argv.extend([
+                "setsid",
+                "-w",
+                "bash",
+                "-c",
+                LAUNCHER_WITH_SECRETS,
+                "sv-run",
+                &pidfile,
+                &path,
+                &secrets.nonce,
+            ]);
+            let pw = password.as_ref().map_or("", |p| p.as_str());
+            Some(Secret::new(format!("{pw}{}", block.as_str())))
+        }
+        None => {
+            argv.extend([
+                "setsid", "-w", "bash", "-c", LAUNCHER, "sv-run", &pidfile, &path,
+            ]);
+            password
+        }
+    };
 
     ctx.log(format!("[{title}] {file} on {}", host.name));
     let log_dir = ctx.app.paths.data_dir.join("runs").join(&ctx.run_id);
-    let mut log = NodeLog::new(&log_dir, &node.id, title, |line| ctx.log(line));
+    let mut log = NodeLog::new(&log_dir, &node.id, title, ctx.masks(), |line| ctx.log(line));
     let conn = host.conn.clone();
     let kill_pw = if node.needs_root {
         password_line(&ctx.sudo)
