@@ -1,0 +1,15 @@
+id = "android.device_shell"
+name = "Device shell command"
+category = "android"
+summary = "Runs one shell command on the device and shows its output."
+version = 1
+executor = "adb"
+needs = ["shell"]
+timeout_secs = 60
+
+[[params]]
+name = "command"
+label = "Command"
+kind = "text"
+max_len = 4096
+required = true

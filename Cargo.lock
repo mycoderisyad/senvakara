@@ -5255,6 +5255,7 @@ dependencies = [
  "senvakara-metrics",
  "senvakara-secrets",
  "senvakara-storage",
+ "senvakara-workflow",
  "serde",
  "serde_json",
  "sha2",
@@ -5300,6 +5301,15 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.21",
  "uuid",
+]
+
+[[package]]
+name = "senvakara-workflow"
+version = "0.2.2"
+dependencies = [
+ "serde",
+ "serde_json",
+ "toml",
 ]
 
 [[package]]

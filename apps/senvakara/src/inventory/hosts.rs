@@ -83,15 +83,6 @@ impl State {
         *self.wsl.borrow_mut() = distros;
     }
 
-    /// This PC.
-    pub fn local_host(&self) -> Option<HostView> {
-        self.hosts
-            .borrow()
-            .iter()
-            .find(|host| host.is_local)
-            .cloned()
-    }
-
     /// The card of every host, whatever the search field says.
     pub fn host_items(&self) -> Vec<HostItem> {
         self.hosts

@@ -1,0 +1,13 @@
+id = "android.screenshot"
+name = "Screenshot"
+category = "android"
+summary = "Saves a PNG of the device screen into a folder on this PC."
+version = 1
+executor = "adb"
+timeout_secs = 30
+
+[[params]]
+name = "dir"
+label = "Folder on this PC"
+kind = "path"
+required = true

@@ -226,7 +226,7 @@ impl App {
         match section {
             "keychain" => self.keychain_reload(),
             "workspaces" => self.workspaces_reload(),
-            "automations" => self.automations_opened(),
+            "workflows" => self.workflows_opened(),
             "settings" => self.settings_opened(),
             _ => {}
         }

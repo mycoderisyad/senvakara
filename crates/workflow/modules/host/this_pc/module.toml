@@ -1,0 +1,7 @@
+id = "host.this_pc"
+name = "This PC"
+category = "host"
+summary = "The Windows PC Senvakara runs on."
+version = 1
+executor = "anchor"
+binds = "local_pc"

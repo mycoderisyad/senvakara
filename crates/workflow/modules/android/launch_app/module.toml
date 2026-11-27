@@ -1,0 +1,13 @@
+id = "android.launch_app"
+name = "Launch app"
+category = "android"
+summary = "Starts an installed app and waits until its process is running."
+version = 1
+executor = "adb"
+timeout_secs = 40
+
+[[params]]
+name = "package"
+label = "Package"
+kind = "package"
+required = true

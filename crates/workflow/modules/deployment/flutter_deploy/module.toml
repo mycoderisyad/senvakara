@@ -1,0 +1,27 @@
+id = "deployment.flutter_deploy"
+name = "Flutter build and deploy"
+category = "deployment"
+summary = "Builds a Flutter project on this PC and installs the APK on the device."
+version = 1
+executor = "local_flutter"
+needs = ["install"]
+timeout_secs = 1800
+
+[[params]]
+name = "project_dir"
+label = "Project folder"
+kind = "path"
+required = true
+
+[[params]]
+name = "mode"
+label = "Build mode"
+kind = "choice"
+options = ["debug", "release"]
+default = "release"
+
+[[params]]
+name = "launch"
+label = "Launch after install"
+kind = "bool"
+default = false

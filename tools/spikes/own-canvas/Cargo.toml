@@ -1,0 +1,23 @@
+# Phase 0 spike (WF): fallback canvas without slint-node-editor. Rust owns
+# screen-space geometry (manual zoom), Slint only draws. Not a workspace member.
+[workspace]
+
+[package]
+name = "spike-own-canvas"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+slint = { version = "=1.19.0", features = ["raw-window-handle-06", "unstable-winit-030"] }
+image = { version = "0.25", default-features = false, features = ["png"] }
+
+[build-dependencies]
+slint-build = "=1.19.0"
+
+[profile.release]
+opt-level = 3
+lto = false
+codegen-units = 16
+debug = false
+strip = true

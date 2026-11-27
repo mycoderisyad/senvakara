@@ -1,0 +1,33 @@
+# Phase 0 spike (WF): can slint-node-editor 2.0.0 run under Senvakara's
+# Slint pin and the software renderer on Windows? Not a workspace member.
+[workspace]
+
+[package]
+name = "spike-node-canvas"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+# Same pin and features as apps/senvakara.
+slint = { version = "=1.19.0", features = ["raw-window-handle-06", "unstable-winit-030"] }
+slint-node-editor = "=2.0.0"
+image = { version = "0.25", default-features = false, features = ["png"] }
+
+[build-dependencies]
+# Needed on the consumer side to resolve `@nodeeditor`.
+slint-build = { version = "=1.19.0", features = ["experimental-module-builds"] }
+
+# Measure optimised code without the slow LTO of the real release profile.
+[profile.release]
+opt-level = 3
+lto = false
+codegen-units = 16
+debug = false
+strip = true
+
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false

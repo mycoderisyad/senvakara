@@ -1,0 +1,4 @@
+/target/
+# Throwaway test credentials written by setup-wsl.sh.
+/creds.local
+/runs/

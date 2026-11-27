@@ -18,7 +18,7 @@ They use the app at a desk, for long sessions, usually with several sessions ope
 
 ## Product Purpose
 
-Senvakara is a local-first control center for computers, development environments and Android devices. From one window the user operates SSH, SFTP, local and remote terminals, remote desktop (VNC over SSH), Android ADB and screen mirroring, host metrics, saved workspaces and automation recipes. Success means the user no longer switches between a terminal app, an SFTP client, scrcpy, a VNC viewer and `adb` on several machines.
+Senvakara is a local-first control center for computers, development environments and Android devices. From one window the user operates SSH, SFTP, local and remote terminals, remote desktop (VNC over SSH), Android ADB and screen mirroring, host metrics, saved workspaces and workflows (a canvas of hosts, devices and the steps that set them up). Success means the user no longer switches between a terminal app, an SFTP client, scrcpy, a VNC viewer and `adb` on several machines.
 
 ## Positioning
 
@@ -37,7 +37,7 @@ Topology-aware orchestration: an Android phone plugged into a Linux host appears
 - Files: SFTP, Android push/pull, direct host-to-device transfers.
 - Android: device registry across hosts, wireless pairing, shell, apps, logcat, screenshot, mirroring with input.
 - Remote desktop: X11 through on-demand x11vnc over SSH. Wayland is not supported.
-- Workspaces, Flutter build-and-deploy, automation recipes.
+- Workspaces; Workflows: a canvas of hosts, devices and steps (bash over SSH with sudo per run, Android actions, Flutter build-and-deploy), with run tabs and history (ADR-028, ADR-030).
 - Constraints: Windows only today. Device identity is never merged by name or IP. No ADB or desktop port is exposed beyond loopback. Heavy streams start only when the user opens them. `adb.exe` is not bundled.
 - Terminology: a *host* is a computer; a *device* is an Android phone; a *route* is how a device is reached (host plus USB or Wi-Fi).
 

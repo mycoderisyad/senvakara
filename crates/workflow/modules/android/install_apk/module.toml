@@ -1,0 +1,15 @@
+id = "android.install_apk"
+name = "Install APK"
+category = "android"
+summary = "Copies an APK from this PC to the device and installs it, replacing an older version."
+version = 1
+executor = "adb"
+needs = ["install"]
+timeout_secs = 240
+
+[[params]]
+name = "path"
+label = "APK file"
+kind = "path"
+suffix = ".apk"
+required = true

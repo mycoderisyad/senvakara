@@ -1,0 +1,105 @@
+// Outline: the workflow's nodes as a list, for keyboard and screen-reader use (DESIGN.md §8).
+// Tab moves between rows, Enter or Space selects one, Delete removes it; the inspector then
+// edits it, connections included ("Connect to"), so nothing needs the pointer.
+
+import { ScrollView } from "std-widgets.slint";
+import { Theme } from "../../theme.slint";
+import { StatusMark } from "../../components/widgets.slint";
+import { Workflows, WfNode } from "model.slint";
+
+component OutlineRow inherits Rectangle {
+    in property <WfNode> node;
+
+    height: 52px;
+    border-radius: Theme.radius;
+    border-width: focus.has-focus ? 1px : node.selected ? 1px : 0px;
+    border-color: Theme.accent;
+    background: node.selected ? Theme.surface-selected : touch.has-hover || focus.has-focus ? Theme.surface-hover : Theme.surface;
+    accessible-role: list-item;
+    accessible-label: node.title + ", " + node.kind + ", " + node.detail + ", " + node.state-text;
+    accessible-item-selectable: true;
+    accessible-item-selected: node.selected;
+    accessible-action-default => {
+        Workflows.select-node(node.id);
+    }
+
+    focus := FocusScope {
+        key-pressed(event) => {
+            if event.text == Key.Return || event.text == " " {
+                Workflows.select-node(node.id);
+                return accept;
+            }
+            if event.text == Key.Delete {
+                Workflows.select-node(node.id);
+                Workflows.delete-selected();
+                return accept;
+            }
+            reject
+        }
+    }
+
+    touch := TouchArea {
+        clicked => {
+            focus.focus();
+            Workflows.select-node(node.id);
+        }
+    }
+
+    HorizontalLayout {
+        padding-left: Theme.space-3;
+        padding-right: Theme.space-3;
+        spacing: Theme.space-3;
+
+        VerticalLayout {
+            alignment: center;
+            horizontal-stretch: 1;
+            spacing: 2px;
+            Text {
+                text: node.title;
+                color: Theme.text;
+                font-weight: Theme.weight-strong;
+                overflow: elide;
+            }
+            Text {
+                text: node.detail == "" ? node.kind : node.kind + " · " + node.detail;
+                color: Theme.text-muted;
+                font-size: Theme.text-small;
+                overflow: elide;
+            }
+        }
+
+        StatusMark {
+            tone: node.tone;
+            text: node.custom ? node.state-text + " · Custom script" : node.state-text;
+        }
+    }
+}
+
+export component WorkflowOutline inherits Rectangle {
+    background: Theme.shell;
+
+    ScrollView {
+        VerticalLayout {
+            alignment: start;
+            padding: Theme.space-5;
+            spacing: Theme.space-2;
+
+            Text {
+                text: "Every node of this workflow. Select one to set it up and connect it in the panel on the right.";
+                color: Theme.text-muted;
+                font-size: Theme.text-small;
+                wrap: word-wrap;
+            }
+
+            for node in Workflows.nodes: OutlineRow {
+                node: node;
+            }
+
+            if Workflows.nodes.length == 0: Text {
+                text: "No nodes yet. Add one from the list on the left.";
+                color: Theme.text-muted;
+                wrap: word-wrap;
+            }
+        }
+    }
+}

@@ -1,0 +1,64 @@
+// The module palette beside the canvas: every bundled module by category, searchable. A click
+// or Enter adds the module to the middle of the canvas.
+
+import { ScrollView } from "std-widgets.slint";
+import { Theme } from "../../theme.slint";
+import { GroupTitle, MenuRow, SearchField } from "../../components/widgets.slint";
+import { Workflows } from "model.slint";
+
+export component ModulePalette inherits Rectangle {
+    width: 248px;
+    background: Theme.ground;
+
+    Rectangle {
+        x: parent.width - 1px;
+        width: 1px;
+        background: Theme.hairline;
+    }
+
+    VerticalLayout {
+        padding: Theme.space-3;
+        spacing: Theme.space-3;
+
+        SearchField {
+            text: Workflows.query;
+            placeholder: "Find a node";
+            edited(text) => {
+                Workflows.search(text);
+            }
+        }
+
+        ScrollView {
+            VerticalLayout {
+                width: root.width - 2 * Theme.space-3;
+                alignment: start;
+                spacing: 2px;
+
+                for item in Workflows.modules: VerticalLayout {
+                    if item.header: VerticalLayout {
+                        padding-top: Theme.space-2;
+                        padding-left: Theme.space-2;
+                        padding-bottom: 2px;
+                        GroupTitle {
+                            text: item.name;
+                        }
+                    }
+                    if !item.header: MenuRow {
+                        title: item.name;
+                        detail: item.summary;
+                        activated => {
+                            Workflows.add-module(item.id);
+                        }
+                    }
+                }
+
+                if Workflows.modules.length == 0: Text {
+                    text: "No node matches \"\{Workflows.query}\".";
+                    color: Theme.text-muted;
+                    font-size: Theme.text-small;
+                    wrap: word-wrap;
+                }
+            }
+        }
+    }
+}

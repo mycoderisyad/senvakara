@@ -15,20 +15,24 @@
 //! - Forwarded ports bind to 127.0.0.1 only.
 
 pub mod auth;
+pub mod exec;
 pub mod keys;
 pub mod paths;
 pub mod pty;
 pub mod sftp;
 
 pub use auth::{Auth, Secret};
+pub use exec::{ExecEnd, ExecEvent, ExecLimits, ExecReport};
 pub use paths::{connect_any, first_reachable, Candidate, Connected};
 pub use pty::{SshPtyEvent, SshPtyReader, SshPtyWriter};
+/// The SFTP session `SshConnection::sftp` returns, for the `sftp` helpers.
+pub use russh_sftp::client::SftpSession;
 
 use anyhow::{Context, Result};
 use russh::client::{self, Handle};
 use russh::keys::{HashAlg, PublicKeyOrCertificate};
 use russh::{ChannelMsg, Disconnect};
-use russh_sftp::client::SftpSession;
+
 use senvakara_core::{CoreError, ErrorCode};
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};

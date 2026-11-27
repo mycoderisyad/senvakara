@@ -273,7 +273,7 @@ impl App {
             }
         }
         if run_ended {
-            self.automations_reload();
+            self.workflows_run_ended();
         }
     }
 }

@@ -85,14 +85,10 @@ pub enum Pending {
         workspace: i32,
         layout: workspace::Layout,
     },
-    /// Start exactly the build-and-deploy the dialog described, for the phone it named.
-    Deploy(senvakara_app::FlowSpec),
-    /// Run the recipe open in the editor.
-    RunRecipe,
-    /// Leave the recipe in the editor although it has unsaved changes, then go on.
-    DiscardRecipe(crate::automation::Leave),
-    /// Database id of a recipe.
-    DeleteRecipe(String),
+    /// Database id of a workflow.
+    DeleteWorkflow(String),
+    /// Run the open workflow as the dialog described.
+    RunWorkflow,
 }
 
 impl App {
@@ -223,10 +219,8 @@ impl App {
             Pending::WorkspaceLayout { workspace, layout } => {
                 self.workspace_set_layout(workspace, layout)
             }
-            Pending::Deploy(spec) => self.deploy_start(spec),
-            Pending::RunRecipe => self.recipe_run(),
-            Pending::DiscardRecipe(leave) => self.recipe_go(leave),
-            Pending::DeleteRecipe(id) => self.recipe_delete(id),
+            Pending::DeleteWorkflow(id) => self.workflow_delete(id),
+            Pending::RunWorkflow => self.workflows_start(),
         }
     }
 }

@@ -9,12 +9,12 @@ import { HostFormPanel, NetworkPaths, HostForm } from "../components/host-form.s
 import { JobList, Jobs } from "../components/jobs.slint";
 import { Inventory, HostItem, DeviceItem, Action } from "../data.slint";
 import { WorkspacesPage } from "workspaces.slint";
-import { AutomationsPage } from "automations.slint";
+import { WorkflowsPage } from "workflows.slint";
 import { SettingsPage } from "settings.slint";
 import { KeychainPage, KeyInspector, Keychain } from "keychain.slint";
 
 export global Nav {
-    // "hosts" | "devices" | "keychain" | "workspaces" | "automations" | "settings"
+    // "hosts" | "devices" | "keychain" | "workspaces" | "workflows" | "settings"
     in-out property <string> section: "hosts";
     // The user went to a section: Rust refreshes what it shows.
     callback opened(section: string);
@@ -325,11 +325,11 @@ component Sidebar inherits Rectangle {
 
         SidebarItem {
             icon: @image-url("../icons/workflow.svg");
-            text: "Automations";
-            active: Nav.section == "automations";
+            text: "Workflows";
+            active: Nav.section == "workflows";
             clicked => {
-                Nav.section = "automations";
-                Nav.opened("automations");
+                Nav.section = "workflows";
+                Nav.opened("workflows");
             }
         }
 
@@ -463,7 +463,7 @@ export component HomeScreen inherits Rectangle {
 
             if Nav.section == "workspaces": WorkspacesPage { }
 
-            if Nav.section == "automations": AutomationsPage { }
+            if Nav.section == "workflows": WorkflowsPage { }
 
             if Nav.section == "settings": SettingsPage { }
         }

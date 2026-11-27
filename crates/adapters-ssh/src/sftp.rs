@@ -4,10 +4,12 @@
 
 mod between;
 mod manage;
+mod private;
 mod tree;
 
 pub use between::copy_between;
 pub use manage::{chmod, remove, rename};
+pub use private::{ensure_private_dir, upload_bytes};
 pub use tree::{copy_dir_between, download_dir, upload_dir, walk_local, walk_remote, Copied, Plan};
 
 use anyhow::{Context, Result};

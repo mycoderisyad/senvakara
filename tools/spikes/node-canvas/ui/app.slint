@@ -1,0 +1,157 @@
+// Spike canvas: node cards shaped like the planned workflow nodes (title,
+// category, status word) on the slint-node-editor surface.
+import { Button, HorizontalBox, VerticalBox } from "std-widgets.slint";
+import {
+    NodeEditor,
+    BaseNode,
+    Pin,
+    PinTypes,
+    NodeEditorEvents,
+    NodeEditorInternalCallbacks,
+    NodeEditorComputations,
+    LinkData,
+} from "@nodeeditor";
+
+export struct NodeData {
+    id: int,
+    title: string,
+    category: string,
+    status: string,
+    x: float,
+    y: float,
+    selected: bool,
+}
+
+export { PinTypes, NodeEditorEvents, NodeEditorInternalCallbacks, NodeEditorComputations }
+
+component WfNode inherits BaseNode {
+    in property <string> title;
+    in property <string> category;
+    in property <string> status;
+    in property <float> zoom-level: 1.0;
+    node-width: 200px;
+    node-height: 72px;
+
+    Rectangle {
+        width: 100%;
+        height: 100%;
+        background: #1c1f24;
+        border-color: root.selected ? #6ea8fe : #2e333b;
+        border-width: 1px;
+        border-radius: 10px;
+
+        Rectangle {
+            x: 10px;
+            y: 10px;
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
+            background: #3a6ea5;
+        }
+        Text {
+            x: 42px;
+            y: 8px;
+            text: root.title;
+            color: #e6e8eb;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        // Zoom-dependent detail: below 0.5 only the title is drawn.
+        if root.zoom-level >= 0.5: Text {
+            x: 42px;
+            y: 28px;
+            text: root.category;
+            color: #9aa1ab;
+            font-size: 12px;
+        }
+        if root.zoom-level >= 0.5: Text {
+            x: 10px;
+            y: 50px;
+            text: root.status;
+            color: #7fd19b;
+            font-size: 12px;
+        }
+    }
+
+    Pin {
+        x: 0px;
+        y: root.node-height / 2 - self.height / 2;
+        pin-id: root.node-id * 2;
+        node-id: root.node-id;
+        pin-type: PinTypes.input;
+        node-screen-x: root.screen-x;
+        node-screen-y: root.screen-y;
+    }
+
+    Pin {
+        x: root.node-width - self.width;
+        y: root.node-height / 2 - self.height / 2;
+        pin-id: root.node-id * 2 + 1;
+        node-id: root.node-id;
+        pin-type: PinTypes.output;
+        node-screen-x: root.screen-x;
+        node-screen-y: root.screen-y;
+    }
+}
+
+export component App inherits Window {
+    public function focus-editor() {
+        editor.focus();
+    }
+
+    title: "Workflow canvas spike";
+    preferred-width: 1280px;
+    preferred-height: 800px;
+    background: #121418;
+
+    in property <length> grid-step: 24px;
+    in property <[NodeData]> nodes;
+    in property <[LinkData]> links <=> editor.links;
+    in-out property <string> grid-commands <=> editor.grid-commands;
+    out property <float> width_: editor.width / 1px;
+    out property <float> height_: editor.height / 1px;
+    in-out property <float> zoom <=> editor.zoom;
+    in-out property <length> pan-x <=> editor.pan-x;
+    in-out property <length> pan-y <=> editor.pan-y;
+    out property <length> editor-screen-x: editor.absolute-position.x;
+    out property <length> editor-screen-y: editor.absolute-position.y;
+    out property <bool> is-creating-link: editor.is-creating-link;
+
+    callback add-node-requested();
+    callback delete-selected-requested();
+    callback link-requested <=> editor.link-requested;
+    callback node-selected <=> editor.node-selected;
+    callback select-link <=> editor.select-link;
+    callback selection-cleared <=> editor.selection-cleared;
+    callback box-selection-committed <=> editor.box-selection-committed;
+    callback compute-link-at <=> editor.compute-link-at;
+
+    VerticalBox {
+        spacing: 8px;
+
+        HorizontalBox {
+            height: 40px;
+            spacing: 8px;
+            Button { text: "Add node"; clicked => { root.add-node-requested(); } }
+            Button { text: "Delete selected"; clicked => { root.delete-selected-requested(); } }
+            Button { text: "Zoom 50%"; clicked => { root.zoom = 0.5; } }
+            Button { text: "Zoom 100%"; clicked => { root.zoom = 1.0; } }
+            Button { text: "Zoom 150%"; clicked => { root.zoom = 1.5; } }
+        }
+
+        editor := NodeEditor {
+            has-link-selection: true;
+            grid-spacing: root.grid-step;
+            for node in root.nodes: WfNode {
+                node-id: node.id;
+                title: node.title;
+                category: node.category;
+                status: node.status;
+                zoom-level: root.zoom;
+                world-x: node.x * 1px;
+                world-y: node.y * 1px;
+                selected: node.selected;
+            }
+        }
+    }
+}

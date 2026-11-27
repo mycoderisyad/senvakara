@@ -7,8 +7,8 @@ use std::sync::Arc;
 use slint::VecModel;
 
 use crate::{
-    automation, device, files, hostform, inventory, jobs, keychain, launcher, palette, platform,
-    settings, wireless, workspace, MainWindow, Pane, Pending, TabInfo,
+    device, files, hostform, inventory, jobs, keychain, launcher, palette, platform, settings,
+    wireless, workflows, workspace, MainWindow, Pane, Pending, TabInfo,
 };
 
 thread_local! {
@@ -45,7 +45,7 @@ pub(crate) struct App {
     pub(crate) jobs: jobs::State,
     pub(crate) wifi: wireless::State,
     pub(crate) ws: workspace::State,
-    pub(crate) auto: automation::State,
+    pub(crate) wf: workflows::State,
     pub(crate) settings: settings::State,
     pub(crate) palette: palette::State,
     pub(crate) launcher: launcher::State,

@@ -4,6 +4,14 @@ Changes to documentation and (later) shipped product are tracked separately. For
 
 ## [Unreleased]
 
+### Added — Workflows canvas (WF-IMPL-01, in progress)
+
+- **Workflows** section next to Automations: create, rename and delete workflows; add nodes from a searchable palette (SSH host, This PC, Android device, Android actions, Flutter build and deploy, Wait, Custom script); drag cards; drag from a card's right handle onto another card to connect (action to machine = "runs on", action to action = "runs after", switchable to "uses the service of"; loops are refused). The inspector edits a node's title, machine, settings and scripts (bundled scripts show "Custom script" when edited and can be restored) and lists every problem that blocks a run, worded on the node and the card. Pan by dragging the canvas or the wheel, zoom with Ctrl+wheel or the toolbar (50–200 %, around the pointer). Changes are saved half a second after they are made, view position included. Running a workflow is not available yet (the run engine waits for WF-SPIKE-02); Run says so.
+- Saved Automations recipes are converted once into workflows at start; the recipes stay as they are.
+- **Automations removed**: Workflows replaces it. Saved recipes are already workflows (converted at start); the Flutter build-and-deploy form is the "Flutter build and deploy" node; run history is under Recent runs in the workflow panel, and each card says how its step ended in the last run. Path settings have Browse.
+- **Outline**: a keyboard list of the workflow's nodes next to Canvas; the inspector's "Connect to" connects without a pointer.
+- **Run a workflow**: Run asks with every machine and step named, then follows the run in a tab. Host steps run as bash over SSH (ADR-030): `check.sh` decides whether anything needs doing, `apply.sh` does it, and the check runs again; root steps use the sudo password typed in the workflow panel for that run only. Stop ends the running script and every process it started. A failed step skips the steps that wait for it; each step's output is kept in a log file next to the database.
+
 ## [0.2.2] - 2026-11-24
 
 ### Changed — toolbar, SSH quick connect, empty states, SFTP overhaul

@@ -112,7 +112,7 @@ Legend: **P0** MVP requirement; **P1** target before stable 1.0; **P2** future e
 | FLOW-01 | P1 | Select build host and Android target; launch approved Flutter build command. |
 | FLOW-02 | P1 | Transfer built APK to destination host and install/launch on target Android. |
 | FLOW-03 | P1 | Stream logs and step statuses; expose errors and stop/cancel behavior. |
-| FLOW-04 | P2 | Save reusable automation recipes and history with explicit permissions. |
+| FLOW-04 | P2 | Save reusable automation recipes and history with explicit permissions. (Since WF-IMPL-01, recipes are workflows on the Workflows canvas.) |
 | REC-01 | P1 | Detect disconnections and reconnect safely; do not promise continuity of an ordinary dead SSH shell. |
 
 ### 6.6 Network progression

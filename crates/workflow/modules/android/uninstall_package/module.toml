@@ -1,0 +1,14 @@
+id = "android.uninstall_package"
+name = "Uninstall app"
+category = "android"
+summary = "Removes an app from the device by its package name."
+version = 1
+executor = "adb"
+needs = ["install"]
+timeout_secs = 60
+
+[[params]]
+name = "package"
+label = "Package"
+kind = "package"
+required = true
