@@ -28,6 +28,20 @@ pub fn health_mark(state: HealthState) -> (&'static str, &'static str) {
     (tone, state.label())
 }
 
+/// A health detail as a sentence: capitalised and ending with a full stop.
+fn sentence_of(detail: &str) -> String {
+    let detail = detail.trim();
+    let mut chars = detail.chars();
+    let Some(first) = chars.next() else {
+        return String::new();
+    };
+    let mut out: String = first.to_uppercase().chain(chars).collect();
+    if !out.ends_with(['.', '!', '?']) {
+        out.push('.');
+    }
+    out
+}
+
 /// The SSH host a node runs on, when its module reports health.
 fn service_host(wf: &senvakara_app::Workflow, node: &Node) -> Option<String> {
     let module = senvakara_app::catalog().get(&node.module)?;
@@ -185,7 +199,10 @@ impl App {
                 (
                     tone,
                     word.to_string(),
-                    format!("{} Checked {age}, read-only and without sudo.", h.detail),
+                    format!(
+                        "{} Checked {age}, read-only and without sudo.",
+                        sentence_of(&h.detail)
+                    ),
                 )
             }
             (Some(_), None) => (
@@ -231,7 +248,7 @@ impl App {
         };
         if step.needs_root && self.wf.sudo.borrow().is_none() {
             return (
-                "Enter the sudo password below: removing runs as root.".into(),
+                "Enter the sudo password above: removing runs as root.".into(),
                 true,
             );
         }
@@ -433,5 +450,15 @@ mod tests {
         );
         assert_eq!(health_mark(HealthState::Stopped), ("attention", "Stopped"));
         assert_eq!(health_mark(HealthState::Unknown), ("idle", "Unknown"));
+    }
+
+    #[test]
+    fn a_health_detail_reads_as_a_sentence_before_the_check_time() {
+        assert_eq!(
+            sentence_of("Docker is running but nothing answers on 127.0.0.1:8081"),
+            "Docker is running but nothing answers on 127.0.0.1:8081."
+        );
+        assert_eq!(sentence_of("redis-server failed."), "Redis-server failed.");
+        assert_eq!(sentence_of("  "), "");
     }
 }
