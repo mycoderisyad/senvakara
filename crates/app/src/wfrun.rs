@@ -8,6 +8,8 @@
 //! by side is a later step; the order is already valid for it.
 
 mod device;
+mod guard;
+mod host;
 mod log;
 mod remote;
 

@@ -39,6 +39,10 @@ impl App {
                     .map(|n| {
                         let mut row =
                             node_row(&o.graph, n, catalog, &machines, &by_node, &view, &selected);
+                        // A checked SSH host shows its posture next to its state.
+                        if let Some(badge) = self.workflows_badge(n) {
+                            row.state_text = format!("{} · {badge}", row.state_text).into();
+                        }
                         // An action without problems shows how its step ended last time.
                         if !row.anchor && row.tone == "idle" {
                             if let Some((status, changed)) = self.wf.last_run.borrow().get(&n.id) {

@@ -118,6 +118,7 @@ mod tests {
             timeout_secs: 60,
             params: Vec::new(),
             docs_url: None,
+            guard: None,
         };
         let module = |executor, files: &[(&str, &str)]| Module {
             manifest: manifest(executor),
@@ -146,5 +147,124 @@ mod tests {
         assert!(c
             .insert(module(Executor::SshScript, &[("apply.sh", "")]))
             .is_err());
+    }
+
+    #[test]
+    fn server_modules_name_their_systems_and_risky_ones_are_guarded() {
+        let catalog = Catalog::bundled().unwrap();
+        for m in catalog.modules.values() {
+            let category = m.manifest.category;
+            if !matches!(category, Category::Security | Category::Networking) {
+                continue;
+            }
+            let id = &m.manifest.id;
+            assert_eq!(m.manifest.os, ["debian>=12", "ubuntu>=22.04"], "{id}");
+            assert!(m.files.contains_key("check.sh"), "{id} has no check");
+            assert!(
+                m.manifest.needs.contains(&crate::Permission::Root),
+                "{id} runs as root"
+            );
+            assert!(m.manifest.docs_url.is_some(), "{id} names its docs");
+        }
+        for id in ["security.ssh_hardening", "networking.firewall"] {
+            let m = catalog.get(id).unwrap();
+            assert!(m.manifest.guard.is_some(), "{id} is guarded");
+            assert!(m.files.contains_key("rollback.sh"), "{id} rolls back");
+        }
+        let ssh = catalog.get("security.ssh_hardening").unwrap();
+        assert_eq!(ssh.manifest.os_text(), "Debian 12+, Ubuntu 22.04+");
+        assert_eq!(
+            ssh.manifest.guard.as_ref().unwrap().port_param.as_deref(),
+            Some("port")
+        );
+    }
+
+    #[test]
+    fn guards_need_their_rollback_and_permissions() {
+        let base = || {
+            let mut m = catalog_module("networking.example");
+            m.manifest.guard = Some(crate::Guard {
+                rollback_secs: 180,
+                port_param: None,
+            });
+            m
+        };
+        let mut c = Catalog::default();
+        let mut no_rollback = base();
+        no_rollback.files.remove("rollback.sh");
+        assert!(c.insert(no_rollback).is_err());
+        let mut no_network = base();
+        no_network.manifest.needs = vec![crate::Permission::Root];
+        assert!(c.insert(no_network).is_err());
+        let mut too_long = base();
+        too_long.manifest.guard.as_mut().unwrap().rollback_secs = 3600;
+        assert!(c.insert(too_long).is_err());
+        let mut bad_port = base();
+        bad_port.manifest.guard.as_mut().unwrap().port_param = Some("missing".into());
+        assert!(c.insert(bad_port).is_err());
+        let mut stray = catalog_module("networking.stray");
+        stray.manifest.guard = None;
+        assert!(c.insert(stray).is_err(), "rollback.sh without a guard");
+        c.insert(base()).unwrap();
+    }
+
+    #[test]
+    fn engine_names_cannot_be_parameters() {
+        let mut m = catalog_module("networking.example");
+        m.files.remove("rollback.sh");
+        m.manifest.params = vec![crate::ParamSpec {
+            name: "session_user".into(),
+            label: "User".into(),
+            kind: crate::ParamKind::Text,
+            required: false,
+            default: None,
+            min: None,
+            max: None,
+            options: Vec::new(),
+            max_len: None,
+            suffix: None,
+            help: None,
+        }];
+        assert!(Catalog::default().insert(m).is_err());
+    }
+
+    #[test]
+    fn os_release_gives_id_and_version() {
+        let text = "PRETTY_NAME=\"Ubuntu 24.04.1 LTS\"\nNAME=\"Ubuntu\"\n\
+                    VERSION_ID=\"24.04\"\nID=ubuntu\nID_LIKE=debian\n";
+        assert_eq!(
+            crate::parse_os_release(text),
+            Some(("ubuntu".into(), "24.04".into()))
+        );
+        assert_eq!(crate::parse_os_release("ID=debian\n"), None);
+    }
+
+    /// A guarded ssh_script module with every file it needs.
+    fn catalog_module(id: &str) -> Module {
+        let manifest = Manifest {
+            id: id.into(),
+            name: "Example".into(),
+            category: Category::Networking,
+            summary: "Example".into(),
+            version: 1,
+            executor: Executor::SshScript,
+            binds: None,
+            os: Vec::new(),
+            needs: vec![crate::Permission::Root, crate::Permission::Network],
+            root_switch: None,
+            user_scripts: false,
+            timeout_secs: 60,
+            params: Vec::new(),
+            docs_url: None,
+            guard: None,
+        };
+        Module {
+            manifest,
+            path: id.replace('.', "/"),
+            files: ["check.sh", "apply.sh", "rollback.sh"]
+                .iter()
+                .map(|f| (f.to_string(), String::new()))
+                .collect(),
+        }
     }
 }

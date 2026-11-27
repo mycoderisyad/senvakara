@@ -1,0 +1,19 @@
+id = "security.swap_file"
+name = "Swap file"
+category = "security"
+summary = "Creates /swapfile of the chosen size, turns it on and keeps it on after a reboot, so a short memory peak slows the host down instead of killing processes."
+version = 1
+executor = "ssh_script"
+os = ["debian>=12", "ubuntu>=22.04"]
+needs = ["root"]
+timeout_secs = 900
+docs_url = "https://manpages.debian.org/bookworm/util-linux/mkswap.8.en.html"
+
+[[params]]
+name = "size_mb"
+label = "Size (MB)"
+kind = "int"
+default = 2048
+min = 256
+max = 65536
+help = "A different size replaces /swapfile. The disk must have the size plus 1 GB free."

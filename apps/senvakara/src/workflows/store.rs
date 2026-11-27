@@ -66,7 +66,9 @@ impl App {
         });
         // History first: the cards show how their steps went in the last run.
         self.workflows_runs_reload();
+        self.workflows_postures_load();
         self.workflows_refresh(true);
+        self.workflows_postures_auto(false);
     }
 
     /// The latest runs of the open workflow, for the workflow panel. Called on open and
@@ -112,8 +114,12 @@ impl App {
 
     /// A run tab ended: new history, and the cards show how their steps went.
     pub(crate) fn workflows_run_ended(self: &Rc<Self>) {
+        // A run may have moved a host's SSH port in Hosts (plan WF §4).
+        self.reload();
         self.workflows_runs_reload();
         self.workflows_refresh(false);
+        // A run may have changed what the posture check sees.
+        self.workflows_postures_auto(true);
     }
 
     /// Hosts or phones changed in the inventory: names and states on the cards follow.

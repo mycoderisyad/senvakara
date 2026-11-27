@@ -1,0 +1,34 @@
+id = "security.fail2ban"
+name = "fail2ban for SSH"
+category = "security"
+summary = "Installs fail2ban and bans addresses that keep failing to sign in over SSH, reading sshd's messages from the systemd journal."
+version = 1
+executor = "ssh_script"
+os = ["debian>=12", "ubuntu>=22.04"]
+needs = ["root", "install"]
+timeout_secs = 900
+docs_url = "https://manpages.debian.org/bookworm/fail2ban/jail.conf.5.en.html"
+
+[[params]]
+name = "max_retry"
+label = "Failed sign-ins before a ban"
+kind = "int"
+default = 5
+min = 2
+max = 50
+
+[[params]]
+name = "find_minutes"
+label = "Counted over (minutes)"
+kind = "int"
+default = 10
+min = 1
+max = 1440
+
+[[params]]
+name = "ban_minutes"
+label = "Ban for (minutes)"
+kind = "int"
+default = 60
+min = 1
+max = 10080

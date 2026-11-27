@@ -313,3 +313,24 @@ fn delete_cascades_endpoint_settings_tags_and_rdp() {
         assert_eq!(n, 0, "{table}");
     }
 }
+
+#[test]
+fn a_moved_sshd_moves_every_endpoint_on_its_old_port_and_keeps_the_key() {
+    let mut db = Db::open_in_memory().unwrap();
+    let h = db.create_host(&input("192.0.2.10")).unwrap();
+    db.trust_host_key(&h.id, "SHA256:abc").unwrap();
+    db.add_vpn_endpoint(&h.id, "10.8.0.3", 22).unwrap();
+    db.add_vpn_endpoint(&h.id, "10.8.0.4", 2200).unwrap();
+    assert_eq!(db.move_ssh_port(&h.id, 22, 2222).unwrap(), 2);
+    let moved = db.get_host(&h.id).unwrap();
+    let ssh = moved.ssh.unwrap();
+    assert_eq!(ssh.port, 2222);
+    assert_eq!(ssh.fingerprint.as_deref(), Some("SHA256:abc"));
+    let mut ports: Vec<u16> = moved.vpn.iter().map(|e| e.port).collect();
+    ports.sort_unstable();
+    assert_eq!(ports, [2200, 2222]);
+    assert_eq!(moved.trust_state, "trusted");
+    // Nothing on the old port any more; bad ports are refused.
+    assert_eq!(db.move_ssh_port(&h.id, 22, 2022).unwrap(), 0);
+    assert!(db.move_ssh_port(&h.id, 2222, 0).is_err());
+}

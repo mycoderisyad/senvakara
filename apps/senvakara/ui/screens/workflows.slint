@@ -3,13 +3,13 @@
 
 import { Theme } from "../theme.slint";
 import { Button, EmptyState, Notice, PageToolbar, Reason, Segmented, Select, ToolButton } from "../components/widgets.slint";
-import { Workflows, WfNode, WfEdge, WfModule, WfField, WfLink, WfProblem, WfRun } from "workflows/model.slint";
+import { Workflows, WfNode, WfEdge, WfModule, WfField, WfLink, WfProblem, WfRun, WfControl } from "workflows/model.slint";
 import { WorkflowCanvas } from "workflows/canvas.slint";
 import { ModulePalette } from "workflows/palette.slint";
 import { WorkflowOutline } from "workflows/outline.slint";
 import { WorkflowInspector } from "workflows/inspector.slint";
 
-export { Workflows, WfNode, WfEdge, WfModule, WfField, WfLink, WfProblem, WfRun }
+export { Workflows, WfNode, WfEdge, WfModule, WfField, WfLink, WfProblem, WfRun, WfControl }
 
 export component WorkflowsPage inherits VerticalLayout {
     PageToolbar {
@@ -38,6 +38,14 @@ export component WorkflowsPage inherits VerticalLayout {
             current: Workflows.view-mode;
             picked(id) => {
                 Workflows.view-mode = id;
+            }
+        }
+
+        if Workflows.open: Button {
+            text: "Add VPS baseline";
+            kind: "ghost";
+            clicked => {
+                Workflows.add-template("vps_baseline");
             }
         }
 

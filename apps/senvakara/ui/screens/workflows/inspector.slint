@@ -5,7 +5,7 @@ import { ScrollView } from "std-widgets.slint";
 import { Theme } from "../../theme.slint";
 import { Icon, IconButton } from "../../components/controls.slint";
 import { Button, Card, CheckBox, GroupTitle, Hint, Labeled, Notice, Segmented, Select, StatusMark, TextArea, TextField } from "../../components/widgets.slint";
-import { Workflows, WfField, WfLink, WfProblem, WfRun } from "model.slint";
+import { Workflows, WfControl, WfField, WfLink, WfProblem, WfRun } from "model.slint";
 
 component Section inherits Card {
     in property <string> title;
@@ -119,6 +119,48 @@ component LinkRow inherits HorizontalLayout {
     }
 }
 
+// One posture control: its state as a word and a shape, the evidence, and Fix when a module
+// sets it right.
+component ControlRow inherits HorizontalLayout {
+    in property <WfControl> control;
+    spacing: Theme.space-2;
+
+    VerticalLayout {
+        horizontal-stretch: 1;
+        spacing: 2px;
+        Text {
+            text: control.label;
+            color: Theme.text;
+            font-size: Theme.text-small;
+            wrap: word-wrap;
+        }
+        HorizontalLayout {
+            alignment: start;
+            StatusMark {
+                tone: control.tone;
+                text: control.state-text;
+            }
+        }
+        if control.evidence != "": Text {
+            text: control.evidence;
+            color: Theme.text-muted;
+            font-size: Theme.text-small;
+            wrap: word-wrap;
+        }
+    }
+
+    if control.fixable: VerticalLayout {
+        alignment: start;
+        Button {
+            text: "Fix";
+            kind: "ghost";
+            clicked => {
+                Workflows.posture-fix(control.id);
+            }
+        }
+    }
+}
+
 component ProblemList inherits VerticalLayout {
     in property <[WfProblem]> items;
     spacing: Theme.space-2;
@@ -219,6 +261,34 @@ export component WorkflowInspector inherits Rectangle {
                 items: Workflows.sel-problems;
             }
 
+            if root.node && Workflows.security-shown: Section {
+                title: "Security";
+                HorizontalLayout {
+                    spacing: Theme.space-2;
+                    Text {
+                        horizontal-stretch: 1;
+                        vertical-alignment: center;
+                        text: Workflows.security-score;
+                        color: Theme.text;
+                        font-weight: Theme.weight-strong;
+                    }
+                    Button {
+                        text: Workflows.security-busy ? "Checking..." : "Refresh";
+                        kind: "ghost";
+                        enabled: !Workflows.security-busy;
+                        clicked => {
+                            Workflows.posture-refresh();
+                        }
+                    }
+                }
+                Hint {
+                    text: Workflows.security-state;
+                }
+                for c in Workflows.security: ControlRow {
+                    control: c;
+                }
+            }
+
             if root.node: Section {
                 title: "Node";
                 Labeled {
@@ -275,7 +345,15 @@ export component WorkflowInspector inherits Rectangle {
 
             if root.node && Workflows.scripts.length > 0: Section {
                 title: "Script";
-                if Workflows.scripts.length > 1: Segmented {
+                if Workflows.scripts.length > 2: Select {
+                    label: "Script file";
+                    model: Workflows.scripts;
+                    index: Workflows.script-index;
+                    picked(index) => {
+                        Workflows.pick-script(index);
+                    }
+                }
+                if Workflows.scripts.length == 2: Segmented {
                     items: [
                         { id: "0", label: Workflows.scripts[0] },
                         { id: "1", label: Workflows.scripts[1] },
@@ -294,7 +372,7 @@ export component WorkflowInspector inherits Rectangle {
                     }
                 }
                 Hint {
-                    text: "Runs with bash in strict mode after the settings are exported as SV_<NAME>. check.sh only looks: exit 0 when nothing needs doing.";
+                    text: "Runs with bash in strict mode after the settings are exported as SV_<NAME>. check.sh only looks: exit 0 when nothing needs doing, 10 when apply.sh should run. rollback.sh is run by the host itself when Senvakara cannot sign in again after the change.";
                 }
                 if Workflows.script-custom: Button {
                     text: "Restore the bundled script";

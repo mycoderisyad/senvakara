@@ -8,6 +8,8 @@
 //! doing (exit 0), applied when it says so (exit 10), and checked again after
 //! `apply.sh`, which must leave it at exit 0.
 
+use super::guard::{self, Armed};
+use super::host::{check_os, follow_port, moved_port};
 use super::log::NodeLog;
 use super::{Outcome, RunCtx};
 use crate::state::CmdResult;
@@ -15,7 +17,8 @@ use crate::workflows::catalog;
 use senvakara_adapters_ssh::sftp::{ensure_private_dir, remove, upload_bytes};
 use senvakara_adapters_ssh::{ExecEnd, ExecEvent, ExecLimits, Secret, SshConnection};
 use senvakara_core::{CoreError, ErrorCode};
-use senvakara_workflow::{preamble, Binding, CheckedNode, ParamValue};
+use senvakara_storage::SshAuth;
+use senvakara_workflow::{preamble, session_exports, Binding, CheckedNode, ParamValue, Session};
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 use std::time::Duration;
@@ -51,19 +54,26 @@ const SFTP_TIMEOUT: Duration = Duration::from_secs(30);
 const SUDO: [&str; 6] = ["sudo", "-k", "-S", "-p", "", "--"];
 
 /// One host as prepared for this run.
-struct HostRun {
-    conn: Arc<SshConnection>,
-    sftp: senvakara_adapters_ssh::SftpSession,
-    dir: String,
+pub(super) struct HostRun {
+    pub conn: Arc<SshConnection>,
+    pub sftp: senvakara_adapters_ssh::SftpSession,
+    pub dir: String,
     /// `Some(true)` once the sudo password was accepted on this host.
     sudo_ok: Option<bool>,
-    name: String,
+    pub name: String,
+    /// Who Senvakara signs in as and how, told to scripts as `SV_SESSION_*`.
+    pub session: Session,
+    /// `/etc/os-release` `ID` and `VERSION_ID`, read once when a module
+    /// limits the systems it runs on (ADR-029).
+    pub os: Option<(String, String)>,
 }
 
 #[derive(Default)]
 pub(crate) struct Hosts {
     by_id: HashMap<String, HostRun>,
     scripts: usize,
+    /// Guarded changes so far in this run, for unique timer names.
+    guards: usize,
 }
 
 impl Hosts {
@@ -98,15 +108,34 @@ async fn prepare<'a>(
 ) -> CmdResult<&'a mut HostRun> {
     if !by_id.contains_key(host_id) {
         let conn = ctx.app.state.connection(host_id).await?;
-        let name = ctx
+        let record = ctx
             .app
             .state
             .db
             .lock()
             .unwrap()
             .get_host(host_id)
-            .map(|h| h.display_name)
-            .unwrap_or_else(|_| host_id.to_string());
+            .map_err(|e| crate::state::db_err("host", e))?;
+        let name = record.display_name.clone();
+        let ssh = record.ssh.ok_or_else(|| {
+            err(
+                ErrorCode::UnsupportedCapability,
+                "this host has no SSH endpoint",
+            )
+        })?;
+        let port = ctx
+            .app
+            .state
+            .paths
+            .lock()
+            .unwrap()
+            .get(host_id)
+            .map_or(ssh.port, |p| p.port);
+        let session = Session {
+            user: ssh.username.clone(),
+            port,
+            key_login: !matches!(ssh.auth, SshAuth::Password),
+        };
         // A stalled connection must fail the step, not hold the run.
         let setup = async {
             let sftp = conn
@@ -141,13 +170,15 @@ async fn prepare<'a>(
                 dir,
                 sudo_ok: None,
                 name,
+                session,
+                os: None,
             },
         );
     }
     Ok(by_id.get_mut(host_id).expect("just inserted"))
 }
 
-fn password_line(sudo: &Option<Secret>) -> Option<Secret> {
+pub(super) fn password_line(sudo: &Option<Secret>) -> Option<Secret> {
     sudo.as_ref()
         .map(|p| Secret::new(format!("{}\n", p.as_str())))
 }
@@ -235,22 +266,38 @@ pub(crate) async fn run_node(
             "settings kept in Credential Manager are not supported yet",
         ));
     }
-    let head =
+    let module = catalog()
+        .get(&node.module)
+        .ok_or_else(|| err(ErrorCode::InvalidInput, "this step's module is unknown"))?;
+    let settings =
         preamble(&node.params, &BTreeMap::new()).map_err(|e| err(ErrorCode::InvalidInput, e))?;
-    let timeout = Duration::from_secs(
-        catalog()
-            .get(&node.module)
-            .map_or(600, |m| m.manifest.timeout_secs.into()),
-    );
+    let timeout = Duration::from_secs(module.manifest.timeout_secs.into());
     let apply = script_text(&node.id, ctx, &node.module, "apply.sh")
         .ok_or_else(|| err(ErrorCode::InvalidInput, "this step has no apply script"))?;
     let check = script_text(&node.id, ctx, &node.module, "check.sh");
 
-    let Hosts { by_id, scripts } = hosts;
+    let Hosts {
+        by_id,
+        scripts,
+        guards,
+    } = hosts;
     let host = prepare(ctx, by_id, host_id).await?;
+    check_os(host, module).await?;
     if node.needs_root {
         check_sudo(ctx, host).await?;
     }
+    let guard = module.manifest.guard.clone();
+    let unit = guard.as_ref().map(|_| {
+        *guards += 1;
+        guard::unit_name(&ctx.run_id, *guards)
+    });
+    let head = format!(
+        "{settings}{}",
+        session_exports(
+            &host.session,
+            unit.as_deref().map(guard::guard_dir).as_deref()
+        )
+    );
     let title = ctx.title(&node.id);
     let mut script = |file: &'static str| {
         *scripts += 1;
@@ -276,25 +323,55 @@ pub(crate) async fn run_node(
             }
         }
     }
-    let (file, n) = script("apply.sh");
-    let code = run_script(ctx, host, node, file, n, &head, &apply, &title, timeout).await?;
-    if code != 0 {
-        return Err(err(
-            ErrorCode::InternalError,
-            format!("apply.sh failed with exit status {code}"),
-        ));
-    }
-    if let Some(check) = &check {
-        let (file, n) = script("check.sh");
-        let code = run_script(ctx, host, node, file, n, &head, check, &title, timeout).await?;
+
+    // Guarded: schedule the rollback before anything changes (plan WF §4).
+    let armed: Option<Armed> = match (&guard, unit) {
+        (Some(g), Some(unit)) => {
+            let rollback = script_text(&node.id, ctx, &node.module, "rollback.sh")
+                .ok_or_else(|| err(ErrorCode::InvalidInput, "this step has no rollback script"))?;
+            let text = format!("{head}{rollback}");
+            Some(guard::arm(ctx, host, unit, g.rollback_secs, &text).await?)
+        }
+        _ => None,
+    };
+
+    let mut applied = async {
+        let (file, n) = script("apply.sh");
+        let code = run_script(ctx, host, node, file, n, &head, &apply, &title, timeout).await?;
         if code != 0 {
             return Err(err(
                 ErrorCode::InternalError,
-                format!("apply.sh finished but check.sh still reports work to do (exit {code})"),
+                format!("apply.sh failed with exit status {code}"),
             ));
         }
+        if let Some(check) = &check {
+            let (file, n) = script("check.sh");
+            let code = run_script(ctx, host, node, file, n, &head, check, &title, timeout).await?;
+            if code != 0 {
+                return Err(err(
+                    ErrorCode::InternalError,
+                    format!(
+                        "apply.sh finished but check.sh still reports work to do (exit {code})"
+                    ),
+                ));
+            }
+        }
+        Ok(())
     }
-    Ok(Outcome {
+    .await;
+
+    if let Some(armed) = &armed {
+        if applied.is_err() {
+            guard::undo_now(ctx, host, armed).await;
+        } else {
+            let port = moved_port(node, guard.as_ref(), host.session.port);
+            applied = guard::prove_and_disarm(ctx, host_id, host, armed, port).await;
+            if let (Ok(()), Some(port)) = (&applied, port) {
+                follow_port(ctx, host_id, host, port);
+            }
+        }
+    }
+    applied.map(|()| Outcome {
         detail: "applied".into(),
         changed: Some(true),
         exit_code: Some(0),

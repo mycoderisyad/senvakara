@@ -79,6 +79,19 @@ export struct WfRun {
     result: string,
 }
 
+// One control of a host's security posture (plan WF §5), with the evidence it was judged on.
+export struct WfControl {
+    id: string,
+    label: string,
+    // "live" (passes) | "attention" (fails) | "idle" (unknown or information)
+    tone: string,
+    // "Passes" | "Fails" | "Unknown" | "Info"
+    state-text: string,
+    evidence: string,
+    // A module can set it right: "Fix" adds that node.
+    fixable: bool,
+}
+
 export struct WfProblem {
     // Node id, or "" for the whole workflow.
     node: string,
@@ -136,6 +149,14 @@ export global Workflows {
     // Other nodes the selected one can be connected to; the first entry means none.
     in property <[string]> connect-options;
     in property <[WfProblem]> sel-problems;
+    // Security posture of the selected SSH host node: shown when it has a host.
+    in property <bool> security-shown;
+    // "Hardened 6/9" | "Not checked yet"
+    in property <string> security-score;
+    // "Checked 3 min ago. Read-only, without sudo; not a compliance audit." | "Checking..."
+    in property <string> security-state;
+    in property <bool> security-busy;
+    in property <[WfControl]> security;
 
     // The workflow itself.
     in property <[WfProblem]> problems;
@@ -191,4 +212,10 @@ export global Workflows {
     callback set-permission(which: string, on: bool);
     callback run();
     callback sudo-edited(text: string);
+    // Runs the read-only security check on the selected host now.
+    callback posture-refresh();
+    // Adds the module that sets this control right, connected to the selected host.
+    callback posture-fix(control: string);
+    // Adds a ready-made workflow ("vps_baseline") to the open one.
+    callback add-template(id: string);
 }

@@ -132,3 +132,42 @@ fn the_preamble_exports_every_value_and_resolves_secrets() {
          export SV_PORT=2222\n"
     );
 }
+
+#[test]
+fn public_keys_are_one_plain_key_line() {
+    let key = spec("key", ParamKind::SshPublicKey);
+    let ok = |v: &str| check_one(&key, &json!(v));
+    let body = "AAAAC3NzaC1lZDI1NTE5AAAAIGq0dZ1u0Tqk3gJvGQ1m0nI2x8C7w3m1d2Rk0b4y0aBc";
+    assert_eq!(
+        ok(&format!("  ssh-ed25519   {body}   me@pc  laptop ")).unwrap(),
+        ParamValue::Text(format!("ssh-ed25519 {body} me@pc laptop"))
+    );
+    assert!(ok(&format!("ssh-ed25519 {body}")).is_ok());
+    for bad in [
+        String::new(),
+        format!("ssh-dss {body}"),
+        format!("from=\"10.0.0.1\" ssh-ed25519 {body}"),
+        format!("ssh-ed25519 {body}\nssh-ed25519 {body}"),
+        "ssh-ed25519 short".to_string(),
+        format!("ssh-ed25519 {body}$(reboot)"),
+        "-----BEGIN OPENSSH PRIVATE KEY-----".to_string(),
+    ] {
+        assert!(ok(&bad).is_err(), "{bad:?} was accepted");
+    }
+}
+
+#[test]
+fn port_lists_are_normalised_and_bounded() {
+    let ports = spec("ports", ParamKind::PortList);
+    let check = |v: &str| check_one(&ports, &json!(v));
+    assert_eq!(
+        check("80/TCP, 443/tcp 51820/udp,,53 80/tcp").unwrap(),
+        ParamValue::Text("80/tcp 443/tcp 51820/udp 53".into())
+    );
+    assert_eq!(check("").unwrap(), ParamValue::Text(String::new()));
+    for bad in ["0", "65536", "22/sctp", "http", "22;reboot", "080", "-1"] {
+        assert!(check(bad).is_err(), "{bad} was accepted");
+    }
+    let many: Vec<String> = (1..=33).map(|n| n.to_string()).collect();
+    assert!(check(&many.join(",")).is_err());
+}

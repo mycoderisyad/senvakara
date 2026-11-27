@@ -102,6 +102,52 @@ impl App {
                 false,
             ));
         }
+        // Guarded steps (SSH, firewall) and a moving SSH port are named before the run (plan
+        // WF §4): confirming the run is the confirmation that Hosts follows the new port.
+        for step in &plan.steps {
+            let Some(guard) = catalog
+                .get(&step.module)
+                .and_then(|m| m.manifest.guard.as_ref())
+            else {
+                continue;
+            };
+            let title = graph
+                .node(&step.id)
+                .map(|n| title_of(n, catalog))
+                .unwrap_or_default();
+            let machine = self.machine_name(&step.target);
+            facts.push(fact(
+                "Safety net",
+                format!(
+                    "{title}: {machine} undoes it by itself after {} s unless Senvakara signs in again",
+                    guard.rollback_secs
+                ),
+                false,
+            ));
+            let new_port = guard
+                .port_param
+                .as_ref()
+                .and_then(|p| step.params.get(p))
+                .and_then(|v| match v {
+                    senvakara_app::workflow::ParamValue::Int(n) => u16::try_from(*n).ok(),
+                    _ => None,
+                });
+            let current = match &step.target {
+                Binding::Host { host_id } => {
+                    self.inv.host(host_id).and_then(|h| h.ssh).map(|s| s.port)
+                }
+                _ => None,
+            };
+            if let (Some(port), Some(current)) = (new_port, current) {
+                if port != current {
+                    facts.push(fact(
+                        "SSH port",
+                        format!("{machine} moves from port {current} to {port}; Hosts is updated once Senvakara signed in on {port}"),
+                        false,
+                    ));
+                }
+            }
+        }
         let root = plan.steps.iter().filter(|s| s.needs_root).count();
         let warning = if root > 0 {
             format!("{root} step(s) run as root through sudo. Each script is shown in its node before you run it.")

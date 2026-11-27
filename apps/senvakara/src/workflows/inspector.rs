@@ -184,6 +184,7 @@ impl App {
             return;
         };
         let module = catalog.get(&node.module);
+        self.workflows_fill_security(&node);
         self.with_view(|v| {
             if let Some(row) = row {
                 v.set_sel(row);

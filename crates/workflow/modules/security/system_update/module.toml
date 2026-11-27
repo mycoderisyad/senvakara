@@ -1,0 +1,17 @@
+id = "security.system_update"
+name = "System update"
+category = "security"
+summary = "Refreshes the package lists and installs every pending update with apt, keeping your edited config files. Never moves to a new release."
+version = 1
+executor = "ssh_script"
+os = ["debian>=12", "ubuntu>=22.04"]
+needs = ["root", "install"]
+timeout_secs = 3600
+docs_url = "https://manpages.debian.org/bookworm/apt/apt-get.8.en.html"
+
+[[params]]
+name = "full_upgrade"
+label = "Allow updates that add or remove packages (full upgrade)"
+kind = "bool"
+default = true
+help = "On: apt-get dist-upgrade, which also installs new dependencies such as a new kernel package. Off: apt-get upgrade, which holds those updates back."

@@ -14,7 +14,7 @@ import { RunView, Run, RunStep } from "components/run-view.slint";
 import { PaletteOverlay, Palette, PaletteItem } from "components/palette.slint";
 import { Launcher, LaunchItem } from "components/new-tab.slint";
 import { Settings } from "screens/settings.slint";
-import { Workflows, WfNode, WfEdge, WfModule, WfField, WfLink, WfProblem, WfRun } from "screens/workflows.slint";
+import { Workflows, WfNode, WfEdge, WfModule, WfField, WfLink, WfProblem, WfRun, WfControl } from "screens/workflows.slint";
 import { HomeScreen, Nav } from "screens/home.slint";
 import { Confirm, ConfirmDialog } from "components/dialogs.slint";
 import { DeviceTools } from "components/device-panel.slint";
@@ -24,7 +24,7 @@ import { ChipItem, ChipRow } from "components/widgets.slint";
 import { Jobs, JobItem } from "components/jobs.slint";
 import { Inventory, HostItem, HostGroup, DeviceItem, Action, KeyValue, Meter, PathItem, VpnHint } from "data.slint";
 
-export { Mirror, MirrorData, Logcat, LogLine, LogcatData, Confirm, Theme, Term, TermRun, TermRow, TermData, TabInfo, Nav, Inventory, HostItem, DeviceItem, Action, KeyValue, Meter, DeviceTools, Jobs, JobItem, Wireless, WirelessService, WirelessNote, HostForm, NetPaths, PathItem, VpnHint, Files, FileRow, FileSide, FileCrumb, FilePlace, FilesData, Desktop, DesktopData, PanelView, Workspaces, WorkspaceItem, SlotView, Run, RunStep, Palette, PaletteItem, Settings, HostGroup, KeyChoice, Keychain, KeyItem, ChipItem, ChipRow, Launcher, LaunchItem, Workflows, WfNode, WfEdge, WfModule, WfField, WfLink, WfProblem, WfRun }
+export { Mirror, MirrorData, Logcat, LogLine, LogcatData, Confirm, Theme, Term, TermRun, TermRow, TermData, TabInfo, Nav, Inventory, HostItem, DeviceItem, Action, KeyValue, Meter, DeviceTools, Jobs, JobItem, Wireless, WirelessService, WirelessNote, HostForm, NetPaths, PathItem, VpnHint, Files, FileRow, FileSide, FileCrumb, FilePlace, FilesData, Desktop, DesktopData, PanelView, Workspaces, WorkspaceItem, SlotView, Run, RunStep, Palette, PaletteItem, Settings, HostGroup, KeyChoice, Keychain, KeyItem, ChipItem, ChipRow, Launcher, LaunchItem, Workflows, WfNode, WfEdge, WfModule, WfField, WfLink, WfProblem, WfRun, WfControl }
 
 export global Shell {
     in property <[TabInfo]> tabs;

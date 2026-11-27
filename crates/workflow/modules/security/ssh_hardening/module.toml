@@ -1,0 +1,35 @@
+id = "security.ssh_hardening"
+name = "SSH hardening"
+category = "security"
+summary = "Turns off SSH password sign-in, limits root sign-in and can move SSH to another port. Guarded: the host undoes it by itself unless Senvakara signs in again afterwards."
+version = 1
+executor = "ssh_script"
+os = ["debian>=12", "ubuntu>=22.04"]
+needs = ["root", "network"]
+timeout_secs = 300
+docs_url = "https://manpages.debian.org/bookworm/openssh-server/sshd_config.5.en.html"
+
+[guard]
+rollback_secs = 180
+port_param = "port"
+
+[[params]]
+name = "disable_passwords"
+label = "Turn off password sign-in"
+kind = "bool"
+default = true
+help = "Only keys can sign in afterwards. Refused while Senvakara itself signs in to this host with a password: switch the host to a key in Hosts first."
+
+[[params]]
+name = "permit_root_login"
+label = "Root sign-in"
+kind = "choice"
+options = ["prohibit-password", "no"]
+default = "prohibit-password"
+help = "prohibit-password: root may sign in with a key only. no: root cannot sign in at all; refused while Senvakara signs in as root, so switch the host in Hosts to your sudo user first."
+
+[[params]]
+name = "port"
+label = "SSH port (empty keeps the current one)"
+kind = "port"
+help = "A new port is opened in ufw first when ufw is on. After the change Senvakara signs in on the new port, and Hosts is updated once that worked."

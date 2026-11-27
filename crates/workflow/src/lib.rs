@@ -11,6 +11,9 @@ mod legacy;
 mod module;
 mod params;
 mod plan;
+mod posture;
+mod session;
+mod template;
 mod validate;
 
 pub use catalog::Catalog;
@@ -20,9 +23,12 @@ pub use graph::{
 };
 pub use legacy::{from_recipe, RecipeStepIn};
 pub use module::{
-    BindKind, Category, Executor, Manifest, Module, ParamKind, ParamSpec, Permission,
-    MAX_SCRIPT_LEN, SCRIPT_FILES,
+    parse_os_release, BindKind, Category, Executor, Guard, Manifest, Module, ParamKind, ParamSpec,
+    Permission, GUARD_SECS, MAX_SCRIPT_LEN, SCRIPT_FILES,
 };
 pub use params::{check_params, preamble, shell_quote, valid_package, ParamValue};
 pub use plan::{plan, Plan};
+pub use posture::{control_info, Control, ControlInfo, Posture, Status, CONTROLS, POSTURE_SCRIPT};
+pub use session::{session_exports, Session};
+pub use template::{add_vps_baseline, VPS_BASELINE};
 pub use validate::{validate, CheckedNode, Problem};

@@ -169,6 +169,24 @@ fn check_one(spec: &ParamSpec, v: &Value) -> Result<ParamValue, String> {
                 ))
             }
         }
+        ParamKind::SshPublicKey => {
+            let s = text(spec, v)?.trim();
+            ssh_public_key(s)
+                .map(ParamValue::Text)
+                .ok_or_else(|| {
+                    format!(
+                        "{label} must be one OpenSSH public key line, such as ssh-ed25519 AAAA... you@pc"
+                    )
+                })
+        }
+        ParamKind::PortList => {
+            let s = text(spec, v)?.trim();
+            port_list(s).map(ParamValue::Text).ok_or_else(|| {
+                format!(
+                    "{label} must list up to {MAX_PORTS} ports such as 80/tcp, 443/tcp or 51820/udp"
+                )
+            })
+        }
         ParamKind::Secret => {
             let s = text(spec, v)?.trim();
             if s.starts_with("secret-") && single_line(spec, s, 128).is_ok() {
@@ -180,6 +198,77 @@ fn check_one(spec: &ParamSpec, v: &Value) -> Result<ParamValue, String> {
             }
         }
     }
+}
+
+/// Key types `authorized_keys` takes on Debian 12+ and Ubuntu 22.04+.
+const KEY_TYPES: [&str; 6] = [
+    "ssh-ed25519",
+    "ssh-rsa",
+    "ecdsa-sha2-nistp256",
+    "ecdsa-sha2-nistp384",
+    "ecdsa-sha2-nistp521",
+    "sk-ssh-ed25519@openssh.com",
+];
+const MAX_KEY_LEN: usize = 16 * 1024;
+const MAX_PORTS: usize = 32;
+
+/// One public key line, normalised to single spaces; `None` when it is not
+/// one. Options before the key type (`from="..."`) are refused: the module
+/// writes plain keys only. The host checks the key again with ssh-keygen.
+fn ssh_public_key(s: &str) -> Option<String> {
+    if s.len() > MAX_KEY_LEN || s.contains(['\n', '\r', '\0']) {
+        return None;
+    }
+    let mut words = s.split_whitespace();
+    let kind = words.next()?;
+    let body = words.next()?;
+    let comment: Vec<&str> = words.collect();
+    let body_ok = body.len() >= 32
+        && body
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '/' | '='));
+    let sk_ecdsa = kind == "sk-ecdsa-sha2-nistp256@openssh.com";
+    if !(KEY_TYPES.contains(&kind) || sk_ecdsa) || !body_ok {
+        return None;
+    }
+    let mut out = format!("{kind} {body}");
+    if !comment.is_empty() {
+        out.push(' ');
+        out.push_str(&comment.join(" "));
+    }
+    Some(out)
+}
+
+/// `80/tcp, 443 51820/udp` → `80/tcp 443 51820/udp`; `None` when an entry is
+/// not a port with an optional `/tcp` or `/udp`. An empty list is fine.
+fn port_list(s: &str) -> Option<String> {
+    let entries: Vec<&str> = s
+        .split(|c: char| c == ',' || c.is_whitespace())
+        .filter(|e| !e.is_empty())
+        .collect();
+    if entries.len() > MAX_PORTS {
+        return None;
+    }
+    let mut out: Vec<String> = Vec::new();
+    for entry in entries {
+        let (port, proto) = match entry.split_once('/') {
+            Some((p, proto)) => (p, Some(proto.to_ascii_lowercase())),
+            None => (entry, None),
+        };
+        let n: u16 = port.parse().ok().filter(|n| *n > 0)?;
+        if port.starts_with('0') {
+            return None;
+        }
+        let word = match proto.as_deref() {
+            None => n.to_string(),
+            Some(p @ ("tcp" | "udp")) => format!("{n}/{p}"),
+            Some(_) => return None,
+        };
+        if !out.contains(&word) {
+            out.push(word);
+        }
+    }
+    Some(out.join(" "))
 }
 
 /// Android application id, as accepted by the device actions.
