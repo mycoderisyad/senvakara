@@ -21,8 +21,10 @@ use tokio::sync::watch;
 const GUARD_ROOT: &str = "/var/lib/senvakara/guard";
 
 /// Schedules the rollback. `$1` unit, `$2` seconds, `$3` the uploaded
-/// rollback script. The timer runs `run.sh`, which marks that it ran, so the
-/// disarm can tell "stopped in time" from "already undone".
+/// rollback script. The timer runs `run.sh`, which leaves an empty
+/// `<unit>.ran` marker (so the disarm can tell "stopped in time" from
+/// "already undone"), restores, and removes the backup folder. Markers older
+/// than a day are swept here.
 const ARM: &str = r#"set -eu
 unit=$1 secs=$2 src=$3
 case $unit in sv-guard-*) ;; *) echo "bad unit name" >&2; exit 2 ;; esac
@@ -31,8 +33,9 @@ case $secs in '' | *[!0-9]*) echo "bad delay" >&2; exit 2 ;; esac
 command -v systemd-run >/dev/null || { echo "systemd-run is missing" >&2; exit 3; }
 dir=/var/lib/senvakara/guard/$unit
 install -d -m 0700 /var/lib/senvakara /var/lib/senvakara/guard "$dir"
+find /var/lib/senvakara/guard -maxdepth 1 -name 'sv-guard-*.ran' -mtime +1 -delete
 install -m 0700 "$src" "$dir/rollback.sh"
-printf '#!/bin/bash\ntouch %s/ran\nexec /bin/bash %s/rollback.sh\n' "$dir" "$dir" >"$dir/run.sh"
+printf '#!/bin/bash\ntouch %s.ran\n/bin/bash %s/rollback.sh\nrm -rf -- %s\n' "$dir" "$dir" "$dir" >"$dir/run.sh"
 chmod 0700 "$dir/run.sh"
 systemd-run --quiet --unit="$unit" --on-active="${secs}s" --timer-property=AccuracySec=1s /bin/bash "$dir/run.sh"
 "#;
@@ -44,7 +47,8 @@ case $unit in sv-guard-*) ;; *) echo "bad unit name" >&2; exit 2 ;; esac
 case $unit in *[!a-z0-9-]*) echo "bad unit name" >&2; exit 2 ;; esac
 dir=/var/lib/senvakara/guard/$unit
 systemctl stop "$unit.timer" 2>/dev/null || true
-if [ -e "$dir/ran" ]; then
+if [ -e "$dir.ran" ]; then
+  rm -f -- "$dir.ran"
   echo "the rollback already ran" >&2
   exit 5
 fi
@@ -58,9 +62,10 @@ case $unit in sv-guard-*) ;; *) echo "bad unit name" >&2; exit 2 ;; esac
 case $unit in *[!a-z0-9-]*) echo "bad unit name" >&2; exit 2 ;; esac
 dir=/var/lib/senvakara/guard/$unit
 systemctl stop "$unit.timer" 2>/dev/null || true
-if [ ! -e "$dir/ran" ] && [ -f "$dir/run.sh" ]; then
+if [ ! -e "$dir.ran" ] && [ -f "$dir/run.sh" ]; then
   /bin/bash "$dir/run.sh"
 fi
+rm -f -- "$dir.ran"
 rm -rf -- "$dir"
 "#;
 
@@ -271,6 +276,6 @@ mod tests {
             assert!(script.contains("case $unit in sv-guard-*)"));
         }
         // The timer marks that it ran before restoring anything.
-        assert!(ARM.contains("touch %s/ran"));
+        assert!(ARM.contains("touch %s.ran"));
     }
 }

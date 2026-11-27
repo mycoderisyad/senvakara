@@ -11,6 +11,10 @@ if ! printf '%s\n' "$status" | grep -q '^Status: active'; then
   echo "ufw is not active."
   exit 10
 fi
+if ! systemctl is-active --quiet ufw; then
+  echo "ufw.service is not running, so the rules would not come back after a reboot."
+  exit 10
+fi
 if ! printf '%s\n' "$status" | grep -q 'deny (incoming)'; then
   echo "ufw does not deny incoming connections by default."
   exit 10

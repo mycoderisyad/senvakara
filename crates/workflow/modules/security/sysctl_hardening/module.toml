@@ -1,8 +1,8 @@
 id = "security.sysctl_hardening"
 name = "Network kernel settings"
 category = "security"
-summary = "Sets conservative kernel network options: SYN cookies on, ICMP redirects and source routing off, martian packets logged. IP forwarding is left alone, so Docker and VPNs keep working."
-version = 1
+summary = "Sets conservative kernel network options: SYN cookies on, ICMP redirects and source routing off, broadcast pings ignored. IP forwarding is left alone, so Docker and VPNs keep working."
+version = 2
 executor = "ssh_script"
 os = ["debian>=12", "ubuntu>=22.04"]
 needs = ["root", "network"]

@@ -32,4 +32,6 @@ done
 ufw default deny incoming
 ufw default allow outgoing
 ufw --force enable
+# The service loads the rules at boot; start it now so its state matches.
+systemctl enable --now ufw
 ufw status verbose

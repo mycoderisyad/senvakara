@@ -8,6 +8,7 @@ export LC_ALL=C
 [ -f "$SV_GUARD_DIR/was" ] || exit 0
 if [ "$(cat "$SV_GUARD_DIR/was")" != active ]; then
   ufw --force disable
+  systemctl stop ufw
 fi
 if [ -d "$SV_GUARD_DIR/etc-ufw" ] && [ -f "$SV_GUARD_DIR/default-ufw" ]; then
   rm -rf /etc/ufw

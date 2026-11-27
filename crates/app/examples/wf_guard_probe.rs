@@ -274,7 +274,7 @@ fn main() -> Result<()> {
             &app,
             &id,
             &pw,
-            "ls -A /var/lib/senvakara/guard; systemctl list-timers --all --no-legend 'sv-guard-*'",
+            "ls -A /var/lib/senvakara/guard | grep -v '[.]ran$'; systemctl list-timers --all --no-legend 'sv-guard-*'",
         )?;
         ensure!(guards.is_empty(), "guard left behind: {guards}");
         println!("== 3b. same settings again: up to date, nothing armed");
@@ -329,6 +329,13 @@ fn main() -> Result<()> {
                 "no rollback after 240 s"
             );
         }
+        // The timer's run removed the backup and left only its marker.
+        std::thread::sleep(Duration::from_secs(2));
+        let left = root(&backend, &app, &id, &pw, "ls -A /var/lib/senvakara/guard")?;
+        ensure!(
+            !left.is_empty() && left.lines().all(|l| l.ends_with(".ran")),
+            "after the rollback: {left}"
+        );
         let fresh = backend.block_on(app.state.connect_fresh(&id, None))?;
         backend.block_on(fresh.close())?;
         println!(
@@ -368,7 +375,13 @@ fn main() -> Result<()> {
             println!("== 5b. again: everything up to date");
             let again = run(&ui, &app, &wf, &pw)?;
             if !ufw_before.contains("Status: active") {
-                root(&backend, &app, &id, &pw, "ufw --force disable")?;
+                root(
+                    &backend,
+                    &app,
+                    &id,
+                    &pw,
+                    "ufw --force disable; systemctl stop ufw",
+                )?;
             }
             for (name, r) in results {
                 r.with_context(|| format!("module {name}"))?;
@@ -384,7 +397,7 @@ fn main() -> Result<()> {
         Ok(())
     })();
     // Put the spike sshd back: drop the hardening drop-in, keep port 2222.
-    let _ = root(&backend, &app, &id, &pw, "rm -f /etc/ssh/sshd_config.d/00-senvakara-hardening.conf; systemctl reload ssh; iptables -D INPUT -p tcp --dport 2223 -m conntrack --ctstate NEW -j REJECT 2>/dev/null; rm -f /run/sv-probe-lock; true");
+    let _ = root(&backend, &app, &id, &pw, "rm -f /etc/ssh/sshd_config.d/00-senvakara-hardening.conf; systemctl reload ssh; iptables -D INPUT -p tcp --dport 2223 -m conntrack --ctstate NEW -j REJECT 2>/dev/null; rm -f /run/sv-probe-lock; rm -rf /var/lib/senvakara/guard/sv-guard-*; if id svprobe >/dev/null 2>&1; then userdel -r svprobe; rm -f /etc/sudoers.d/90-senvakara-svprobe; fi; true");
     let _ = ui.block_on(app.host_delete(id));
     let _ = std::fs::remove_dir_all(&dir);
     result?;
