@@ -1,0 +1,129 @@
+// The Workflows section of Home (plan WF, ADR-028): pick or create a workflow, add nodes from
+// the palette, connect them on the canvas and set them up in the inspector.
+
+import { Theme } from "../theme.slint";
+import { Button, EmptyState, Notice, PageToolbar, Reason, Segmented, Select, ToolButton } from "../components/widgets.slint";
+import { Workflows, WfNode, WfEdge, WfModule, WfField, WfLink, WfProblem, WfRun } from "workflows/model.slint";
+import { WorkflowCanvas } from "workflows/canvas.slint";
+import { ModulePalette } from "workflows/palette.slint";
+import { WorkflowOutline } from "workflows/outline.slint";
+import { WorkflowInspector } from "workflows/inspector.slint";
+
+export { Workflows, WfNode, WfEdge, WfModule, WfField, WfLink, WfProblem, WfRun }
+
+export component WorkflowsPage inherits VerticalLayout {
+    PageToolbar {
+        ToolButton {
+            icon: @image-url("../icons/plus.svg");
+            text: "New workflow";
+            filled: true;
+            clicked => {
+                Workflows.create();
+            }
+        }
+
+        if Workflows.names.length > 0: Select {
+            width: 260px;
+            label: "Workflow";
+            model: Workflows.names;
+            index: Workflows.current;
+            picked(index) => {
+                Workflows.pick(index);
+            }
+        }
+
+        if Workflows.open: Segmented {
+            width: 190px;
+            items: [{ id: "canvas", label: "Canvas" }, { id: "outline", label: "Outline" }];
+            current: Workflows.view-mode;
+            picked(id) => {
+                Workflows.view-mode = id;
+            }
+        }
+
+        Rectangle {
+            horizontal-stretch: 1;
+        }
+
+        if Workflows.open && Workflows.view-mode == "canvas": HorizontalLayout {
+            spacing: Theme.space-1;
+            Button {
+                text: "-";
+                kind: "ghost";
+                clicked => {
+                    Workflows.zoom-step(-1);
+                }
+            }
+            Button {
+                text: Workflows.zoom-text;
+                kind: "ghost";
+                clicked => {
+                    Workflows.zoom-reset();
+                }
+            }
+            Button {
+                text: "+";
+                kind: "ghost";
+                clicked => {
+                    Workflows.zoom-step(1);
+                }
+            }
+        }
+
+        if Workflows.open: Button {
+            text: "Run";
+            kind: "primary";
+            enabled: Workflows.run-reason == "";
+            reason: Workflows.run-reason;
+            clicked => {
+                Workflows.run();
+            }
+        }
+    }
+
+    // Always there while a workflow is open, so the page does not jump when the reason goes.
+    if Workflows.open: HorizontalLayout {
+        // A fixed height: an empty reason must not move the page.
+        height: 24px;
+        padding-left: Theme.space-6;
+        padding-right: Theme.space-6;
+        padding-bottom: Theme.space-2;
+        alignment: end;
+        Reason {
+            text: Workflows.run-reason;
+        }
+    }
+
+    if Workflows.error != "": HorizontalLayout {
+        padding-left: Theme.space-6;
+        padding-right: Theme.space-6;
+        padding-bottom: Theme.space-2;
+        Notice {
+            kind: "danger";
+            text: Workflows.error;
+        }
+    }
+
+    if !Workflows.open: VerticalLayout {
+        vertical-stretch: 1;
+        alignment: center;
+        padding: Theme.space-6;
+        EmptyState {
+            icon: @image-url("../icons/workflow.svg");
+            title: "No workflow yet";
+            body: "A workflow connects your hosts and devices to the steps that set them up: hardening, installs, deploys and checks. Create one with New workflow, then add nodes from the list on the left.";
+        }
+    }
+
+    if Workflows.open: HorizontalLayout {
+        vertical-stretch: 1;
+        ModulePalette { }
+        if Workflows.view-mode == "canvas": WorkflowCanvas {
+            horizontal-stretch: 1;
+        }
+        if Workflows.view-mode == "outline": WorkflowOutline {
+            horizontal-stretch: 1;
+        }
+        WorkflowInspector { }
+    }
+}

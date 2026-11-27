@@ -5,6 +5,7 @@
 //! transaction (docs/DATABASE.md §5).
 
 mod devices;
+mod graphs;
 mod hosts;
 mod keychain;
 mod recipes;
@@ -12,6 +13,7 @@ mod workflows;
 mod workspaces;
 
 pub use devices::DeviceRouteRecord;
+pub use graphs::{WorkflowRecord, WorkflowSave, MAX_WORKFLOW_NAME_LEN};
 pub use hosts::{
     HostRecord, HostUpsert, Protocol, RdpEndpoint, SshAuth, SshEndpoint, VpnEndpoint,
     MAX_GROUP_LEN, MAX_SNIPPET_LEN, MAX_TAGS, MAX_TAG_LEN, MAX_VPN_ENDPOINTS,
@@ -30,6 +32,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("../migrations/0003_workflows.sql"),
     include_str!("../migrations/0004_recipes.sql"),
     include_str!("../migrations/0005_credentials.sql"),
+    include_str!("../migrations/0006_workflow_graphs.sql"),
 ];
 
 #[derive(Debug, thiserror::Error)]
@@ -110,9 +113,9 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("svk-test-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("t.db");
-        assert_eq!(Db::open(&path).unwrap().schema_version().unwrap(), 5);
+        assert_eq!(Db::open(&path).unwrap().schema_version().unwrap(), 6);
         // Re-opening must not re-run migrations.
-        assert_eq!(Db::open(&path).unwrap().schema_version().unwrap(), 5);
+        assert_eq!(Db::open(&path).unwrap().schema_version().unwrap(), 6);
         let _ = std::fs::remove_dir_all(dir);
     }
 
@@ -145,7 +148,7 @@ mod tests {
         .unwrap();
 
         let db = Db::init(conn).unwrap();
-        assert_eq!(db.schema_version().unwrap(), 5);
+        assert_eq!(db.schema_version().unwrap(), MIGRATIONS.len() as u32);
         let host = db.get_host("h1").unwrap();
         assert_eq!(host.protocol, Protocol::Ssh);
         assert_eq!(host.trust_state, "trusted");

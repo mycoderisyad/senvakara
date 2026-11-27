@@ -135,16 +135,18 @@ pub(crate) fn recipe_delete(app: &App, id: String) -> CmdResult<()> {
         .map_err(|e| db_err("delete recipe", e))
 }
 
-struct Ctx {
-    app: Arc<App>,
-    run_id: String,
-    sink: Sink<FlowEvent>,
-    cancel: Arc<AtomicBool>,
-    server: AdbServer,
-    t: u64,
-    route_id: String,
-    serial: String,
-    device_name: String,
+/// What a recipe step needs to run on one device route; workflows build one
+/// per Android node (`wfrun`).
+pub(crate) struct Ctx {
+    pub(crate) app: Arc<App>,
+    pub(crate) run_id: String,
+    pub(crate) sink: Sink<FlowEvent>,
+    pub(crate) cancel: Arc<AtomicBool>,
+    pub(crate) server: AdbServer,
+    pub(crate) t: u64,
+    pub(crate) route_id: String,
+    pub(crate) serial: String,
+    pub(crate) device_name: String,
 }
 
 impl Ctx {
@@ -287,7 +289,7 @@ async fn execute(ctx: &Ctx, recipe: &RecipeRecord) -> Result<String, CoreError> 
     ))
 }
 
-async fn run_step(ctx: &Ctx, s: &RecipeStep) -> Result<String, CoreError> {
+pub(crate) async fn run_step(ctx: &Ctx, s: &RecipeStep) -> Result<String, CoreError> {
     match s.kind.as_str() {
         "install_apk" => {
             let path = PathBuf::from(str_param(s, "path")?);

@@ -239,7 +239,7 @@ impl App {
         self.files_inventory_changed();
         self.launcher_refresh();
         self.workspaces_inventory_changed();
-        self.automations_inventory_changed();
+        self.workflows_inventory_changed();
     }
 
     /// Redraw one host card after its health changed. A full `rebuild` here

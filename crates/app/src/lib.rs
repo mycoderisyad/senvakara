@@ -38,6 +38,8 @@ pub mod shells;
 pub mod sink;
 pub mod state;
 pub mod terminal;
+pub mod wfrun;
+pub mod workflows;
 pub mod workspaces;
 
 pub use android::{AdbStatus, DeviceInfo, DeviceView, ShellResult, WatchStatus};
@@ -54,6 +56,8 @@ pub use shells::LocalShell;
 pub use sink::Sink;
 pub use state::{ActivePath, AppState, CmdResult};
 pub use terminal::ShellRequest;
+pub use wfrun::WorkflowRunRequest;
+pub use workflows::{catalog, workflow_problems, WorkflowView};
 
 // Types of the lower layers that appear in this crate's API.
 pub use senvakara_adapters_adb::sync::SyncEntry;
@@ -61,7 +65,7 @@ pub use senvakara_adapters_adb::wireless::MdnsService;
 pub use senvakara_adapters_scrcpy::control::Input;
 pub use senvakara_adapters_ssh::keys::is_encrypted_private_key;
 pub use senvakara_adapters_ssh::sftp::{Listing, RemoteEntry};
-pub use senvakara_adapters_ssh::SshConnection;
+pub use senvakara_adapters_ssh::{Secret, SshConnection};
 pub use senvakara_core::{CoreError, ErrorCode};
 pub use senvakara_metrics::Metrics;
 pub use senvakara_storage::{
@@ -69,6 +73,9 @@ pub use senvakara_storage::{
     RecipeSave, RecipeStep, RunRecord, SshAuth, StepRecord, VpnEndpoint, WorkspaceRecord,
     WorkspaceSave,
 };
+/// The workflow graph model, for front ends that edit graphs.
+pub use senvakara_workflow as workflow;
+pub use senvakara_workflow::{Catalog, Problem as WorkflowProblem, Workflow};
 
 use anyhow::Context;
 use std::future::Future;
@@ -124,6 +131,7 @@ impl App {
             desktops: Default::default(),
             flows: Default::default(),
         });
+        workflows::convert_recipes(&app);
         android::start_local(&app);
         monitor::spawn_heartbeat(&app);
         // Whatever opens a host (a terminal, Files, a desktop), its phones are
@@ -623,6 +631,39 @@ impl App {
     /// Stop the session's x11vnc. Safe to call twice.
     pub async fn desktop_close(self: &Arc<Self>, id: u32) -> CmdResult<()> {
         on_rt!(self, desktop::desktop_close(id))
+    }
+}
+
+// --------------------------------------------------------------- workflows
+impl App {
+    /// Saved workflows of the Workflows canvas, by name.
+    pub fn workflows_list(&self) -> CmdResult<Vec<WorkflowView>> {
+        workflows::workflows_list(self)
+    }
+
+    /// Create (`id` = `None`) or replace a workflow. Drafts with problems
+    /// are saved as drawn; [`workflow_problems`] lists what blocks a run.
+    pub fn workflow_save(
+        &self,
+        id: Option<String>,
+        name: String,
+        graph: &Workflow,
+    ) -> CmdResult<WorkflowView> {
+        workflows::workflow_save(self, id, name, graph)
+    }
+
+    pub fn workflow_delete(&self, id: &str) -> CmdResult<()> {
+        workflows::workflow_delete(self, id)
+    }
+
+    /// Run a saved workflow; returns the run id. Steps, log lines and the
+    /// final [`FlowEvent::Done`] go to `sink`; [`App::flow_cancel`] stops it.
+    pub async fn workflow_run(
+        self: &Arc<Self>,
+        request: WorkflowRunRequest,
+        sink: Sink<FlowEvent>,
+    ) -> CmdResult<String> {
+        on_rt!(self, wfrun::workflow_run(request, sink))
     }
 }
 

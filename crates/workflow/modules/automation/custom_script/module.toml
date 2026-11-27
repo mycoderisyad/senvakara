@@ -1,0 +1,16 @@
+id = "automation.custom_script"
+name = "Custom script"
+category = "automation"
+summary = "Your own bash: an optional read-only check and the apply script, shown and stored with the workflow."
+version = 1
+executor = "ssh_script"
+user_scripts = true
+needs = ["shell"]
+root_switch = "as_root"
+timeout_secs = 1800
+
+[[params]]
+name = "as_root"
+label = "Run as root (sudo)"
+kind = "bool"
+default = false

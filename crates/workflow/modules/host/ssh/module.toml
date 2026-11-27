@@ -1,0 +1,7 @@
+id = "host.ssh"
+name = "SSH host"
+category = "host"
+summary = "A Linux host registered in Hosts, reached over SSH with its pinned host key."
+version = 1
+executor = "anchor"
+binds = "host"

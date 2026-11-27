@@ -1,5 +1,4 @@
-//! A run tab: one Flutter build-and-deploy or one recipe run, followed step by step with its
-//! log. The run lives in the backend; this pane collects its events on any thread and applies
+//! A run tab: one workflow run, followed step by step with its log. The run lives in the backend; this pane collects its events on any thread and applies
 //! them on the UI thread, so it keeps going while another tab is on screen.
 
 use std::cell::{Cell, RefCell};
@@ -7,19 +6,22 @@ use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
-use senvakara_app::{FlowEvent, FlowSpec, Sink};
+use senvakara_app::{FlowEvent, Sink, WorkflowRunRequest};
 use slint::{ComponentHandle, Model, SharedString, VecModel};
 
-use crate::automation::friendly_raw;
 use crate::{App, Run, RunStep};
+
+mod words;
+
+pub use words::{friendly_raw, run_state, when_text};
 
 /// The log keeps this many lines; older ones are dropped.
 pub const LOG_LIMIT: usize = 2000;
 
 /// What to start.
 pub enum Job {
-    Deploy(FlowSpec),
-    Recipe { recipe_id: String, serial: String },
+    /// A saved workflow, with the sudo password and phone serials the user confirmed.
+    Workflow(WorkflowRunRequest),
 }
 
 enum Signal {
@@ -160,10 +162,7 @@ impl RunPane {
             let (backend, shared) = (backend.clone(), shared.clone());
             async move {
                 let started = match job {
-                    Job::Deploy(spec) => backend.flow_start(spec, sink).await,
-                    Job::Recipe { recipe_id, serial } => {
-                        backend.recipe_run(recipe_id, serial, sink).await
-                    }
+                    Job::Workflow(request) => backend.workflow_run(request, sink).await,
                 };
                 shared.push(match started {
                     Ok(run_id) => {

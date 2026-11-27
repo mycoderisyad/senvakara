@@ -1,0 +1,7 @@
+id = "android.device"
+name = "Android device"
+category = "android"
+summary = "An Android device through one concrete route (USB or Wi-Fi, on this PC or behind a host)."
+version = 1
+executor = "anchor"
+binds = "device"

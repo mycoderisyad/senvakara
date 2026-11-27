@@ -1,0 +1,15 @@
+id = "automation.wait"
+name = "Wait"
+category = "automation"
+summary = "Pauses this branch of the workflow for a number of seconds."
+version = 1
+executor = "builtin"
+timeout_secs = 310
+
+[[params]]
+name = "seconds"
+label = "Seconds"
+kind = "int"
+min = 1
+max = 300
+default = 5

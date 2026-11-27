@@ -6,7 +6,6 @@
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-mod automation;
 mod confirm;
 mod desktop;
 mod device;
@@ -30,6 +29,7 @@ mod state;
 mod tabs;
 mod term;
 mod wireless;
+mod workflows;
 mod workspace;
 
 use std::cell::{Cell, RefCell};
@@ -74,7 +74,7 @@ fn main() -> anyhow::Result<()> {
         jobs: jobs::State::default(),
         wifi: wireless::State::default(),
         ws: workspace::State::default(),
-        auto: automation::State::default(),
+        wf: workflows::State::default(),
         settings: settings::State::default(),
         palette: palette::State::default(),
         launcher: launcher::State::default(),
@@ -106,7 +106,7 @@ fn main() -> anyhow::Result<()> {
     app.init_file_drops(&ui);
     app.init_files(&ui);
     app.init_workspaces(&ui);
-    app.init_automations(&ui);
+    app.init_workflows(&ui);
     app.init_run(&ui);
     app.init_settings(&ui);
     app.init_palette(&ui);

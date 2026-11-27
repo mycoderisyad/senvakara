@@ -102,7 +102,7 @@ const SECTIONS: [(&str, &str); 6] = [
     ("devices", "Devices"),
     ("keychain", "Keychain"),
     ("workspaces", "Workspaces"),
-    ("automations", "Automations"),
+    ("workflows", "Workflows"),
     ("settings", "Settings"),
 ];
 

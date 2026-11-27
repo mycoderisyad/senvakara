@@ -1,0 +1,279 @@
+// The workflow canvas (ADR-028). Every position and size arrives in screen pixels from Rust,
+// already multiplied by the zoom, because the software renderer cannot scale elements. Drag a
+// card to move it; drag from the handle on its right edge onto another card to connect them.
+
+import { Theme } from "../../theme.slint";
+import { Icon } from "../../components/controls.slint";
+import { Workflows, WfNode } from "model.slint";
+
+component NodeCard inherits Rectangle {
+    in property <WfNode> node;
+    in property <float> zoom;
+    private property <color> ink: node.tone == "live" ? Theme.success : node.tone == "attention" ? Theme.warning : node.tone == "busy" ? Theme.info : Theme.text-faint;
+    private property <length> handle: max(14px, 16px * zoom);
+    // Pressed: the canvas takes keyboard focus so Delete and the arrows reach it.
+    callback grabbed();
+
+    x: node.x;
+    y: node.y;
+    width: node.w;
+    height: node.h;
+    border-radius: Theme.radius * zoom;
+    background: body.has-hover && !node.selected ? Theme.surface-hover : Theme.surface;
+    border-width: node.selected ? 2px : 1px;
+    border-color: node.selected ? Theme.accent : Theme.hairline-strong;
+
+    accessible-role: list-item;
+    accessible-label: node.title + ", " + node.kind + ", " + node.state-text;
+    accessible-item-selectable: true;
+    accessible-item-selected: node.selected;
+    accessible-action-default => {
+        Workflows.select-node(node.id);
+    }
+
+    body := TouchArea {
+        mouse-cursor: self.pressed ? MouseCursor.grabbing : MouseCursor.default;
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                root.grabbed();
+                Workflows.node-pressed(node.id);
+            } else if event.kind == PointerEventKind.up && event.button == PointerEventButton.left {
+                Workflows.node-released(node.id);
+            }
+        }
+        moved => {
+            if self.pressed {
+                // The card follows each step, so the offset from the press point is the step.
+                Workflows.node-dragged(node.id, self.mouse-x - self.pressed-x, self.mouse-y - self.pressed-y);
+            }
+        }
+    }
+
+    // Icon tile: hosts and devices carry their host's hue, actions a neutral tile.
+    Rectangle {
+        x: 12px * zoom;
+        y: 12px * zoom;
+        width: 28px * zoom;
+        height: 28px * zoom;
+        border-radius: Theme.radius-small * zoom;
+        background: node.anchor ? Theme.host-hue(node.hue) : Theme.surface-selected;
+        Icon {
+            width: 16px * zoom;
+            height: 16px * zoom;
+            source: node.icon == "host" ? @image-url("../../icons/server.svg") : node.icon == "pc" ? @image-url("../../icons/windows.svg") : node.icon == "device" ? @image-url("../../icons/phone.svg") : node.icon == "script" ? @image-url("../../icons/terminal.svg") : @image-url("../../icons/workflow.svg");
+            tint: node.anchor ? Theme.tile-ink : Theme.text;
+        }
+    }
+
+    Text {
+        x: 50px * zoom;
+        y: 10px * zoom;
+        width: parent.width - 62px * zoom;
+        text: node.title;
+        color: Theme.text;
+        font-size: Theme.text-body * zoom;
+        font-weight: Theme.weight-strong;
+        overflow: elide;
+    }
+
+    // Less detail when zoomed out: only the title and the state stay.
+    if zoom >= 0.67: Text {
+        x: 50px * zoom;
+        y: 30px * zoom;
+        width: parent.width - 62px * zoom;
+        text: node.detail == "" ? node.kind : node.kind + " · " + node.detail;
+        color: Theme.text-muted;
+        font-size: Theme.text-small * zoom;
+        overflow: elide;
+    }
+
+    // State: a shape plus a word (DESIGN.md §8), scaled with the card.
+    Rectangle {
+        x: 14px * zoom;
+        y: 61px * zoom;
+        width: 8px * zoom;
+        height: 8px * zoom;
+        border-radius: node.tone == "attention" ? 1px : 4px * zoom;
+        border-width: node.tone == "idle" || node.tone == "busy" ? 1.5px : 0px;
+        border-color: root.ink;
+        background: node.tone == "live" || node.tone == "attention" ? root.ink : node.tone == "busy" ? root.ink.with-alpha(0.45) : transparent;
+    }
+
+    Text {
+        x: 28px * zoom;
+        y: 56px * zoom;
+        width: parent.width - 40px * zoom;
+        text: node.custom ? node.state-text + " · Custom script" : node.state-text;
+        color: node.tone == "idle" ? Theme.text-muted : root.ink;
+        font-size: Theme.text-small * zoom;
+        overflow: elide;
+    }
+
+    // Where connections arrive.
+    Rectangle {
+        x: -4px * zoom;
+        y: parent.height / 2 - 4px * zoom;
+        width: 8px * zoom;
+        height: 8px * zoom;
+        border-radius: 4px * zoom;
+        background: Theme.hairline-strong;
+    }
+
+    // Drag from here onto another card to connect.
+    link := TouchArea {
+        x: parent.width - root.handle / 2;
+        y: parent.height / 2 - root.handle / 2;
+        width: root.handle;
+        height: root.handle;
+        mouse-cursor: MouseCursor.crosshair;
+        moved => {
+            if self.pressed {
+                Workflows.link-dragged(node.id, root.x + self.x + self.mouse-x, root.y + self.y + self.mouse-y);
+            }
+        }
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.up && event.button == PointerEventButton.left {
+                Workflows.link-released(node.id, root.x + self.x + self.mouse-x, root.y + self.y + self.mouse-y);
+            }
+        }
+
+        Rectangle {
+            width: parent.width * 0.7;
+            height: self.width;
+            border-radius: self.width / 2;
+            background: link.has-hover || link.pressed ? Theme.accent : Theme.surface-selected;
+            border-width: 1px;
+            border-color: link.has-hover || link.pressed ? Theme.accent : Theme.hairline-strong;
+        }
+    }
+}
+
+export component WorkflowCanvas inherits Rectangle {
+    background: Theme.shell;
+    clip: true;
+
+    changed width => {
+        Workflows.canvas-resized(self.width, self.height);
+    }
+    changed height => {
+        Workflows.canvas-resized(self.width, self.height);
+    }
+    init => {
+        Workflows.canvas-resized(self.width, self.height);
+    }
+
+    keys := FocusScope {
+        key-pressed(event) => {
+            if event.text == Key.Delete || event.text == Key.Backspace {
+                Workflows.delete-selected();
+                return accept;
+            }
+            if event.text == Key.LeftArrow {
+                Workflows.key-move(-1, 0);
+                return accept;
+            }
+            if event.text == Key.RightArrow {
+                Workflows.key-move(1, 0);
+                return accept;
+            }
+            if event.text == Key.UpArrow {
+                Workflows.key-move(0, -1);
+                return accept;
+            }
+            if event.text == Key.DownArrow {
+                Workflows.key-move(0, 1);
+                return accept;
+            }
+            reject
+        }
+    }
+
+    // Empty canvas: click clears the selection, drag pans, the wheel pans or (with Ctrl) zooms.
+    TouchArea {
+        mouse-cursor: self.pressed ? MouseCursor.grabbing : MouseCursor.default;
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.down {
+                keys.focus();
+                Workflows.canvas-pressed();
+            }
+        }
+        moved => {
+            if self.pressed {
+                Workflows.canvas-panned(self.mouse-x - self.pressed-x, self.mouse-y - self.pressed-y);
+            }
+        }
+        scroll-event(event) => {
+            Workflows.canvas-wheel(event.delta-x, event.delta-y, self.mouse-x, self.mouse-y, event.modifiers.control);
+            accept
+        }
+    }
+
+    Path {
+        x: 0;
+        y: 0;
+        width: 100%;
+        height: 100%;
+        viewbox-x: 0;
+        viewbox-y: 0;
+        viewbox-width: max(self.width / 1px, 1);
+        viewbox-height: max(self.height / 1px, 1);
+        commands: Workflows.grid;
+        stroke: Theme.ground;
+        stroke-width: 1px;
+    }
+
+    for edge in Workflows.edges: Rectangle {
+        x: edge.x;
+        y: edge.y;
+        width: edge.w;
+        height: edge.h;
+
+        // "Runs on" links are dashed so they read as placement, not order.
+        if edge.kind == "target": Path {
+            width: 100%;
+            height: 100%;
+            viewbox-x: 0;
+            viewbox-y: 0;
+            viewbox-width: max(edge.w / 1px, 1);
+            viewbox-height: max(edge.h / 1px, 1);
+            commands: edge.commands;
+            stroke: Theme.hairline-strong;
+            stroke-width: 1.5px;
+            stroke-dash-array: [6px, 4px];
+        }
+
+        if edge.kind != "target": Path {
+            width: 100%;
+            height: 100%;
+            viewbox-x: 0;
+            viewbox-y: 0;
+            viewbox-width: max(edge.w / 1px, 1);
+            viewbox-height: max(edge.h / 1px, 1);
+            commands: edge.commands;
+            stroke: edge.kind == "depends_on" ? Theme.info : Theme.text-faint;
+            stroke-width: 2px;
+        }
+    }
+
+    if Workflows.preview.commands != "": Path {
+        x: Workflows.preview.x;
+        y: Workflows.preview.y;
+        width: Workflows.preview.w;
+        height: Workflows.preview.h;
+        viewbox-x: 0;
+        viewbox-y: 0;
+        viewbox-width: max(Workflows.preview.w / 1px, 1);
+        viewbox-height: max(Workflows.preview.h / 1px, 1);
+        commands: Workflows.preview.commands;
+        stroke: Theme.accent;
+        stroke-width: 2px;
+    }
+
+    for node in Workflows.nodes: NodeCard {
+        node: node;
+        zoom: Workflows.zoom;
+        grabbed => {
+            keys.focus();
+        }
+    }
+}

@@ -1,0 +1,431 @@
+// The Workflows inspector: settings, machine, connections and script of the selected node, or
+// the workflow's own name, permissions and problems when no node is selected.
+
+import { ScrollView } from "std-widgets.slint";
+import { Theme } from "../../theme.slint";
+import { Icon, IconButton } from "../../components/controls.slint";
+import { Button, Card, CheckBox, GroupTitle, Hint, Labeled, Notice, Segmented, Select, StatusMark, TextArea, TextField } from "../../components/widgets.slint";
+import { Workflows, WfField, WfLink, WfProblem, WfRun } from "model.slint";
+
+component Section inherits Card {
+    in property <string> title;
+    gap: Theme.space-3;
+
+    GroupTitle {
+        text: root.title;
+    }
+
+    @children
+}
+
+component Field inherits VerticalLayout {
+    in property <WfField> field;
+    spacing: Theme.space-1;
+
+    if field.kind == "text": Labeled {
+        label: field.label;
+        HorizontalLayout {
+            spacing: Theme.space-2;
+            TextField {
+                horizontal-stretch: 1;
+                label: field.label;
+                text: field.value;
+                mono: true;
+                edited(text) => {
+                    Workflows.field-text(field.name, text);
+                }
+            }
+            if field.browse != "": Button {
+                text: "Browse...";
+                clicked => {
+                    Workflows.field-browse(field.name);
+                }
+            }
+        }
+    }
+
+    if field.kind == "multiline": Labeled {
+        label: field.label;
+        TextArea {
+            label: field.label;
+            text: field.value;
+            edited(text) => {
+                Workflows.field-text(field.name, text);
+            }
+        }
+    }
+
+    if field.kind == "bool": CheckBox {
+        text: field.label;
+        checked: field.checked;
+        toggled(on) => {
+            Workflows.field-checked(field.name, on);
+        }
+    }
+
+    if field.kind == "choice": Labeled {
+        label: field.label;
+        Select {
+            label: field.label;
+            model: field.options;
+            index: field.index;
+            picked(index) => {
+                Workflows.field-choice(field.name, index);
+            }
+        }
+    }
+
+    if field.kind == "secret": Hint {
+        text: field.label + ": secrets are stored in Credential Manager; this arrives with the first modules that need one.";
+    }
+
+    if field.help != "": Hint {
+        text: field.help;
+    }
+}
+
+component LinkRow inherits HorizontalLayout {
+    in property <WfLink> link;
+    spacing: Theme.space-2;
+
+    VerticalLayout {
+        horizontal-stretch: 1;
+        alignment: center;
+        spacing: Theme.space-1;
+        Text {
+            text: link.text;
+            color: Theme.text;
+            font-size: Theme.text-small;
+            wrap: word-wrap;
+        }
+        if link.orders: CheckBox {
+            text: "Uses its service";
+            checked: link.uses-service;
+            toggled(on) => {
+                Workflows.link-service(link.from, link.to, on);
+            }
+        }
+    }
+
+    VerticalLayout {
+        alignment: start;
+        IconButton {
+            icon: @image-url("../../icons/close.svg");
+            label: "Remove connection: " + link.text;
+            clicked => {
+                Workflows.link-remove(link.from, link.to);
+            }
+        }
+    }
+}
+
+component ProblemList inherits VerticalLayout {
+    in property <[WfProblem]> items;
+    spacing: Theme.space-2;
+
+    for p in items: Notice {
+        text: p.text;
+    }
+}
+
+export component WorkflowInspector inherits Rectangle {
+    private property <bool> node: Workflows.selected != "";
+
+    width: Theme.inspector-width;
+    background: Theme.ground;
+
+    Rectangle {
+        x: 0;
+        width: 1px;
+        background: Theme.hairline;
+    }
+
+    scroll := ScrollView {
+        VerticalLayout {
+            // The visible width, so a scrollbar never pushes cards past the panel's edge.
+            width: scroll.visible-width;
+            alignment: start;
+            padding: Theme.space-4;
+            padding-top: Theme.space-5;
+            spacing: Theme.space-4;
+
+            // ---- A node.
+            if root.node: HorizontalLayout {
+                spacing: Theme.space-3;
+
+                VerticalLayout {
+                    alignment: start;
+                    Rectangle {
+                        width: 40px;
+                        height: 40px;
+                        border-radius: Theme.radius + 2px;
+                        background: Workflows.sel.anchor ? Theme.host-hue(Workflows.sel.hue) : Theme.surface-selected;
+                        Icon {
+                            width: 20px;
+                            height: 20px;
+                            source: Workflows.sel.icon == "host" ? @image-url("../../icons/server.svg") : Workflows.sel.icon == "pc" ? @image-url("../../icons/windows.svg") : Workflows.sel.icon == "device" ? @image-url("../../icons/phone.svg") : Workflows.sel.icon == "script" ? @image-url("../../icons/terminal.svg") : @image-url("../../icons/workflow.svg");
+                            tint: Workflows.sel.anchor ? Theme.tile-ink : Theme.text;
+                        }
+                    }
+                }
+
+                VerticalLayout {
+                    horizontal-stretch: 1;
+                    alignment: center;
+                    spacing: 3px;
+                    Text {
+                        text: Workflows.sel.title;
+                        color: Theme.text;
+                        font-size: Theme.text-body + 2px;
+                        font-weight: Theme.weight-strong;
+                        overflow: elide;
+                    }
+                    Text {
+                        text: Workflows.sel.kind;
+                        color: Theme.text-muted;
+                        font-size: Theme.text-small;
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: start;
+                    IconButton {
+                        icon: @image-url("../../icons/close.svg");
+                        label: "Close details";
+                        clicked => {
+                            Workflows.select-node("");
+                        }
+                    }
+                }
+            }
+
+            if root.node: HorizontalLayout {
+                alignment: start;
+                StatusMark {
+                    alignment: start;
+                    tone: Workflows.sel.tone;
+                    text: Workflows.sel.state-text;
+                }
+            }
+
+            if root.node: Text {
+                text: Workflows.sel-summary;
+                color: Theme.text-muted;
+                font-size: Theme.text-small;
+                wrap: word-wrap;
+            }
+
+            if root.node && Workflows.sel-problems.length > 0: ProblemList {
+                items: Workflows.sel-problems;
+            }
+
+            if root.node: Section {
+                title: "Node";
+                Labeled {
+                    label: "Title";
+                    TextField {
+                        label: "Title";
+                        placeholder: Workflows.sel.title;
+                        text: Workflows.sel-title;
+                        edited(text) => {
+                            Workflows.set-title(text);
+                        }
+                    }
+                }
+                if Workflows.sel-picks-machine: Labeled {
+                    label: Workflows.machine-label;
+                    Select {
+                        label: Workflows.machine-label;
+                        model: Workflows.machines;
+                        index: Workflows.machine-index;
+                        picked(index) => {
+                            Workflows.pick-machine(index);
+                        }
+                    }
+                }
+            }
+
+            if root.node && Workflows.fields.length > 0: Section {
+                title: "Settings";
+                for f in Workflows.fields: Field {
+                    field: f;
+                }
+            }
+
+            if root.node: Section {
+                title: "Connections";
+                for l in Workflows.links: LinkRow {
+                    link: l;
+                }
+                // The keyboard way to connect (the canvas handle needs a pointer).
+                if Workflows.connect-options.length > 1: Labeled {
+                    label: "Connect to";
+                    Select {
+                        label: "Connect to";
+                        model: Workflows.connect-options;
+                        index: 0;
+                        picked(index) => {
+                            if index > 0 {
+                                Workflows.connect-to(index);
+                            }
+                        }
+                    }
+                }
+            }
+
+            if root.node && Workflows.scripts.length > 0: Section {
+                title: "Script";
+                if Workflows.scripts.length > 1: Segmented {
+                    items: [
+                        { id: "0", label: Workflows.scripts[0] },
+                        { id: "1", label: Workflows.scripts[1] },
+                    ];
+                    current: Workflows.script-index == 1 ? "1" : "0";
+                    picked(id) => {
+                        Workflows.pick-script(id == "1" ? 1 : 0);
+                    }
+                }
+                TextArea {
+                    height: 220px;
+                    label: Workflows.scripts[Workflows.script-index];
+                    text: Workflows.script-text;
+                    edited(text) => {
+                        Workflows.script-edited(text);
+                    }
+                }
+                Hint {
+                    text: "Runs with bash in strict mode after the settings are exported as SV_<NAME>. check.sh only looks: exit 0 when nothing needs doing.";
+                }
+                if Workflows.script-custom: Button {
+                    text: "Restore the bundled script";
+                    clicked => {
+                        Workflows.script-reset();
+                    }
+                }
+            }
+
+            if root.node: Button {
+                text: "Delete node";
+                kind: "danger";
+                clicked => {
+                    Workflows.delete-selected();
+                }
+            }
+
+            // ---- The workflow itself.
+            if !root.node: Section {
+                title: "Workflow";
+                Labeled {
+                    label: "Name";
+                    TextField {
+                        label: "Name";
+                        text: Workflows.name;
+                        edited(text) => {
+                            Workflows.rename(text);
+                        }
+                    }
+                }
+                Hint {
+                    text: Workflows.save-state;
+                }
+            }
+
+            if !root.node && Workflows.needs-sudo: Section {
+                title: "Run as root";
+                Labeled {
+                    label: "Sudo password for this run";
+                    TextField {
+                        label: "Sudo password for this run";
+                        secret: true;
+                        text <=> Workflows.sudo-text;
+                        edited(text) => {
+                            Workflows.sudo-edited(text);
+                        }
+                    }
+                }
+                Hint {
+                    text: "Kept in memory for the next run only and sent to sudo on each host; never saved or shown in the log.";
+                }
+            }
+
+            if !root.node: Section {
+                title: "Allowed to";
+                CheckBox {
+                    text: "Run as root (sudo)";
+                    checked: Workflows.allow-root;
+                    toggled(on) => {
+                        Workflows.set-permission("root", on);
+                    }
+                }
+                CheckBox {
+                    text: "Run shell commands";
+                    checked: Workflows.allow-shell;
+                    toggled(on) => {
+                        Workflows.set-permission("shell", on);
+                    }
+                }
+                CheckBox {
+                    text: "Install or uninstall";
+                    checked: Workflows.allow-install;
+                    toggled(on) => {
+                        Workflows.set-permission("install", on);
+                    }
+                }
+                CheckBox {
+                    text: "Change network and SSH settings";
+                    checked: Workflows.allow-network;
+                    toggled(on) => {
+                        Workflows.set-permission("network", on);
+                    }
+                }
+            }
+
+            if !root.node: Section {
+                title: Workflows.empty ? "Getting started" : Workflows.problems.length == 0 ? "Ready" : "To fix before a run";
+                if Workflows.problems.length == 0: Text {
+                    text: Workflows.empty ? "Add a host or device from the list on the left, then the steps that run on it. Drag from the handle on a card's right edge onto another card to connect them." : "Every node is connected and set up.";
+                    color: Theme.text-muted;
+                    font-size: Theme.text-small;
+                    wrap: word-wrap;
+                }
+                ProblemList {
+                    items: Workflows.problems;
+                }
+            }
+
+            if !root.node && Workflows.runs.length > 0: Section {
+                title: "Recent runs";
+                for r in Workflows.runs: VerticalLayout {
+                    spacing: 2px;
+                    HorizontalLayout {
+                        spacing: Theme.space-2;
+                        Text {
+                            horizontal-stretch: 1;
+                            text: r.when;
+                            color: Theme.text;
+                            font-size: Theme.text-small;
+                        }
+                        StatusMark {
+                            tone: r.tone;
+                            text: r.state-text;
+                        }
+                    }
+                    if r.result != "": Text {
+                        text: r.result;
+                        color: Theme.text-muted;
+                        font-size: Theme.text-small;
+                        wrap: word-wrap;
+                    }
+                }
+            }
+
+            if !root.node: Button {
+                text: "Delete workflow";
+                kind: "danger";
+                clicked => {
+                    Workflows.remove();
+                }
+            }
+        }
+    }
+}

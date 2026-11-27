@@ -15,6 +15,7 @@ senvakara-adapters-ssh = { path = "../adapters-ssh" }
 senvakara-adapters-adb = { path = "../adapters-adb" }
 senvakara-adapters-scrcpy = { path = "../adapters-scrcpy" }
 senvakara-metrics = { path = "../metrics" }
+senvakara-workflow = { path = "../workflow" }
 # Pinned to 0.38: 0.39+ requires rustc 1.95 (toolchain here: 1.94).
 sysinfo = { version = "0.38", default-features = false, features = ["system", "disk", "network"] }
 tokio = { version = "1", features = ["rt", "sync", "time", "fs", "process", "io-util", "macros", "net"] }

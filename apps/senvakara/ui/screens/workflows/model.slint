@@ -1,0 +1,194 @@
+// The view model of the Workflows section (plan WF, ADR-028): the canvas rows, the module
+// palette and the inspector. Rust computes every screen position (the software renderer cannot
+// scale), wording and state; the views only draw and forward.
+
+export struct WfNode {
+    id: string,
+    title: string,
+    // Category word under the title: "Host", "Security", "Android", ...
+    kind: string,
+    // The machine an action runs on, or the machine an anchor stands for.
+    detail: string,
+    // "host" | "pc" | "device" | "action": which icon the card shows.
+    icon: string,
+    hue: int,
+    anchor: bool,
+    x: length,
+    y: length,
+    w: length,
+    h: length,
+    selected: bool,
+    // "live" | "idle" | "busy" | "attention", with its word.
+    tone: string,
+    state-text: string,
+    // The node runs a script the user edited.
+    custom: bool,
+}
+
+// One connection, drawn by a Path sized to its own box.
+export struct WfEdge {
+    x: length,
+    y: length,
+    w: length,
+    h: length,
+    commands: string,
+    // "target" | "after" | "depends_on"
+    kind: string,
+}
+
+// A palette row: a category heading or a module.
+export struct WfModule {
+    id: string,
+    name: string,
+    summary: string,
+    header: bool,
+}
+
+// One setting of the selected node, drawn by kind.
+export struct WfField {
+    name: string,
+    label: string,
+    // "text" | "multiline" | "bool" | "choice" | "secret"
+    kind: string,
+    value: string,
+    checked: bool,
+    options: [string],
+    index: int,
+    help: string,
+    // "file" | "folder": a path on this PC with a Browse button; "" otherwise.
+    browse: string,
+}
+
+// A connection of the selected node, worded from its side.
+export struct WfLink {
+    from: string,
+    to: string,
+    // "Runs on Fedora" | "Runs after Install Docker" | "Uses the service of Postgres"
+    text: string,
+    // Order links can switch between "runs after" and "uses the service of".
+    orders: bool,
+    uses-service: bool,
+}
+
+// One past run of the open workflow.
+export struct WfRun {
+    // "2026-11-27 14:05"
+    when: string,
+    tone: string,
+    state-text: string,
+    result: string,
+}
+
+export struct WfProblem {
+    // Node id, or "" for the whole workflow.
+    node: string,
+    text: string,
+}
+
+export global Workflows {
+    // Saved workflows for the picker, and the open one.
+    in property <[string]> names;
+    in property <int> current: -1;
+    in property <bool> open;
+    // The open workflow has no nodes yet.
+    in property <bool> empty;
+    // Name of the open workflow as stored.
+    in property <string> name;
+    // "Saved" | "Saving..." | "Not saved: ..." next to the name.
+    in property <string> save-state;
+    in property <string> error;
+
+    // Palette.
+    in property <[WfModule]> modules;
+    in property <string> query;
+
+    // "canvas" | "outline": how the nodes are shown.
+    in-out property <string> view-mode: "canvas";
+
+    // Canvas.
+    in property <[WfNode]> nodes;
+    in property <[WfEdge]> edges;
+    in property <string> grid;
+    // The connection being dragged; empty commands when none.
+    in property <WfEdge> preview;
+    in property <float> zoom: 1;
+    // "100 %"
+    in property <string> zoom-text;
+
+    // Inspector of the selected node ("" = the workflow itself).
+    in property <string> selected;
+    in property <WfNode> sel;
+    in property <string> sel-summary;
+    in property <string> sel-title;
+    // An anchor picks its machine; the first entry means none.
+    in property <bool> sel-picks-machine;
+    in property <[string]> machines;
+    in property <int> machine-index;
+    in property <string> machine-label;
+    in property <[WfField]> fields;
+    // Script files of the node ("apply.sh", "check.sh"), the one shown and its text.
+    in property <[string]> scripts;
+    in property <int> script-index;
+    in property <string> script-text;
+    // The shown script differs from the bundled one, and can be reset.
+    in property <bool> script-custom;
+    in property <[WfLink]> links;
+    // Other nodes the selected one can be connected to; the first entry means none.
+    in property <[string]> connect-options;
+    in property <[WfProblem]> sel-problems;
+
+    // The workflow itself.
+    in property <[WfProblem]> problems;
+    in property <bool> allow-root;
+    in property <bool> allow-shell;
+    in property <bool> allow-install;
+    in property <bool> allow-network;
+    // The latest runs of the open workflow, newest first.
+    in property <[WfRun]> runs;
+    // Why Run cannot be pressed ("" when it can).
+    in property <string> run-reason;
+    // Some steps run as root: the sudo password field is shown.
+    in property <bool> needs-sudo;
+    // What is typed in that field; cleared when a run starts.
+    in-out property <string> sudo-text;
+
+    callback pick(index: int);
+    callback create();
+    callback rename(name: string);
+    callback remove();
+    callback search(text: string);
+    callback add-module(id: string);
+
+    callback canvas-resized(width: length, height: length);
+    callback canvas-pressed();
+    callback canvas-panned(dx: length, dy: length);
+    // Returns whether the wheel was used (Ctrl zooms, otherwise it pans).
+    callback canvas-wheel(dx: length, dy: length, x: length, y: length, zoom: bool);
+    callback zoom-step(by: int);
+    callback zoom-reset();
+    callback node-pressed(id: string);
+    callback node-dragged(id: string, dx: length, dy: length);
+    callback node-released(id: string);
+    // A connection is dragged from a node's handle; positions are canvas pixels.
+    callback link-dragged(from: string, x: length, y: length);
+    callback link-released(from: string, x: length, y: length);
+    callback key-move(dx: int, dy: int);
+    callback delete-selected();
+    callback select-node(id: string);
+
+    callback set-title(text: string);
+    callback pick-machine(index: int);
+    callback field-text(name: string, text: string);
+    callback field-checked(name: string, on: bool);
+    callback field-choice(name: string, index: int);
+    callback field-browse(name: string);
+    callback pick-script(index: int);
+    callback script-edited(text: string);
+    callback script-reset();
+    callback link-remove(from: string, to: string);
+    callback connect-to(index: int);
+    callback link-service(from: string, to: string, on: bool);
+    callback set-permission(which: string, on: bool);
+    callback run();
+    callback sudo-edited(text: string);
+}
