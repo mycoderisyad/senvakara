@@ -9,7 +9,17 @@ const DEFAULT_TIMEOUT_SECS: u32 = 600;
 const MAX_TIMEOUT_SECS: u32 = 3 * 60 * 60;
 
 /// Script files a module may carry, in the order a run uses them.
-pub const SCRIPT_FILES: [&str; 4] = ["check.sh", "apply.sh", "health.sh", "remove.sh"];
+/// `rollback.sh` belongs to guarded modules: the host runs it by itself when
+/// Senvakara cannot sign in again after the change (see [`Guard`]).
+pub const SCRIPT_FILES: [&str; 5] = [
+    "check.sh",
+    "apply.sh",
+    "health.sh",
+    "remove.sh",
+    "rollback.sh",
+];
+/// Allowed range of [`Guard::rollback_secs`].
+pub const GUARD_SECS: std::ops::RangeInclusive<u32> = 60..=900;
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -45,6 +55,29 @@ pub struct Manifest {
     /// Vendor documentation the steps follow.
     #[serde(default)]
     pub docs_url: Option<String>,
+    /// Set for changes that can lock the user out (SSH, firewall).
+    #[serde(default)]
+    pub guard: Option<Guard>,
+}
+
+/// Anti-lockout for a change to SSH or the firewall (plan WF §4): before
+/// `apply.sh` the host schedules `rollback.sh`; Senvakara cancels it only
+/// after it signed in again on a new connection. If it cannot, the host
+/// undoes the change by itself.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Guard {
+    /// Seconds after which the host rolls back.
+    #[serde(default = "default_rollback_secs")]
+    pub rollback_secs: u32,
+    /// A `port` parameter holding the SSH port after the change; the new
+    /// connection uses it, and Hosts follows once it worked.
+    #[serde(default)]
+    pub port_param: Option<String>,
+}
+
+fn default_rollback_secs() -> u32 {
+    180
 }
 
 fn default_timeout() -> u32 {
@@ -207,6 +240,11 @@ pub enum ParamKind {
     Hostname,
     /// A value kept in Credential Manager; the graph holds its reference.
     Secret,
+    /// One OpenSSH public key line (`ssh-ed25519 AAAA... comment`).
+    SshPublicKey,
+    /// Ports to open, such as `80/tcp, 443/tcp, 51820/udp`; a bare number
+    /// means both protocols.
+    PortList,
 }
 
 /// A manifest with the files that ship next to it.
@@ -263,7 +301,10 @@ pub(crate) fn check_manifest(m: &Manifest, files: &BTreeMap<String, String>) -> 
     }
     let mut seen = std::collections::BTreeSet::new();
     for p in &m.params {
-        if !valid_ident(&p.name) || !seen.insert(p.name.as_str()) {
+        let reserved = crate::session::RESERVED_PREFIXES
+            .iter()
+            .any(|r| p.name.starts_with(r));
+        if !valid_ident(&p.name) || reserved || !seen.insert(p.name.as_str()) {
             return Err(format!(
                 "module {}: bad or repeated parameter `{}`",
                 m.id, p.name
@@ -293,6 +334,14 @@ pub(crate) fn check_manifest(m: &Manifest, files: &BTreeMap<String, String>) -> 
             return Err(format!("module {}: unexpected script {name}", m.id));
         }
     }
+    if let Some(guard) = &m.guard {
+        check_guard(m, guard, files)?;
+    } else if files.contains_key("rollback.sh") {
+        return Err(format!(
+            "module {}: rollback.sh needs a [guard] section",
+            m.id
+        ));
+    }
     let has_apply = files.contains_key("apply.sh");
     match m.executor {
         Executor::SshScript if !m.user_scripts && !has_apply => Err(format!(
@@ -308,6 +357,47 @@ pub(crate) fn check_manifest(m: &Manifest, files: &BTreeMap<String, String>) -> 
     }
 }
 
+fn check_guard(
+    m: &Manifest,
+    guard: &Guard,
+    files: &BTreeMap<String, String>,
+) -> Result<(), String> {
+    if m.executor != Executor::SshScript || m.user_scripts {
+        return Err(format!(
+            "module {}: only bundled ssh_script modules are guarded",
+            m.id
+        ));
+    }
+    if !files.contains_key("rollback.sh") || !files.contains_key("check.sh") {
+        return Err(format!(
+            "module {}: a guarded module needs check.sh and rollback.sh",
+            m.id
+        ));
+    }
+    if !m.needs.contains(&Permission::Root) || !m.needs.contains(&Permission::Network) {
+        return Err(format!(
+            "module {}: a guarded module needs root and network",
+            m.id
+        ));
+    }
+    if !GUARD_SECS.contains(&guard.rollback_secs) {
+        return Err(format!("module {}: rollback_secs out of range", m.id));
+    }
+    if let Some(port) = &guard.port_param {
+        let is_port = m
+            .params
+            .iter()
+            .any(|p| &p.name == port && p.kind == ParamKind::Port);
+        if !is_port {
+            return Err(format!(
+                "module {}: port_param must name a port parameter",
+                m.id
+            ));
+        }
+    }
+    Ok(())
+}
+
 /// `debian>=12` → (`debian`, 12.0). Versions compare as numbers, so
 /// `ubuntu>=22.04` matches 22.04 and 24.04.
 pub fn parse_os(entry: &str) -> Option<(&str, f64)> {
@@ -321,7 +411,38 @@ pub fn parse_os(entry: &str) -> Option<(&str, f64)> {
     ok.then_some((id, version))
 }
 
+/// `ID` and `VERSION_ID` from the text of `/etc/os-release`, quotes
+/// removed; `None` when either is missing.
+pub fn parse_os_release(text: &str) -> Option<(String, String)> {
+    let value = |key: &str| {
+        text.lines().find_map(|line| {
+            let rest = line.trim().strip_prefix(key)?.strip_prefix('=')?;
+            let v = rest.trim().trim_matches(|c| c == '"' || c == '\'');
+            (!v.is_empty()).then(|| v.to_string())
+        })
+    };
+    Some((value("ID")?, value("VERSION_ID")?))
+}
+
 impl Manifest {
+    /// The systems this module runs on, for a message: `Debian 12+, Ubuntu
+    /// 22.04+`.
+    pub fn os_text(&self) -> String {
+        self.os
+            .iter()
+            .filter_map(|e| e.split_once(">="))
+            .map(|(id, version)| {
+                let mut chars = id.trim().chars();
+                let name: String = chars
+                    .next()
+                    .map(|first| first.to_ascii_uppercase().to_string() + chars.as_str())
+                    .unwrap_or_default();
+                format!("{name} {}+", version.trim())
+            })
+            .collect::<Vec<_>>()
+            .join(", ")
+    }
+
     /// Whether a host with this `/etc/os-release` `ID` and `VERSION_ID` may
     /// run the module.
     pub fn supports_os(&self, id: &str, version_id: &str) -> bool {

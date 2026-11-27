@@ -424,6 +424,29 @@ impl Db {
         self.get_host(id)
     }
 
+    /// Move a host's SSH endpoints from port `from` to `to` after its sshd
+    /// moved (Workflows SSH hardening, after a proven sign-in on `to`). VPN
+    /// addresses on the old port reach the same sshd and move too; the
+    /// pinned host key stays, since the machine is the same. Returns how many
+    /// endpoints changed.
+    pub fn move_ssh_port(&self, id: &str, from: u16, to: u16) -> Result<usize> {
+        if from == 0 || to == 0 {
+            return Err(StorageError::Invalid("a port is 1 to 65535".into()));
+        }
+        let n = self.conn.execute(
+            "UPDATE host_endpoints SET port=?3 \
+             WHERE host_id=?1 AND transport IN ('ssh','vpn') AND port=?2",
+            params![id, from, to],
+        )?;
+        if n > 0 {
+            self.conn.execute(
+                "UPDATE hosts SET updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?1",
+                [id],
+            )?;
+        }
+        Ok(n)
+    }
+
     fn ssh_endpoint_id(&self, id: &str) -> Result<String> {
         self.get_host(id)?
             .ssh

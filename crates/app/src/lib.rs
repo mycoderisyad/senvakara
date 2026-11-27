@@ -32,6 +32,7 @@ pub mod logging;
 pub mod mirror;
 pub mod monitor;
 pub mod paths;
+pub mod posture;
 pub mod rdp;
 pub mod recipes;
 pub mod shells;
@@ -52,6 +53,7 @@ pub use instance::{single_instance, InstanceError, InstanceGuard};
 pub use keychain::{KeyCreate, KeyImport, KeyUpdate, KeyView};
 pub use mirror::MirrorStarted;
 pub use paths::AppPaths;
+pub use posture::PostureView;
 pub use shells::LocalShell;
 pub use sink::Sink;
 pub use state::{ActivePath, AppState, CmdResult};
@@ -664,6 +666,17 @@ impl App {
         sink: Sink<FlowEvent>,
     ) -> CmdResult<String> {
         on_rt!(self, wfrun::workflow_run(request, sink))
+    }
+
+    /// The last security posture of every host that has one (plan WF §5).
+    pub fn host_postures(&self) -> CmdResult<Vec<PostureView>> {
+        posture::host_postures(self)
+    }
+
+    /// Runs the read-only security check on a host now (connecting when
+    /// needed) and caches it. Only on a user's action, never polled.
+    pub async fn host_posture_check(self: &Arc<Self>, host_id: String) -> CmdResult<PostureView> {
+        on_rt!(self, posture::host_posture_check(host_id))
     }
 }
 

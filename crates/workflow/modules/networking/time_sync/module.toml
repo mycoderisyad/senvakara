@@ -1,0 +1,18 @@
+id = "networking.time_sync"
+name = "Time zone and time sync"
+category = "networking"
+summary = "Sets the time zone and keeps the clock synchronised over NTP with systemd-timesyncd, or leaves chrony in charge when it already runs."
+version = 1
+executor = "ssh_script"
+os = ["debian>=12", "ubuntu>=22.04"]
+needs = ["root", "install"]
+timeout_secs = 600
+docs_url = "https://manpages.debian.org/bookworm/systemd/timedatectl.1.en.html"
+
+[[params]]
+name = "timezone"
+label = "Time zone"
+kind = "text"
+default = "UTC"
+max_len = 64
+help = "A name from the tz database, such as UTC, Europe/Berlin or Asia/Jakarta."

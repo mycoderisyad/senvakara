@@ -1,0 +1,19 @@
+id = "networking.firewall"
+name = "Firewall (ufw)"
+category = "networking"
+summary = "Turns on ufw: incoming connections denied by default, outgoing allowed. The SSH port in use is allowed before the firewall starts. Guarded: the host undoes it by itself unless Senvakara signs in again afterwards."
+version = 1
+executor = "ssh_script"
+os = ["debian>=12", "ubuntu>=22.04"]
+needs = ["root", "install", "network"]
+timeout_secs = 600
+docs_url = "https://manpages.debian.org/bookworm/ufw/ufw.8.en.html"
+
+[guard]
+rollback_secs = 180
+
+[[params]]
+name = "allow"
+label = "Also allow (ports)"
+kind = "port_list"
+help = "For example 80/tcp, 443/tcp for a web server. SSH is always allowed. Note that Docker publishes container ports past ufw."

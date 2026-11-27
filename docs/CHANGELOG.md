@@ -12,6 +12,14 @@ Changes to documentation and (later) shipped product are tracked separately. For
 - **Outline**: a keyboard list of the workflow's nodes next to Canvas; the inspector's "Connect to" connects without a pointer.
 - **Run a workflow**: Run asks with every machine and step named, then follows the run in a tab. Host steps run as bash over SSH (ADR-030): `check.sh` decides whether anything needs doing, `apply.sh` does it, and the check runs again; root steps use the sudo password typed in the workflow panel for that run only. Stop ends the running script and every process it started. A failed step skips the steps that wait for it; each step's output is kept in a log file next to the database.
 
+### Added — Server setup and security in Workflows (WF-IMPL-02..05, in progress)
+
+- **Security and networking nodes** for Debian 12+ and Ubuntu 22.04+ hosts (refused on other systems): System update, Automatic security updates, Sudo user with SSH key, SSH hardening (password sign-in off, root sign-in limited, optional new port), Firewall (ufw, SSH allowed first), fail2ban for SSH, Network kernel settings, Swap file, Time zone and time sync. Each looks first and changes only what is not already set.
+- **Safety net for SSH and firewall changes**: the host undoes the change by itself after 3 minutes unless Senvakara signs in again on a new connection; a failed change is undone at once. Turning passwords off is refused while Senvakara itself signs in with a password, and root sign-in off while it signs in as root. A new SSH port is named in the run confirmation, and Hosts follows once the sign-in on it worked.
+- **Security posture of a host**: "Hardened N/M" on SSH host cards and a Security section in the inspector with each control, what it was judged on, and Fix to add the node that sets it right. The check only reads, without sudo, and runs when a workflow opens (connected hosts, older than 5 minutes), after a run, or on Refresh. It is a hardening overview, not a compliance audit.
+- **Add VPS baseline** in the Workflows toolbar adds the usual first steps for a new server, chained in order.
+- The script picker in the inspector lists every script of a node (guarded nodes have a `rollback.sh`).
+
 ## [0.2.2] - 2026-11-24
 
 ### Changed — toolbar, SSH quick connect, empty states, SFTP overhaul

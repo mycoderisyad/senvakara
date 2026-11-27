@@ -241,35 +241,12 @@ impl AppState {
         }
         self.conns.lock().unwrap().remove(host_id);
 
-        let host = self
-            .db
-            .lock()
-            .unwrap()
-            .get_host(host_id)
-            .map_err(|e| db_err("connect", e))?;
-        let ssh = host.ssh.clone().ok_or_else(|| {
-            CoreError::new(ErrorCode::UnsupportedCapability, "host has no SSH endpoint")
-        })?;
-        let fingerprint = ssh.fingerprint.clone().ok_or_else(|| {
-            CoreError::new(
-                ErrorCode::Unauthenticated,
-                "host key not trusted yet: verify and trust it first",
-            )
-        })?;
-        let auth = self.sign_in(&ssh)?;
+        let (host, base) = self.connect_setup(host_id)?;
         // Route fallback (NET-03): LAN first, then VPN addresses; every
         // address must present the same pinned key (checked before any
         // credential is sent), so a different machine at an old LAN address
         // is refused and the next path is tried.
         let cands = candidates(&host);
-        let base = ConnectParams {
-            host: String::new(),
-            port: 0,
-            user: ssh.username.clone(),
-            auth,
-            host_key: HostKeyPolicy::Pinned(fingerprint),
-            connect_timeout: Duration::from_secs(10),
-        };
         let done = connect_any(&cands, &base, Duration::from_secs(3))
             .await
             .map_err(|e| to_core("connect", e))?;
@@ -301,6 +278,69 @@ impl AppState {
         if let Some(f) = self.on_connect.get() {
             f(host_id);
         }
+        Ok(done.conn)
+    }
+
+    /// The host record and how to sign in to it, with the pinned host key.
+    fn connect_setup(&self, host_id: &str) -> CmdResult<(HostRecord, ConnectParams)> {
+        let host = self
+            .db
+            .lock()
+            .unwrap()
+            .get_host(host_id)
+            .map_err(|e| db_err("connect", e))?;
+        let ssh = host.ssh.clone().ok_or_else(|| {
+            CoreError::new(ErrorCode::UnsupportedCapability, "host has no SSH endpoint")
+        })?;
+        let fingerprint = ssh.fingerprint.clone().ok_or_else(|| {
+            CoreError::new(
+                ErrorCode::Unauthenticated,
+                "host key not trusted yet: verify and trust it first",
+            )
+        })?;
+        let auth = self.sign_in(&ssh)?;
+        let base = ConnectParams {
+            host: String::new(),
+            port: 0,
+            user: ssh.username.clone(),
+            auth,
+            host_key: HostKeyPolicy::Pinned(fingerprint),
+            connect_timeout: Duration::from_secs(10),
+        };
+        Ok((host, base))
+    }
+
+    /// A second connection to `host_id`, kept out of the pool, through the
+    /// address the pooled connection uses (else the usual route order) on
+    /// the port Hosts names, or on `port` when given. It proves that
+    /// signing in still works after a change to SSH or the firewall
+    /// (plan WF §4). Same credentials and pinned key as [`Self::connection`];
+    /// the caller closes it.
+    pub async fn connect_fresh(
+        &self,
+        host_id: &str,
+        port: Option<u16>,
+    ) -> CmdResult<Arc<SshConnection>> {
+        let (host, base) = self.connect_setup(host_id)?;
+        // The port comes from Hosts, not from the pooled connection: after a
+        // move, Hosts already names the new port while the old session
+        // still runs on the old one.
+        let all = candidates(&host);
+        let active = self.paths.lock().unwrap().get(host_id).cloned();
+        let same_path: Vec<Candidate> = all
+            .iter()
+            .filter(|c| active.as_ref().is_some_and(|a| a.address == c.address))
+            .cloned()
+            .collect();
+        let mut cands = if same_path.is_empty() { all } else { same_path };
+        if let Some(port) = port {
+            for c in &mut cands {
+                c.port = port;
+            }
+        }
+        let done = connect_any(&cands, &base, Duration::from_secs(3))
+            .await
+            .map_err(|e| to_core("connect again", e))?;
         Ok(done.conn)
     }
 

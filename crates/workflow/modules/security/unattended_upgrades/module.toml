@@ -1,0 +1,10 @@
+id = "security.unattended_upgrades"
+name = "Automatic security updates"
+category = "security"
+summary = "Installs unattended-upgrades and switches on the daily package list refresh and security updates, as the distribution configures them by default."
+version = 1
+executor = "ssh_script"
+os = ["debian>=12", "ubuntu>=22.04"]
+needs = ["root", "install"]
+timeout_secs = 1200
+docs_url = "https://wiki.debian.org/UnattendedUpgrades"

@@ -8,6 +8,7 @@ mod canvas;
 mod edit;
 mod geometry;
 mod inspector;
+mod posture;
 mod run;
 mod store;
 mod view;
@@ -18,7 +19,9 @@ use std::rc::Rc;
 use senvakara_app::{Secret, Workflow, WorkflowProblem};
 use slint::{ComponentHandle, Model, SharedString, VecModel};
 
-use crate::{App, WfEdge, WfField, WfLink, WfModule, WfNode, WfProblem, WfRun, Workflows};
+use crate::{
+    App, WfControl, WfEdge, WfField, WfLink, WfModule, WfNode, WfProblem, WfRun, Workflows,
+};
 
 use geometry::View;
 use view::Machines;
@@ -64,6 +67,13 @@ pub struct State {
     runs: Rc<VecModel<WfRun>>,
     /// Each node's step in the newest run: (status, changed).
     last_run: RefCell<std::collections::HashMap<String, (String, Option<bool>)>>,
+    /// Last security posture by host id (plan WF §5).
+    postures: RefCell<std::collections::HashMap<String, senvakara_app::PostureView>>,
+    /// Hosts whose posture check is running.
+    checking: RefCell<std::collections::HashSet<String>>,
+    /// Why the last posture check of a host did not finish, by host id.
+    posture_errors: RefCell<std::collections::HashMap<String, String>>,
+    security: Rc<VecModel<WfControl>>,
 }
 
 /// Replaces a model's rows but keeps the row instances when the count is unchanged, so the
@@ -93,6 +103,7 @@ impl App {
         w.set_sel_problems(s.sel_problems.clone().into());
         w.set_problems(s.all_problems.clone().into());
         w.set_runs(s.runs.clone().into());
+        w.set_security(s.security.clone().into());
         // The catalog is fixed while the app runs: the palette is built once, then filtered.
         s.modules
             .set_vec(view::palette_rows(senvakara_app::catalog(), ""));
@@ -153,6 +164,10 @@ impl App {
             .workflows_set_permission(&which, on));
         wire!(on_run, |app| app.workflows_run_ask());
         wire!(on_sudo_edited, |app, text| app.workflows_sudo(&text));
+        wire!(on_posture_refresh, |app| app.workflows_posture_refresh());
+        wire!(on_posture_fix, |app, control| app
+            .workflows_posture_fix(&control));
+        wire!(on_add_template, |app, id| app.workflows_add_template(&id));
     }
 
     /// The Workflows section was opened: read the saved workflows and the machines.

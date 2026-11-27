@@ -1,0 +1,31 @@
+id = "security.sudo_user"
+name = "Sudo user with SSH key"
+category = "security"
+summary = "Creates a non-root user in the sudo group and lets your public key sign in as that user. Existing users and keys are kept."
+version = 1
+executor = "ssh_script"
+os = ["debian>=12", "ubuntu>=22.04"]
+needs = ["root"]
+timeout_secs = 300
+docs_url = "https://manpages.debian.org/bookworm/passwd/useradd.8.en.html"
+
+[[params]]
+name = "username"
+label = "User name"
+kind = "unix_user"
+required = true
+help = "For example deploy. Not root."
+
+[[params]]
+name = "public_key"
+label = "Public key"
+kind = "ssh_public_key"
+required = true
+help = "The .pub line of the key you sign in with, for example from Keychain. Only the public half ever leaves this PC."
+
+[[params]]
+name = "passwordless_sudo"
+label = "Sudo without a password"
+kind = "bool"
+default = false
+help = "Off: the user needs a password for sudo; set one on the host with sudo passwd <user>. On: sudo never asks this user for a password, so the key alone is enough to become root."

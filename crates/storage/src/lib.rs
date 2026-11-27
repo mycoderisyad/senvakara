@@ -8,6 +8,7 @@ mod devices;
 mod graphs;
 mod hosts;
 mod keychain;
+mod posture;
 mod recipes;
 mod workflows;
 mod workspaces;
@@ -19,6 +20,7 @@ pub use hosts::{
     MAX_GROUP_LEN, MAX_SNIPPET_LEN, MAX_TAGS, MAX_TAG_LEN, MAX_VPN_ENDPOINTS,
 };
 pub use keychain::{KeyKind, KeyRecord, KeyUpsert, MAX_KEY_LABEL_LEN};
+pub use posture::{PostureRecord, MAX_POSTURE_JSON_LEN};
 pub use recipes::{RecipePermissions, RecipeRecord, RecipeSave, RecipeStep};
 pub use workflows::{RunRecord, StepRecord};
 pub use workspaces::{PanelRecord, WorkspaceRecord, WorkspaceSave};
@@ -33,6 +35,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("../migrations/0004_recipes.sql"),
     include_str!("../migrations/0005_credentials.sql"),
     include_str!("../migrations/0006_workflow_graphs.sql"),
+    include_str!("../migrations/0007_host_posture.sql"),
 ];
 
 #[derive(Debug, thiserror::Error)]
@@ -113,9 +116,9 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("svk-test-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("t.db");
-        assert_eq!(Db::open(&path).unwrap().schema_version().unwrap(), 6);
+        assert_eq!(Db::open(&path).unwrap().schema_version().unwrap(), 7);
         // Re-opening must not re-run migrations.
-        assert_eq!(Db::open(&path).unwrap().schema_version().unwrap(), 6);
+        assert_eq!(Db::open(&path).unwrap().schema_version().unwrap(), 7);
         let _ = std::fs::remove_dir_all(dir);
     }
 

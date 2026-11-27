@@ -55,6 +55,8 @@ SSH password authentication is supported (TASKS CRED-01), including servers that
 
 Use typed commands with executable and arguments; avoid implicit shells, especially on agent. Provide capability- and action-level checks. Operations that mutate host/devices require user initiation or explicitly trusted recipe configuration. Restrict file roots if an agent manages files; avoid path traversal and symlink races. Cap execution duration/output and support cancellation.
 
+Workflow host steps follow ADR-030 (reviewed or user-written bash, settings as quoted `SV_*` exports, sudo password per run on stdin). Changes that can lock the user out are guarded (ADR-031): the host schedules its own rollback before the change, and only a new sign-in afterwards cancels it; SSH hardening refuses to remove the way the current session signs in; a module runs only on the systems it declares. The host security posture check is read-only and runs without sudo, only on a user action; it never claims compliance with a benchmark.
+
 ## 7. Data plane safeguards
 
 Encrypt tunnels; separate media from control messages; bound logcat buffers, video frames and transfer queues; avoid persisting screen streams. Verify file destination and checksum where reasonable, prevent unintended overwrites and keep copy logs redacted.
