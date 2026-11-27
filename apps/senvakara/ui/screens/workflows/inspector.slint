@@ -18,6 +18,56 @@ component Section inherits Card {
     @children
 }
 
+// A secret setting (ADR-033): the value goes to Credential Manager on Save and is never shown
+// again; the node keeps only a reference. `field.checked` says one is stored.
+component SecretField inherits Labeled {
+    in property <WfField> field;
+    private property <string> typed;
+    label: field.label;
+
+    VerticalLayout {
+        spacing: Theme.space-2;
+        if field.checked: HorizontalLayout {
+            spacing: Theme.space-2;
+            StatusMark {
+                tone: "live";
+                text: "Stored in Credential Manager";
+            }
+            Rectangle {
+                horizontal-stretch: 1;
+            }
+            Button {
+                text: "Clear";
+                kind: "ghost";
+                clicked => {
+                    Workflows.field-secret-clear(field.name);
+                }
+            }
+        }
+        HorizontalLayout {
+            spacing: Theme.space-2;
+            input := TextField {
+                horizontal-stretch: 1;
+                label: field.label;
+                secret: true;
+                placeholder: field.checked ? "Type a new value to replace it" : "Type the value";
+                edited(text) => {
+                    root.typed = text;
+                }
+            }
+            Button {
+                text: "Save";
+                enabled: root.typed != "";
+                clicked => {
+                    Workflows.field-secret-save(field.name, root.typed);
+                    root.typed = "";
+                    input.text = "";
+                }
+            }
+        }
+    }
+}
+
 component Field inherits VerticalLayout {
     in property <WfField> field;
     spacing: Theme.space-1;
@@ -75,8 +125,8 @@ component Field inherits VerticalLayout {
         }
     }
 
-    if field.kind == "secret": Hint {
-        text: field.label + ": secrets are stored in Credential Manager; this arrives with the first modules that need one.";
+    if field.kind == "secret": SecretField {
+        field: field;
     }
 
     if field.help != "": Hint {
@@ -286,6 +336,58 @@ export component WorkflowInspector inherits Rectangle {
                 }
                 for c in Workflows.security: ControlRow {
                     control: c;
+                }
+            }
+
+            if root.node && Workflows.service-shown: Section {
+                title: "Service";
+                HorizontalLayout {
+                    spacing: Theme.space-2;
+                    HorizontalLayout {
+                        horizontal-stretch: 1;
+                        alignment: start;
+                        StatusMark {
+                            tone: Workflows.service-tone;
+                            text: Workflows.service-state;
+                        }
+                    }
+                    Button {
+                        text: Workflows.service-busy ? "Checking..." : "Refresh";
+                        kind: "ghost";
+                        enabled: !Workflows.service-busy;
+                        clicked => {
+                            Workflows.service-refresh();
+                        }
+                    }
+                }
+                Hint {
+                    text: Workflows.service-detail;
+                }
+                if Workflows.service-needs-sudo: Labeled {
+                    label: "Sudo password for the removal";
+                    TextField {
+                        label: "Sudo password for the removal";
+                        secret: true;
+                        text <=> Workflows.sudo-text;
+                        edited(text) => {
+                            Workflows.sudo-edited(text);
+                        }
+                    }
+                }
+                if Workflows.service-removable: HorizontalLayout {
+                    alignment: start;
+                    Button {
+                        text: "Remove from host...";
+                        kind: "danger";
+                        enabled: Workflows.service-remove-reason == "";
+                        reason: Workflows.service-remove-reason;
+                        clicked => {
+                            Workflows.service-remove();
+                        }
+                    }
+                }
+                if Workflows.service-removable && Workflows.service-remove-reason != "": Hint {
+                    text: Workflows.service-remove-reason;
                 }
             }
 

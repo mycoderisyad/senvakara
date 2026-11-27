@@ -6,7 +6,7 @@ use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
-use senvakara_app::{FlowEvent, Sink, WorkflowRunRequest};
+use senvakara_app::{FlowEvent, Sink, WorkflowRemoveRequest, WorkflowRunRequest};
 use slint::{ComponentHandle, Model, SharedString, VecModel};
 
 use crate::{App, Run, RunStep};
@@ -22,6 +22,8 @@ pub const LOG_LIMIT: usize = 2000;
 pub enum Job {
     /// A saved workflow, with the sudo password and phone serials the user confirmed.
     Workflow(WorkflowRunRequest),
+    /// One node's remove script, after the user confirmed it.
+    WorkflowRemove(WorkflowRemoveRequest),
 }
 
 enum Signal {
@@ -163,6 +165,7 @@ impl RunPane {
             async move {
                 let started = match job {
                     Job::Workflow(request) => backend.workflow_run(request, sink).await,
+                    Job::WorkflowRemove(request) => backend.workflow_remove(request, sink).await,
                 };
                 shared.push(match started {
                     Ok(run_id) => {

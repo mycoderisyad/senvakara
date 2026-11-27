@@ -1,0 +1,17 @@
+id = "runtime.docker"
+name = "Docker Engine"
+category = "runtime"
+summary = "Installs Docker Engine, the Compose plugin and Buildx from Docker's own apt repository and keeps the docker service running."
+version = 1
+executor = "ssh_script"
+os = ["debian>=12", "ubuntu>=22.04"]
+needs = ["root", "install"]
+timeout_secs = 1200
+docs_url = "https://docs.docker.com/engine/install/"
+
+[[params]]
+name = "add_user"
+label = "Add the signed-in user to the docker group"
+kind = "bool"
+default = false
+help = "Members of the docker group can start containers that mount the whole disk, which is the same as root access. Leave this off unless you need to run docker without sudo."

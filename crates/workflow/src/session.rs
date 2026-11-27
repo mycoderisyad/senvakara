@@ -5,8 +5,8 @@
 use crate::params::shell_quote;
 
 /// Names a module parameter may not take, because the engine sets
-/// `SV_SESSION_*` and `SV_GUARD_*` itself.
-pub(crate) const RESERVED_PREFIXES: [&str; 2] = ["session_", "guard_"];
+/// `SV_SESSION_*`, `SV_GUARD_*`, `SV_MODULE_DIR` and `SV_HEALTH_WAIT` itself.
+pub(crate) const RESERVED_PREFIXES: [&str; 4] = ["session_", "guard_", "module_", "health_"];
 
 /// The SSH session a run uses on one host.
 #[derive(Debug, Clone, PartialEq, Eq)]

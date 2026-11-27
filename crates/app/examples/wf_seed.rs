@@ -1,8 +1,10 @@
 //! Prepares a data folder for checking the Workflows UI by hand or through the
 //! Slint MCP server (WF-IMPL-01): registers the WF-SPIKE-02 test host from
-//! `tools/spikes/ssh-exec/creds.local` and saves two workflows on it, "UI run"
+//! `tools/spikes/ssh-exec/creds.local` and saves four workflows on it, "UI run"
 //! (an idempotent marker plus a root check) and "UI stop" (a long script to
-//! stop). The host's password goes to Credential Manager like any host's;
+//! stop), plus "UI services" (Docker Engine and Adminer, for health and
+//! Remove) and "UI secret" (a Cloudflare Tunnel node that is never run, for
+//! the secret field). The host's password goes to Credential Manager like any host's;
 //! delete the host in the app afterwards to remove it.
 //!
 //! Run: cargo run -p senvakara-app --example wf_seed -- <data folder>
@@ -175,11 +177,31 @@ fn main() -> Result<()> {
         )],
         &[],
     );
+    // Phase 3 (WF-IMPL-07/08): Docker and Adminer for health and Remove; a
+    // Cloudflare Tunnel node, never run, for the secret field.
+    let mut services = on_host(
+        &id,
+        vec![
+            node("docker", "runtime.docker", 320.0, 0.0),
+            node("adminer", "app.adminer", 320.0, 140.0),
+        ],
+        &[("docker", "adminer")],
+    );
+    services.permissions.install = true;
+    let mut secret = on_host(
+        &id,
+        vec![node("tunnel", "networking.cloudflared", 320.0, 60.0)],
+        &[],
+    );
+    secret.permissions.install = true;
+    secret.permissions.network = true;
     let a = app.workflow_save(None, "UI run".into(), &run)?;
     let b = app.workflow_save(None, "UI stop".into(), &stop)?;
+    let c = app.workflow_save(None, "UI services".into(), &services)?;
+    let d = app.workflow_save(None, "UI secret".into(), &secret)?;
     println!(
-        "host {id}\nworkflow UI run {}\nworkflow UI stop {}",
-        a.id, b.id
+        "host {id}\nworkflow UI run {}\nworkflow UI stop {}\nworkflow UI services {}\nworkflow UI secret {}",
+        a.id, b.id, c.id, d.id
     );
     Ok(())
 }

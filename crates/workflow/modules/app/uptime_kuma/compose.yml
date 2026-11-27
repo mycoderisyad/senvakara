@@ -1,0 +1,13 @@
+name: sv-uptime_kuma
+
+services:
+  uptime-kuma:
+    image: louislam/uptime-kuma:2.5.12
+    restart: unless-stopped
+    ports:
+      - "${BIND}:${PORT}:3001"
+    volumes:
+      - data:/app/data
+
+volumes:
+  data:

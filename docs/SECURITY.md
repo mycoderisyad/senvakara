@@ -57,6 +57,8 @@ Use typed commands with executable and arguments; avoid implicit shells, especia
 
 Workflow host steps follow ADR-030 (reviewed or user-written bash, settings as quoted `SV_*` exports, sudo password per run on stdin). Changes that can lock the user out are guarded (ADR-031): the host schedules its own rollback before the change, and only a new sign-in afterwards cancels it; SSH hardening refuses to remove the way the current session signs in; a module runs only on the systems it declares. The host security posture check is read-only and runs without sudo, only on a user action; it never claims compliance with a benchmark.
 
+Workflow secret settings (ADR-033) live in Windows Credential Manager; the graph, SQLite and exports hold only the reference. A value is read right before its node runs and reaches the host only on the script's stdin (after the sudo password, between nonce markers read by a fixed launcher), never in the script file, argv or a log; the run tab and log file mask it. Scripts write secrets only into root-owned files of mode 0600 (`.env` of Docker apps, the tunnel token file). Service health checks run as the signed-in user without sudo and never receive secrets; Remove runs only after a confirmation that names the host and never deletes data. Docker apps publish ports on 127.0.0.1 unless the user chooses otherwise, because Docker's published ports bypass ufw.
+
 ## 7. Data plane safeguards
 
 Encrypt tunnels; separate media from control messages; bound logcat buffers, video frames and transfer queues; avoid persisting screen streams. Verify file destination and checksum where reasonable, prevent unintended overwrites and keep copy logs redacted.

@@ -1,0 +1,10 @@
+id = "database.redis"
+name = "Redis"
+category = "database"
+summary = "Installs Redis from the official packages.redis.io apt repository and keeps the redis-server service running on localhost."
+version = 1
+executor = "ssh_script"
+os = ["debian>=12", "ubuntu>=22.04"]
+needs = ["root", "install"]
+timeout_secs = 900
+docs_url = "https://redis.io/docs/latest/operate/oss_and_stack/install/archive/install-redis/install-redis-on-linux/"

@@ -1,0 +1,31 @@
+id = "networking.nginx"
+name = "nginx web server"
+category = "networking"
+summary = "Installs nginx from nginx.org's official packages (stable or mainline) and keeps it running. Optionally proxies one host name to a local app over plain HTTP. Allow port 80/tcp in the firewall node yourself."
+version = 1
+executor = "ssh_script"
+os = ["debian>=12", "ubuntu>=22.04"]
+needs = ["root", "install", "network"]
+timeout_secs = 900
+docs_url = "https://nginx.org/en/linux_packages.html"
+
+[[params]]
+name = "channel"
+label = "Release channel"
+kind = "choice"
+default = "stable"
+options = ["stable", "mainline"]
+help = "Stable gets only fixes; mainline gets new features sooner."
+
+[[params]]
+name = "domain"
+label = "Host name to proxy (optional)"
+kind = "hostname"
+help = "Adds a plain HTTP site for this name (no TLS). Leave empty for a plain install."
+
+[[params]]
+name = "upstream"
+label = "Proxy to (host:port)"
+kind = "text"
+max_len = 80
+help = "For example 127.0.0.1:3001. Used only when a host name is set."

@@ -157,6 +157,20 @@ export global Workflows {
     in property <string> security-state;
     in property <bool> security-busy;
     in property <[WfControl]> security;
+    // Health of the selected service node (a module with health.sh), checked on demand only.
+    in property <bool> service-shown;
+    in property <string> service-tone;
+    // "Running" | "Degraded" | "Stopped" | "Unknown" | "Not checked yet"
+    in property <string> service-state;
+    // What the check saw and when, or how to check.
+    in property <string> service-detail;
+    in property <bool> service-busy;
+    // The module ships remove.sh; Remove asks first and keeps the data.
+    in property <bool> service-removable;
+    // Why Remove cannot be pressed ("" when it can).
+    in property <string> service-remove-reason;
+    // Removing runs as root: the sudo password field is shown in the Service section too.
+    in property <bool> service-needs-sudo;
 
     // The workflow itself.
     in property <[WfProblem]> problems;
@@ -216,6 +230,13 @@ export global Workflows {
     callback posture-refresh();
     // Adds the module that sets this control right, connected to the selected host.
     callback posture-fix(control: string);
+    // Checks the health of the selected service node's host now.
+    callback service-refresh();
+    // Asks, then runs the selected node's remove.sh.
+    callback service-remove();
+    // Stores a secret setting in Credential Manager / forgets it.
+    callback field-secret-save(name: string, value: string);
+    callback field-secret-clear(name: string);
     // Adds a ready-made workflow ("vps_baseline") to the open one.
     callback add-template(id: string);
 }

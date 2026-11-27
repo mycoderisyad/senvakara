@@ -89,6 +89,8 @@ pub enum Pending {
     DeleteWorkflow(String),
     /// Run the open workflow as the dialog described.
     RunWorkflow,
+    /// Run `remove.sh` of this node of the open workflow (ADR-033).
+    RemoveWorkflowNode(String),
 }
 
 impl App {
@@ -221,6 +223,7 @@ impl App {
             }
             Pending::DeleteWorkflow(id) => self.workflow_delete(id),
             Pending::RunWorkflow => self.workflows_start(),
+            Pending::RemoveWorkflowNode(id) => self.workflows_remove_start(id),
         }
     }
 }

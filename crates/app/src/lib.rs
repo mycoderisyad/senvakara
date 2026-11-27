@@ -58,7 +58,7 @@ pub use shells::LocalShell;
 pub use sink::Sink;
 pub use state::{ActivePath, AppState, CmdResult};
 pub use terminal::ShellRequest;
-pub use wfrun::WorkflowRunRequest;
+pub use wfrun::{WorkflowRemoveRequest, WorkflowRunRequest};
 pub use workflows::{catalog, workflow_problems, WorkflowView};
 
 // Types of the lower layers that appear in this crate's API.
@@ -666,6 +666,42 @@ impl App {
         sink: Sink<FlowEvent>,
     ) -> CmdResult<String> {
         on_rt!(self, wfrun::workflow_run(request, sink))
+    }
+
+    /// Runs one installed node's `remove.sh` after the user confirmed it
+    /// (ADR-033); returns the run id. Data stays on the host.
+    pub async fn workflow_remove(
+        self: &Arc<Self>,
+        request: WorkflowRemoveRequest,
+        sink: Sink<FlowEvent>,
+    ) -> CmdResult<String> {
+        on_rt!(self, wfrun::workflow_remove(request, sink))
+    }
+
+    /// Health of the service nodes of a saved workflow that run on
+    /// `host_id`, as `(node id, health)`. One read-only exec as the
+    /// signed-in user; only on a user's action, never polled.
+    pub async fn workflow_health(
+        self: &Arc<Self>,
+        workflow_id: String,
+        host_id: String,
+    ) -> CmdResult<Vec<(String, workflow::Health)>> {
+        on_rt!(self, wfrun::health::workflow_health(workflow_id, host_id))
+    }
+
+    /// Stores a secret setting in Credential Manager; returns the reference
+    /// the graph keeps (ADR-033).
+    pub async fn workflow_secret_put(self: &Arc<Self>, value: Secret) -> CmdResult<String> {
+        let app = self.clone();
+        self.blocking(move || wfrun::secrets::secret_put(&app.state, value.as_str()))
+            .await
+    }
+
+    /// Deletes a secret setting that a node no longer uses.
+    pub async fn workflow_secret_delete(self: &Arc<Self>, reference: String) -> CmdResult<()> {
+        let app = self.clone();
+        self.blocking(move || wfrun::secrets::secret_delete(&app.state, &reference))
+            .await
     }
 
     /// The last security posture of every host that has one (plan WF §5).

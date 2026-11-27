@@ -1,0 +1,19 @@
+name: sv-mailpit
+
+services:
+  mailpit:
+    image: axllent/mailpit:v1.34.0
+    restart: unless-stopped
+    environment:
+      MP_MAX_MESSAGES: ${MAX_MESSAGES}
+      MP_DATABASE: /data/mailpit.db
+      MP_SMTP_AUTH_ACCEPT_ANY: "1"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "1"
+    volumes:
+      - data:/data
+    ports:
+      - "${BIND}:${PORT}:8025"
+      - "${BIND}:${SMTP_PORT}:1025"
+
+volumes:
+  data:

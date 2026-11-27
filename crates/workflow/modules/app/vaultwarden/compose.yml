@@ -1,0 +1,17 @@
+name: sv-vaultwarden
+
+services:
+  vaultwarden:
+    image: vaultwarden/server:1.37.5
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN}
+      SIGNUPS_ALLOWED: ${SIGNUPS_ALLOWED}
+      ADMIN_TOKEN: ${ADMIN_TOKEN}
+    volumes:
+      - data:/data
+    ports:
+      - "${BIND}:${PORT}:80"
+
+volumes:
+  data:

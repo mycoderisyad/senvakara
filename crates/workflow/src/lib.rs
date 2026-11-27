@@ -7,11 +7,13 @@
 
 mod catalog;
 mod graph;
+mod health;
 mod legacy;
 mod module;
 mod params;
 mod plan;
 mod posture;
+mod secrets;
 mod session;
 mod template;
 mod validate;
@@ -21,6 +23,10 @@ pub use graph::{
     Binding, Edge, EdgeKind, Node, Permissions, Viewport, Workflow, GRAPH_VERSION, MAX_EDGES,
     MAX_NODES,
 };
+pub use health::{
+    batch_script, parse_batch, parse_result, probe_head, probes, Health, HealthState, Probe,
+    AFTER_APPLY_WAIT_SECS, PROBE_SECS,
+};
 pub use legacy::{from_recipe, RecipeStepIn};
 pub use module::{
     parse_os_release, BindKind, Category, Executor, Guard, Manifest, Module, ParamKind, ParamSpec,
@@ -29,6 +35,7 @@ pub use module::{
 pub use params::{check_params, preamble, shell_quote, valid_package, ParamValue};
 pub use plan::{plan, Plan};
 pub use posture::{control_info, Control, ControlInfo, Posture, Status, CONTROLS, POSTURE_SCRIPT};
+pub use secrets::{secret_block, secret_refs, without_secrets};
 pub use session::{session_exports, Session};
 pub use template::{add_vps_baseline, VPS_BASELINE};
 pub use validate::{validate, CheckedNode, Problem};

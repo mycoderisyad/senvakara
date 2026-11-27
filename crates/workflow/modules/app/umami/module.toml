@@ -1,0 +1,38 @@
+id = "app.umami"
+name = "Umami analytics"
+category = "app"
+summary = "Umami, privacy-friendly website analytics, run as a Docker container with its own PostgreSQL container. Needs the Docker Engine node first."
+version = 1
+executor = "ssh_script"
+os = ["debian>=12", "ubuntu>=22.04"]
+needs = ["root", "install"]
+timeout_secs = 1200
+docs_url = "https://docs.umami.is/docs/install"
+
+[[params]]
+name = "bind"
+label = "Listen on"
+kind = "choice"
+options = ["127.0.0.1", "0.0.0.0"]
+default = "127.0.0.1"
+help = "127.0.0.1 keeps it on this server (reach it through Caddy/Nginx or an SSH tunnel). 0.0.0.0 exposes the port to the network, and Docker ports bypass ufw."
+
+[[params]]
+name = "port"
+label = "Port on the host"
+kind = "port"
+default = 3000
+
+[[params]]
+name = "db_password"
+label = "Database password"
+kind = "secret"
+required = true
+help = "At least 8 letters, digits, dots, dashes, underscores or tildes. Set once: the kept database does not change it later."
+
+[[params]]
+name = "app_secret"
+label = "App secret"
+kind = "secret"
+required = true
+help = "A long random string (the docs use openssl rand -hex 32). At least 16 characters, one line, no single quote."

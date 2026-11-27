@@ -9,6 +9,7 @@ use slint::{Model, SharedString};
 
 use super::edit;
 use super::geometry::{curve, grid, node_rect, out_port, step_zoom, NODE_H, NODE_W};
+use super::service::health_mark;
 use super::view::{
     edge_row, last_run_state, node_row, palette_rows, problems_by_node, sentence, title_of,
     zoom_text,
@@ -43,8 +44,14 @@ impl App {
                         if let Some(badge) = self.workflows_badge(n) {
                             row.state_text = format!("{} · {badge}", row.state_text).into();
                         }
-                        // An action without problems shows how its step ended last time.
-                        if !row.anchor && row.tone == "idle" {
+                        // An action without problems shows its service's health when it was
+                        // checked, else how its step ended last time.
+                        let health = self.workflows_health_of(&n.id);
+                        if let (false, "idle", Some(h)) = (row.anchor, row.tone.as_str(), &health) {
+                            let (tone, word) = health_mark(h.state);
+                            row.tone = tone.into();
+                            row.state_text = word.into();
+                        } else if !row.anchor && row.tone == "idle" {
                             if let Some((status, changed)) = self.wf.last_run.borrow().get(&n.id) {
                                 let (tone, word) = last_run_state(status, *changed);
                                 row.tone = tone.into();

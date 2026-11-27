@@ -20,6 +20,17 @@ Changes to documentation and (later) shipped product are tracked separately. For
 - **Add VPS baseline** in the Workflows toolbar adds the usual first steps for a new server, chained in order.
 - The script picker in the inspector lists every script of a node (guarded nodes have a `rollback.sh`).
 
+### Added — Quick Install catalog in Workflows (WF-IMPL-06..09, in progress)
+
+- **19 install nodes** for Debian 12+ and Ubuntu 22.04+, each following its vendor's documentation with versions pinned where the vendor allows: Docker Engine with compose, Node.js, Python; PostgreSQL, Redis, MariaDB; Caddy (optional reverse proxy with automatic HTTPS), Nginx, Cloudflare Tunnel, WireGuard; and Docker apps Uptime Kuma, Forgejo, S3 object storage (SeaweedFS, since MinIO's community edition is no longer maintained), Grafana + Prometheus + node exporter, Vaultwarden, Umami, Meilisearch, Adminer and Mailpit. Docker apps listen on 127.0.0.1 unless you choose otherwise.
+- **Service health** on the card and in a new Service section of the inspector (Running, Degraded, Stopped or Unknown, with what was seen): checked right after an install, when a workflow opens (connected hosts), after a run and on Refresh, read-only and without sudo. An install whose service is still stopped afterwards fails.
+- **Remove from host** in the Service section runs the node's remove script after a confirmation that names the host; data the service created stays on the host and the log says where.
+- **Secret settings** (passwords, tokens, keys) are saved to Windows Credential Manager from the inspector and shown only as "Stored"; runs hand them to the host without writing them to a file or a command line, and the run log shows `[secret]` in their place.
+
+### Fixed — Workflows
+
+- A node's log file now keeps the output of all its scripts (check, apply, check); each script used to overwrite the one before.
+
 ## [0.2.2] - 2026-11-24
 
 ### Changed — toolbar, SSH quick connect, empty states, SFTP overhaul

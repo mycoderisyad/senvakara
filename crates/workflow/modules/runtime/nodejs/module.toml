@@ -1,0 +1,18 @@
+id = "runtime.nodejs"
+name = "Node.js"
+category = "runtime"
+summary = "Installs Node.js, with npm, from the NodeSource apt repository for the long-term-support major version you choose."
+version = 1
+executor = "ssh_script"
+os = ["debian>=12", "ubuntu>=22.04"]
+needs = ["root", "install"]
+timeout_secs = 900
+docs_url = "https://github.com/nodesource/distributions/wiki/Repository-Manual-Installation"
+
+[[params]]
+name = "major"
+label = "Major version"
+kind = "choice"
+options = ["22", "24", "26"]
+default = "24"
+help = "All three are long-term-support lines (26 is the newest). Switching major later upgrades Node.js in place."

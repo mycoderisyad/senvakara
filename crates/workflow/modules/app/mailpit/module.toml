@@ -1,0 +1,39 @@
+id = "app.mailpit"
+name = "Mailpit"
+category = "app"
+summary = "Mailpit, a mail catcher with a web inbox for testing outgoing mail, run as a Docker container. Needs the Docker Engine node first."
+version = 1
+executor = "ssh_script"
+os = ["debian>=12", "ubuntu>=22.04"]
+needs = ["root", "install"]
+timeout_secs = 1200
+docs_url = "https://mailpit.axllent.org/docs/install/docker/"
+
+[[params]]
+name = "bind"
+label = "Listen on"
+kind = "choice"
+options = ["127.0.0.1", "0.0.0.0"]
+default = "127.0.0.1"
+help = "127.0.0.1 keeps it on this server (reach it through Caddy/Nginx or an SSH tunnel). 0.0.0.0 exposes both ports to the network, and Docker ports bypass ufw."
+
+[[params]]
+name = "port"
+label = "Web UI port on the host"
+kind = "port"
+default = 8025
+
+[[params]]
+name = "smtp_port"
+label = "SMTP port on the host"
+kind = "port"
+default = 1025
+
+[[params]]
+name = "max_messages"
+label = "Messages to keep"
+kind = "int"
+default = 5000
+min = 100
+max = 100000
+help = "Older messages are deleted beyond this number."

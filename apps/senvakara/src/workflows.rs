@@ -10,6 +10,7 @@ mod geometry;
 mod inspector;
 mod posture;
 mod run;
+mod service;
 mod store;
 mod view;
 
@@ -74,6 +75,13 @@ pub struct State {
     /// Why the last posture check of a host did not finish, by host id.
     posture_errors: RefCell<std::collections::HashMap<String, String>>,
     security: Rc<VecModel<WfControl>>,
+    /// Last health of each service node of the open workflow, with when it was taken
+    /// (memory only; checked on demand, ADR-033).
+    health: RefCell<
+        std::collections::HashMap<String, (senvakara_app::workflow::Health, std::time::Instant)>,
+    >,
+    /// Hosts whose health check is running.
+    health_busy: RefCell<std::collections::HashSet<String>>,
 }
 
 /// Replaces a model's rows but keeps the row instances when the count is unchanged, so the
@@ -168,6 +176,12 @@ impl App {
         wire!(on_posture_fix, |app, control| app
             .workflows_posture_fix(&control));
         wire!(on_add_template, |app, id| app.workflows_add_template(&id));
+        wire!(on_service_refresh, |app| app.workflows_service_refresh());
+        wire!(on_service_remove, |app| app.workflows_service_remove_ask());
+        wire!(on_field_secret_save, |app, name, value| app
+            .workflows_secret_save(&name, &value));
+        wire!(on_field_secret_clear, |app, name| app
+            .workflows_secret_clear(&name));
     }
 
     /// The Workflows section was opened: read the saved workflows and the machines.
