@@ -35,6 +35,20 @@ if [ "$(cat "$src" 2>/dev/null)" != "$(cat "$tmp")" ]; then
 fi
 rm -f "$tmp"
 
+# An older one-line docker.list for the same repository makes apt warn that every
+# target is configured twice. Keep a copy of it next to the new file, then retire it.
+legacy=/etc/apt/sources.list.d/docker.list
+if [ -f "$legacy" ]; then
+  lines=$(grep -vE '^[[:space:]]*(#|$)' "$legacy" || true)
+  others=$(printf '%s\n' "$lines" | grep -v 'download\.docker\.com' | grep -c . || true)
+  if [ "$others" = 0 ]; then
+    mv -f "$legacy" "$legacy.senvakara-replaced"
+    echo "Moved the older $legacy (same repository) to $legacy.senvakara-replaced; $src replaces it."
+  else
+    echo "$legacy also lists other repositories, so it was left as it is."
+  fi
+fi
+
 apt-get -q "${lock[@]}" update
 apt-get -y -q "${lock[@]}" install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 systemctl enable --now docker
